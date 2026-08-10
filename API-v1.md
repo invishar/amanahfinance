@@ -4,6 +4,8 @@ Kontrak endpoint REST untuk `amanafinance-api`. Dokumen ini adalah **sumber kebe
 
 Base path: `/api/v1`
 
+Versi mesin-terbaca (OpenAPI 3.0.3) dari kontrak yang sama tersedia publik di `GET /api/v1/openapi.json` (`app/OpenApi/OpenApiSpec.php`), dijaga tetap sinkron oleh test `tests/Feature/OpenApiSpecTest.php` yang membandingkan setiap route terdaftar dengan path yang terdokumentasi.
+
 ## Autentikasi
 
 Semua endpoint di bawah `/api/v1`, kecuali `POST /auth/register` dan `POST /auth/login`, memerlukan Sanctum bearer token:
@@ -421,4 +423,3 @@ Response `data`:
 - `ConfirmAiAction` (menulis baris nyata dari `ai_actions.pending`).
 - SSE `action_card`, `AssistantService`, job terjadwal `recurring_rules`.
 - Job harian yang mengisi `insight` naratif untuk `GET /analytics/summary`.
-- `GET /api/v1/openapi.json`.

@@ -13,6 +13,7 @@ use App\Http\Controllers\Api\FamilyMemberController;
 use App\Http\Controllers\Api\IncomeSourceController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OnboardingAnswerController;
+use App\Http\Controllers\Api\OpenApiController;
 use App\Http\Controllers\Api\RecurringRuleController;
 use App\Http\Controllers\Api\SavingsGoalController;
 use App\Http\Controllers\Api\TransactionController;
@@ -26,6 +27,9 @@ Route::get('/user', function (Request $request) {
 })->middleware('auth:sanctum');
 
 Route::prefix('v1')->group(function () {
+    // Public API documentation -- no auth, mirrors API-v1.md.
+    Route::get('/openapi.json', [OpenApiController::class, 'index']);
+
     // Public: no token yet, so nothing here can be behind auth:sanctum.
     Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
