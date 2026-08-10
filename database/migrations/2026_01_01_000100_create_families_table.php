@@ -12,7 +12,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->text('name');
             $table->char('currency', 3)->default('IDR');
-            $table->text('timezone')->default('Asia/Jakarta');
+            $table->string('timezone')->default('Asia/Jakarta');
             $table->boolean('onboarding_done')->default(false);
             $table->timestampsTz();
         });

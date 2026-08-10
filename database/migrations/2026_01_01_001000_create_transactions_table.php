@@ -29,7 +29,7 @@ return new class extends Migration
             $table->text('note')->nullable();
             $table->foreignUuid('created_by')->nullable()
                   ->constrained('family_members')->nullOnDelete();
-            $table->text('origin')->default('manual');
+            $table->string('origin')->default('manual');
             $table->text('receipt_url')->nullable();
             $table->timestampsTz();
             $table->softDeletesTz();

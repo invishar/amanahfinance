@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignUuid('family_id')->constrained('families')->cascadeOnDelete();
             $table->foreignUuid('member_id')->constrained('family_members')->cascadeOnDelete();
             $table->text('title')->nullable();
-            $table->text('kind')->default('general');
+            $table->string('kind')->default('general');
             $table->timestampTz('last_message_at')->nullable();
             $table->timestampTz('created_at')->useCurrent();
         });

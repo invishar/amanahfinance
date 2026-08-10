@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignUuid('invited_by')->constrained('users');
             $table->string('email')->nullable();
             $table->string('phone')->nullable();
-            $table->text('role')->default('member');
+            $table->string('role')->default('member');
             $table->string('token')->unique();              // kode "AMANA-XXXXX"
             $table->timestampTz('expires_at');
             $table->timestampTz('accepted_at')->nullable();

@@ -13,7 +13,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('family_id')->constrained('families')->cascadeOnDelete();
             $table->string('name');
-            $table->text('icon')->default('wallet');        // nama ikon Lucide
+            $table->string('icon')->default('wallet');        // nama ikon Lucide
             $table->text('color')->nullable();
             $table->bigInteger('monthly_budget')->default(0);
             $table->boolean('rollover')->default(false);    // sisa budget dibawa ke bulan depan
