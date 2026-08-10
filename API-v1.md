@@ -6,13 +6,30 @@ Base path: `/api/v1`
 
 ## Autentikasi
 
-Semua endpoint di bawah `/api/v1` (kecuali `POST /api/v1/families` saat family pertama) memerlukan Sanctum bearer token:
+Semua endpoint di bawah `/api/v1`, kecuali `POST /auth/register` dan `POST /auth/login`, memerlukan Sanctum bearer token:
 
 ```
 Authorization: Bearer <token>
 ```
 
-Alur register/login token berada di luar cakupan dokumen ini (lihat modul auth terpisah).
+### Auth endpoints
+
+| Method | Path | Body | Auth |
+| --- | --- | --- | --- |
+| POST | `/auth/register` | `full_name*`, `email` atau `phone` (salah satu wajib), `password*` (min 8, wajib `password_confirmation`) | Publik, throttle 10/menit |
+| POST | `/auth/login` | `email` atau `phone` (salah satu wajib), `password*` | Publik, throttle 10/menit |
+| GET | `/auth/me` | — | Bearer token |
+| POST | `/auth/logout` | — | Bearer token — mencabut token yang dipakai di request ini saja (device lain tetap login) |
+
+Response `register`/`login` (`201`/`200`):
+
+```json
+{ "data": { "user": { "id": "...", "full_name": "...", "email": "...", "phone": null, "avatar_url": null, "created_at": "..." }, "token": "1|xxxxxxxx..." } }
+```
+
+Response `login` gagal (`422`): error validasi standar dengan pesan generik ("Email/telepon atau kata sandi salah.") pada field `email`/`phone` yang dipakai — sengaja tidak membedakan "user tidak ada" vs "password salah" untuk mencegah user enumeration.
+
+Setelah register/login, klien memanggil `GET /families` untuk melihat family yang sudah dimiliki, atau `POST /families` untuk membuat family pertama (lihat bagian Families).
 
 ## Header `X-Family-Id`
 
@@ -345,7 +362,6 @@ Response `data`: `id, family_id, actor_id, entity, entity_id, action, diff, crea
 
 ## Belum diimplementasikan (di luar cakupan dokumen ini)
 
-- Register/login/logout (auth Sanctum token issuance).
 - Accept `family_invites` (mengubah invite menjadi `family_members` baru).
 - `ConfirmAiAction` (menulis baris nyata dari `ai_actions.pending`).
 - SSE `action_card`, `AssistantService`, job terjadwal `recurring_rules`.
