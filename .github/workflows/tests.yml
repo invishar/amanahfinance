@@ -8,7 +8,7 @@ on:
 
 jobs:
   full-test-suite:
-    name: Full test suite (PHP 8.3, MySQL 8.0)
+    name: Full test suite (PHP 8.4, MySQL 8.0)
     runs-on: ubuntu-latest
     timeout-minutes: 20
 
@@ -30,10 +30,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup PHP 8.3
+      - name: Setup PHP 8.4
         uses: shivammathur/setup-php@v2
         with:
-          php-version: "8.3"
+          php-version: "8.4"
           extensions: mbstring, dom, fileinfo, curl, xml, ctype, json, tokenizer, openssl, bcmath, pdo, pdo_mysql, zip, gd, intl
           coverage: none
           tools: composer:v2

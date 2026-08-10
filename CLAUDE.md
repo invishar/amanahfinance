@@ -1,6 +1,6 @@
 # CLAUDE.md — amanafinance-api
 
-Backend AmanaFinance (Laravel 11 + PHP 8.3 + MySQL/MariaDB). Repo ini memegang database, aturan bisnis, dan **seluruh** integrasi AI. Tidak ada UI di sini.
+Backend AmanaFinance (Laravel 11 + PHP 8.4 + MySQL/MariaDB). Repo ini memegang database, aturan bisnis, dan **seluruh** integrasi AI. Tidak ada UI di sini.
 
 Dokumen wajib baca sebelum menulis kode:
 - `API-v1.md` — kontrak endpoint, **sumber kebenaran tunggal**
