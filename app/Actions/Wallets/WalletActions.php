@@ -9,7 +9,9 @@ class WalletActions
 {
     public function create(array $data): Wallet
     {
-        return Wallet::create($data);
+        // fresh(): icon/monthly_budget/rollover/is_archived/sort_order/
+        // created_at have DB-level defaults create() won't reflect when omitted.
+        return Wallet::create($data)->fresh();
     }
 
     public function update(Wallet $wallet, array $data): Wallet

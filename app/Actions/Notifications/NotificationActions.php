@@ -8,7 +8,8 @@ class NotificationActions
 {
     public function create(array $data): Notification
     {
-        return Notification::create($data);
+        // created_at is DB useCurrent(), not set by create() itself.
+        return Notification::create($data)->fresh();
     }
 
     public function update(Notification $notification, array $data): Notification

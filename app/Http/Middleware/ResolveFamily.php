@@ -19,7 +19,13 @@ class ResolveFamily
     {
         $user = $request->user();
 
+        // withoutGlobalScope('family'): this lookup is what DEFINES the
+        // current family for this request, so it must not be filtered by
+        // whatever family was current on a *previous* request that reused
+        // this container (happens under testing and Octane) -- otherwise a
+        // user's other memberships become invisible to X-Family-Id.
         $memberships = FamilyMember::query()
+            ->withoutGlobalScope('family')
             ->with('family')
             ->where('user_id', $user->id)
             ->whereNull('removed_at')

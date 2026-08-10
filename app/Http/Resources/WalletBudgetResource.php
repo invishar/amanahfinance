@@ -13,7 +13,10 @@ class WalletBudgetResource extends JsonResource
         return [
             'id' => $this->id,
             'wallet_id' => $this->wallet_id,
-            'period' => $this->period,
+            // date-only cast: format explicitly, otherwise default Carbon
+            // JSON serialization emits a full UTC datetime and, now that
+            // APP_TIMEZONE=Asia/Jakarta, shifts the date back a day.
+            'period' => $this->period?->toDateString(),
             'amount' => $this->amount,
             'created_at' => $this->created_at,
         ];

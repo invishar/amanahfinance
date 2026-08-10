@@ -10,13 +10,16 @@ class FamilyInviteActions
 {
     public function create(User $inviter, array $data): FamilyInvite
     {
-        return FamilyInvite::create([
+        $invite = FamilyInvite::create([
             ...$data,
             'invited_by' => $inviter->id,
             'role' => $data['role'] ?? 'member',
             'token' => 'AMANA-'.Str::upper(Str::random(6)),
             'expires_at' => now()->addDays(7),
         ]);
+
+        // created_at is DB useCurrent(), not set by create() itself.
+        return $invite->fresh();
     }
 
     public function update(FamilyInvite $familyInvite, array $data): FamilyInvite

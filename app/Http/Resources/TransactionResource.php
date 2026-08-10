@@ -15,7 +15,7 @@ class TransactionResource extends JsonResource
             'family_id' => $this->family_id,
             'type' => $this->type,
             'amount' => $this->amount,
-            'transaction_date' => $this->transaction_date,
+            'transaction_date' => $this->transaction_date?->toDateString(),
             'account_id' => $this->account_id,
             'to_account_id' => $this->to_account_id,
             'wallet_id' => $this->wallet_id,

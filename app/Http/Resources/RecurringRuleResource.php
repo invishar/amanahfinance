@@ -20,7 +20,7 @@ class RecurringRuleResource extends JsonResource
             'account_id' => $this->account_id,
             'note' => $this->note,
             'rrule' => $this->rrule,
-            'next_run_on' => $this->next_run_on,
+            'next_run_on' => $this->next_run_on?->toDateString(),
             'is_active' => $this->is_active,
             'created_at' => $this->created_at,
         ];

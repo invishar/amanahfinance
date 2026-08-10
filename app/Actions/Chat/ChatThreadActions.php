@@ -9,11 +9,14 @@ class ChatThreadActions
 {
     public function create(array $data): ChatThread
     {
-        return ChatThread::create([
+        $thread = ChatThread::create([
             ...$data,
             'kind' => $data['kind'] ?? 'general',
             'member_id' => app(CurrentFamily::class)->memberId(),
         ]);
+
+        // created_at is DB useCurrent(), not set by create() itself.
+        return $thread->fresh();
     }
 
     public function update(ChatThread $chatThread, array $data): ChatThread

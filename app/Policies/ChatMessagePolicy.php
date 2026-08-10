@@ -16,10 +16,15 @@ class ChatMessagePolicy
     }
 
     // ChatMessage has no family_id of its own -- isolation relies on the
-    // parent thread's family_id.
+    // parent thread's family_id. The thread relation is itself family-scoped,
+    // so it must be read without that scope here, otherwise a message whose
+    // thread belongs to a *different* family resolves to null -- exactly the
+    // case this check needs to detect.
     public function view(User $user, ChatMessage $chatMessage): bool
     {
-        return $this->belongsToCurrentFamily($chatMessage->thread->family_id);
+        $familyId = $chatMessage->thread()->withoutGlobalScope('family')->value('family_id');
+
+        return $this->belongsToCurrentFamily($familyId);
     }
 
     public function create(User $user): bool

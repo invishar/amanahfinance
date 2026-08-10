@@ -11,11 +11,15 @@ class AccountActions
     {
         $opening = $data['opening_balance'] ?? 0;
 
-        return Account::create([
+        $account = Account::create([
             ...$data,
             'opening_balance' => $opening,
             'current_balance' => $opening,
         ]);
+
+        // fresh(): is_shared/is_archived/sort_order/created_at have DB-level
+        // defaults that create() doesn't reflect back when omitted.
+        return $account->fresh();
     }
 
     public function update(Account $account, array $data): Account

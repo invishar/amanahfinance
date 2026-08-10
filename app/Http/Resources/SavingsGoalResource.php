@@ -19,7 +19,7 @@ class SavingsGoalResource extends JsonResource
             'percent' => $this->target_amount > 0
                 ? (int) round(min($this->current_amount, $this->target_amount) / $this->target_amount * 100)
                 : 0,
-            'deadline' => $this->deadline,
+            'deadline' => $this->deadline?->toDateString(),
             'icon' => $this->icon,
             'color' => $this->color,
             'account_id' => $this->account_id,

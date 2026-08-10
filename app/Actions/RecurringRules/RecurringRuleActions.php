@@ -8,7 +8,9 @@ class RecurringRuleActions
 {
     public function create(array $data): RecurringRule
     {
-        return RecurringRule::create($this->normalizeByType($data));
+        // fresh(): is_active/created_at have DB-level defaults create()
+        // won't reflect when omitted.
+        return RecurringRule::create($this->normalizeByType($data))->fresh();
     }
 
     public function update(RecurringRule $recurringRule, array $data): RecurringRule

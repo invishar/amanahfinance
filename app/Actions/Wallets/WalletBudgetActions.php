@@ -10,10 +10,13 @@ class WalletBudgetActions
 {
     public function create(Wallet $wallet, array $data): WalletBudget
     {
-        return $wallet->budgets()->create([
+        $budget = $wallet->budgets()->create([
             ...$data,
             'period' => $this->firstOfMonth($data['period']),
         ]);
+
+        // created_at is DB useCurrent(), not set by create() itself.
+        return $budget->fresh();
     }
 
     public function update(WalletBudget $walletBudget, array $data): WalletBudget

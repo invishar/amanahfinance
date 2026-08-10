@@ -25,7 +25,9 @@ class FamilyActions
                 'joined_at' => now(),
             ]);
 
-            return $family;
+            // fresh(): onboarding_done has a DB-level default that create()
+            // doesn't reflect back onto the in-memory model.
+            return $family->fresh();
         });
     }
 

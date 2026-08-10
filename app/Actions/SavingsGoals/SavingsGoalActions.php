@@ -9,7 +9,9 @@ class SavingsGoalActions
 {
     public function create(array $data): SavingsGoal
     {
-        return SavingsGoal::create($data);
+        // fresh(): current_amount/status/created_at have DB-level defaults
+        // create() won't reflect when omitted.
+        return SavingsGoal::create($data)->fresh();
     }
 
     public function update(SavingsGoal $savingsGoal, array $data): SavingsGoal

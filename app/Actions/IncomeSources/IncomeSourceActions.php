@@ -9,7 +9,9 @@ class IncomeSourceActions
 {
     public function create(array $data): IncomeSource
     {
-        return IncomeSource::create($data);
+        // fresh(): is_archived/created_at have DB-level defaults create()
+        // won't reflect when omitted.
+        return IncomeSource::create($data)->fresh();
     }
 
     public function update(IncomeSource $incomeSource, array $data): IncomeSource
