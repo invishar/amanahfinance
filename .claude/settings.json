@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write|MultiEdit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "php .claude/hooks/run-tia.php",
+            "timeout": 120,
+            "statusMessage": "Running impacted tests (pest --tia)..."
+          }
+        ]
+      }
+    ]
+  }
+}
