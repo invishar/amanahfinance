@@ -23,7 +23,7 @@ Dokumen wajib baca sebelum menulis kode:
 - Otorisasi lewat **Policy**, bukan `if` di controller. Role: `admin` | `member` | `viewer`.
 - Enum ditulis sebagai kolom `string`/`text` + `check constraint`, bukan tipe `ENUM` native database. MySQL/MariaDB tidak punya partial index (`WHERE ...`) atau row-level security seperti Postgres — isolasi antar family sepenuhnya di layer aplikasi (lihat aturan #3), bukan di DB.
 - Bentuk JSON di Resource harus **persis** seperti `API-v1.md`. Sukses `{ "data": … }`, list `{ "data": [], "meta": {} }`, error `{ "message": …, "errors": {} }`.
-- Timestamp ISO-8601 UTC. Klien yang memformat ke `Asia/Jakarta`.
+- App timezone `Asia/Jakarta`, locale `id` (`config/app.php`, `.env`). Timestamp tetap disimpan & diserialisasikan sebagai ISO-8601, sekarang dengan offset `+07:00` alih-alih `Z`/UTC.
 - Semua panggilan LLM / OCR / STT berjalan di **job antrian**, tidak pernah di request web.
 - Dashboard & analitik memakai view `v_wallet_month` / `v_cashflow_month`, bukan query ad-hoc.
 
