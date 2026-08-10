@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,7 +10,7 @@ return new class extends Migration
     {
         // Riwayat budget per bulan agar laporan bulan lalu tidak ikut berubah
         Schema::create('wallet_budgets', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary();
             $table->foreignUuid('wallet_id')->constrained('wallets')->cascadeOnDelete();
             $table->date('period');                          // selalu tanggal 1 bulan ybs
             $table->bigInteger('amount');

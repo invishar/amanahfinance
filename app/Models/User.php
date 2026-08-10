@@ -2,21 +2,27 @@
 
 namespace App\Models;
 
-// use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['name', 'email', 'password'])]
-#[Hidden(['password', 'remember_token'])]
+#[Fillable(['email', 'phone', 'full_name', 'avatar_url', 'password_hash'])]
+#[Hidden(['password_hash', 'remember_token'])]
 class User extends Authenticatable
 {
     /** @use HasFactory<UserFactory> */
-    use HasApiTokens, HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, HasUuids, Notifiable;
+
+    /**
+     * Users only have a created_at column; there is no updated_at.
+     */
+    const UPDATED_AT = null;
 
     /**
      * Get the attributes that should be cast.
@@ -26,8 +32,32 @@ class User extends Authenticatable
     protected function casts(): array
     {
         return [
-            'email_verified_at' => 'datetime',
-            'password' => 'hashed',
+            'last_login_at' => 'datetime',
+            'created_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Get the password for the user, which is stored in password_hash.
+     */
+    public function getAuthPassword(): ?string
+    {
+        return $this->password_hash;
+    }
+
+    /**
+     * @return HasMany<FamilyMember, $this>
+     */
+    public function familyMemberships(): HasMany
+    {
+        return $this->hasMany(FamilyMember::class);
+    }
+
+    /**
+     * @return HasMany<FamilyInvite, $this>
+     */
+    public function sentInvites(): HasMany
+    {
+        return $this->hasMany(FamilyInvite::class, 'invited_by');
     }
 }

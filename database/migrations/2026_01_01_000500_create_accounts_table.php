@@ -11,9 +11,9 @@ return new class extends Migration
     {
         // accounts = tempat uang benar-benar berada (bank / e-wallet / tunai)
         Schema::create('accounts', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary();
             $table->foreignUuid('family_id')->constrained('families')->cascadeOnDelete();
-            $table->text('name');
+            $table->string('name');
             $table->text('account_type');
             $table->text('institution')->nullable();        // "BCA", "GoPay"
             $table->text('masked_number')->nullable();
@@ -30,8 +30,7 @@ return new class extends Migration
 
         DB::statement("alter table accounts add constraint accounts_type_ck
             check (account_type in ('bank','ewallet','cash','other'))");
-        DB::statement('create index accounts_active_idx on accounts (family_id)
-            where is_archived = false');
+        DB::statement('create index accounts_active_idx on accounts (family_id, is_archived)');
     }
 
     public function down(): void

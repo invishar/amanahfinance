@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('family_members', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary();
             $table->foreignUuid('family_id')->constrained('families')->cascadeOnDelete();
             $table->foreignUuid('user_id')->constrained('users')->cascadeOnDelete();
             $table->text('role');
@@ -23,8 +23,9 @@ return new class extends Migration
 
         DB::statement("alter table family_members add constraint family_members_role_ck
             check (role in ('admin','member','viewer'))");
-        DB::statement('create index family_members_active_idx on family_members (family_id)
-            where removed_at is null');
+        // MySQL/MariaDB tidak punya partial index (WHERE) seperti Postgres,
+        // jadi removed_at diikutkan langsung ke index gabungan.
+        DB::statement('create index family_members_active_idx on family_members (family_id, removed_at)');
     }
 
     public function down(): void

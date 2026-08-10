@@ -13,9 +13,9 @@ use Illuminate\Support\Str;
 class UserFactory extends Factory
 {
     /**
-     * The current password being used by the factory.
+     * The current password hash being used by the factory.
      */
-    protected static ?string $password;
+    protected static ?string $passwordHash;
 
     /**
      * Define the model's default state.
@@ -25,21 +25,24 @@ class UserFactory extends Factory
     public function definition(): array
     {
         return [
-            'name' => fake()->name(),
+            'full_name' => fake()->name(),
             'email' => fake()->unique()->safeEmail(),
-            'email_verified_at' => now(),
-            'password' => static::$password ??= Hash::make('password'),
+            'phone' => null,
+            'avatar_url' => null,
+            'password_hash' => static::$passwordHash ??= Hash::make('password'),
+            'last_login_at' => null,
             'remember_token' => Str::random(10),
         ];
     }
 
     /**
-     * Indicate that the model's email address should be unverified.
+     * Indicate that the user signs up with a phone number instead of email.
      */
-    public function unverified(): static
+    public function withPhone(): static
     {
         return $this->state(fn (array $attributes) => [
-            'email_verified_at' => null,
+            'email' => null,
+            'phone' => fake()->unique()->e164PhoneNumber(),
         ]);
     }
 }

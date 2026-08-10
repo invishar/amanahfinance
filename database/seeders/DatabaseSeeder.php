@@ -2,7 +2,6 @@
 
 namespace Database\Seeders;
 
-use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -12,14 +11,30 @@ class DatabaseSeeder extends Seeder
 
     /**
      * Seed the application's database.
+     *
+     * Order matters: each seeder below depends on records created by the
+     * ones before it (families need users, transactions need accounts, etc).
      */
     public function run(): void
     {
-        User::factory(10)->create();
-
-        User::factory()->create([
-            'name' => 'Test User',
-            'email' => 'test@example.com',
+        $this->call([
+            UserSeeder::class,
+            FamilySeeder::class,
+            FamilyMemberSeeder::class,
+            FamilyInviteSeeder::class,
+            AccountSeeder::class,
+            WalletSeeder::class,
+            WalletBudgetSeeder::class,
+            IncomeSourceSeeder::class,
+            SavingsGoalSeeder::class,
+            TransactionSeeder::class,
+            RecurringRuleSeeder::class,
+            ChatThreadSeeder::class,
+            ChatMessageSeeder::class,
+            AiActionSeeder::class,
+            OnboardingAnswerSeeder::class,
+            NotificationSeeder::class,
+            AuditLogSeeder::class,
         ]);
     }
 }

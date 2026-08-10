@@ -1,43 +1,26 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
-use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
     /**
-     * Jaring pengaman kedua di bawah global scope Eloquent.
-     * Middleware ResolveFamily menjalankan:
-     *   set_config('app.current_family_id', <uuid>, true)
-     * pada setiap request; koneksi migrasi/queue memakai role bypass RLS.
+     * MySQL/MariaDB tidak punya row level security seperti Postgres
+     * (tidak ada `enable row level security` / `create policy`), jadi migrasi
+     * ini sengaja dikosongkan untuk koneksi MySQL/MariaDB.
+     *
+     * Konsekuensinya: jaring pengaman kedua di level database ini TIDAK ada.
+     * Isolasi antar family jadi 100% bergantung pada global scope Eloquent +
+     * middleware ResolveFamily di level aplikasi -- pastikan keduanya benar
+     * dipasang di setiap model & query sebelum fitur multi-family dipakai.
      */
-    private array $tables = [
-        'families', 'family_members', 'family_invites', 'accounts', 'wallets',
-        'income_sources', 'transactions', 'recurring_rules', 'savings_goals',
-        'chat_threads', 'ai_actions', 'onboarding_answers', 'notifications', 'audit_logs',
-    ];
-
     public function up(): void
     {
-        foreach ($this->tables as $t) {
-            $column = $t === 'families' ? 'id' : 'family_id';
-
-            DB::statement("alter table {$t} enable row level security");
-            DB::statement("
-                create policy {$t}_family_isolation on {$t}
-                using ({$column}::text = current_setting('app.current_family_id', true))
-                with check ({$column}::text = current_setting('app.current_family_id', true))
-            ");
-        }
+        //
     }
 
     public function down(): void
     {
-        foreach ($this->tables as $t) {
-            DB::statement("drop policy if exists {$t}_family_isolation on {$t}");
-            DB::statement("alter table {$t} disable row level security");
-        }
+        //
     }
 };

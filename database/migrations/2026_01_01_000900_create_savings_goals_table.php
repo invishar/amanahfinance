@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('savings_goals', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary();
             $table->foreignUuid('family_id')->constrained('families')->cascadeOnDelete();
             $table->text('target_name');
             $table->bigInteger('target_amount');
@@ -20,7 +20,7 @@ return new class extends Migration
             $table->text('color')->nullable();
             $table->foreignUuid('account_id')->nullable()
                   ->constrained('accounts')->nullOnDelete();  // rekening penampung
-            $table->text('status')->default('active');
+            $table->string('status')->default('active');
             $table->timestampTz('created_at')->useCurrent();
             $table->timestampTz('achieved_at')->nullable();
             $table->index(['family_id', 'status']);

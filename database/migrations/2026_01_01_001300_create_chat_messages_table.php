@@ -10,7 +10,7 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('chat_messages', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary();
             $table->foreignUuid('thread_id')->constrained('chat_threads')->cascadeOnDelete();
             $table->text('role');
             $table->text('content')->nullable();

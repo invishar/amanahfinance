@@ -12,12 +12,12 @@ return new class extends Migration
         // Kartu konfirmasi yang dibuat Amina; jejak audit AI -> data nyata.
         // Baris ini TIDAK menulis apa pun sampai statusnya confirmed/edited.
         Schema::create('ai_actions', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary();
             $table->foreignUuid('message_id')->constrained('chat_messages')->cascadeOnDelete();
             $table->foreignUuid('family_id')->constrained('families')->cascadeOnDelete();
             $table->text('action');
             $table->jsonb('payload');                        // draft yang ditawarkan ke user
-            $table->text('status')->default('pending');
+            $table->string('status')->default('pending');
             $table->text('result_table')->nullable();
             $table->uuid('result_id')->nullable();
             $table->decimal('confidence', 3, 2)->nullable();

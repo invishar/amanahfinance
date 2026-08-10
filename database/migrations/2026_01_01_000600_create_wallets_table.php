@@ -2,7 +2,6 @@
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
@@ -11,9 +10,9 @@ return new class extends Migration
     {
         // wallets = kantong anggaran / kategori pengeluaran
         Schema::create('wallets', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary();
             $table->foreignUuid('family_id')->constrained('families')->cascadeOnDelete();
-            $table->text('name');
+            $table->string('name');
             $table->text('icon')->default('wallet');        // nama ikon Lucide
             $table->text('color')->nullable();
             $table->bigInteger('monthly_budget')->default(0);

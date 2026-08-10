@@ -10,9 +10,9 @@ return new class extends Migration
     public function up(): void
     {
         Schema::create('income_sources', function (Blueprint $table) {
-            $table->uuid('id')->primary()->default(DB::raw('gen_random_uuid()'));
+            $table->uuid('id')->primary();
             $table->foreignUuid('family_id')->constrained('families')->cascadeOnDelete();
-            $table->text('name');                            // "Gaji Bulanan", "Freelance Desain"
+            $table->string('name');                          // "Gaji Bulanan", "Freelance Desain"
             $table->foreignUuid('owner_member_id')->nullable()
                   ->constrained('family_members')->nullOnDelete();
             $table->bigInteger('expected_amount')->nullable();
