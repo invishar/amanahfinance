@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AiActionController;
+use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ChatMessageController;
@@ -44,6 +45,8 @@ Route::prefix('v1')->group(function () {
         // Everything below acts on the family resolved by ResolveFamily from the
         // authenticated user's own memberships (+ optional X-Family-Id header).
         Route::middleware('resolve.family')->group(function () {
+            Route::get('/analytics/summary', [AnalyticsController::class, 'summary']);
+
             Route::apiResource('family-members', FamilyMemberController::class);
             Route::apiResource('family-invites', FamilyInviteController::class);
             Route::apiResource('accounts', AccountController::class);

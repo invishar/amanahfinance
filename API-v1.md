@@ -373,9 +373,52 @@ Response `data`: `id, family_id, actor_id, entity, entity_id, action, diff, crea
 
 ---
 
+## Analytics — read only
+
+Sumber data **wajib** view `v_wallet_month` / `v_cashflow_month` (aturan CLAUDE.md: "bukan query ad-hoc"). Tidak pernah memanggil LLM di sini — `insight` (komentar naratif dari AI) di-cache oleh job harian terpisah dan **belum** termasuk dalam response ini (job tersebut belum diimplementasikan).
+
+| Method | Path | Query | Role |
+| --- | --- | --- | --- |
+| GET | `/analytics/summary` | `month` (opsional, format `YYYY-MM`, default bulan berjalan) | `viewer` |
+
+Response `data`:
+
+```json
+{
+  "period": "2026-08-01",
+  "cashflow": {
+    "total_income": 5000000,
+    "total_expense": 1200000,
+    "total_savings": 500000,
+    "net": 3800000
+  },
+  "wallets": [
+    {
+      "wallet_id": "...",
+      "name": "Makan & Minum",
+      "icon": "wallet",
+      "color": "#00bbff",
+      "budget": 1500000,
+      "spent": 1200000,
+      "remaining": 300000,
+      "percent": 80,
+      "status": "warning"
+    }
+  ]
+}
+```
+
+- `wallets` mencakup **semua wallet aktif** (`is_archived=false`) family, termasuk yang belum ada transaksi bulan ini (`spent=0`).
+- `budget` mengikuti override `wallet_budgets` bulan berjalan bila ada, jika tidak jatuh ke `wallets.monthly_budget`. Catatan kuirk dari view: override budget hanya berlaku untuk **bulan kalender saat ini** (`curdate()`) — memanggil dengan `month` bulan lampau tetap memakai budget bulan berjalan sebagai pembandingnya, bukan budget historis bulan itu.
+- `percent` = `min(spent, budget) / budget * 100`, dibulatkan; `0` jika `budget<=0`.
+- `status`: `no_budget` (budget ≤ 0), `over` (≥100%), `warning` (≥80%), `ok` (selain itu).
+- `net` = `total_income - total_expense`.
+
+---
+
 ## Belum diimplementasikan (di luar cakupan dokumen ini)
 
 - `ConfirmAiAction` (menulis baris nyata dari `ai_actions.pending`).
 - SSE `action_card`, `AssistantService`, job terjadwal `recurring_rules`.
-- `GET /analytics/summary` dan endpoint lain yang memakai `v_wallet_month`/`v_cashflow_month`.
+- Job harian yang mengisi `insight` naratif untuk `GET /analytics/summary`.
 - `GET /api/v1/openapi.json`.
