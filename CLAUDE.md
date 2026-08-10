@@ -1,6 +1,6 @@
 # CLAUDE.md — amanafinance-api
 
-Backend AmanaFinance (Laravel 11 + PHP 8.3 + PostgreSQL 15). Repo ini memegang database, aturan bisnis, dan **seluruh** integrasi AI. Tidak ada UI di sini.
+Backend AmanaFinance (Laravel 11 + PHP 8.3 + MySQL/MariaDB). Repo ini memegang database, aturan bisnis, dan **seluruh** integrasi AI. Tidak ada UI di sini.
 
 Dokumen wajib baca sebelum menulis kode:
 - `API-v1.md` — kontrak endpoint, **sumber kebenaran tunggal**
@@ -21,7 +21,7 @@ Dokumen wajib baca sebelum menulis kode:
 
 - Controller tipis: **validasi (FormRequest) → Action → API Resource**. Tidak ada query bisnis di controller.
 - Otorisasi lewat **Policy**, bukan `if` di controller. Role: `admin` | `member` | `viewer`.
-- Enum ditulis sebagai kolom `text` + `check constraint`, bukan tipe enum PostgreSQL.
+- Enum ditulis sebagai kolom `string`/`text` + `check constraint`, bukan tipe `ENUM` native database. MySQL/MariaDB tidak punya partial index (`WHERE ...`) atau row-level security seperti Postgres — isolasi antar family sepenuhnya di layer aplikasi (lihat aturan #3), bukan di DB.
 - Bentuk JSON di Resource harus **persis** seperti `API-v1.md`. Sukses `{ "data": … }`, list `{ "data": [], "meta": {} }`, error `{ "message": …, "errors": {} }`.
 - Timestamp ISO-8601 UTC. Klien yang memformat ke `Asia/Jakarta`.
 - Semua panggilan LLM / OCR / STT berjalan di **job antrian**, tidak pernah di request web.
@@ -50,8 +50,8 @@ Pesan masuk → `AssistantService` → LLM tool calling → **payload disimpan s
 ## Perintah
 
 ```bash
-php artisan migrate                    # migrasi berurutan 000000 → 001900
-php artisan db:seed --class=DemoFamilySeeder
+php artisan migrate                    # migrasi berurutan 000100 → 001900
+php artisan db:seed                    # jalan lewat DatabaseSeeder, urut per dependensi
 php artisan test                       # Pest/PHPUnit
 php artisan horizon                    # queue worker
 php artisan amana:reconcile-balances   # hitung ulang cache saldo
