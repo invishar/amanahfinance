@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToFamily;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 class RecurringRule extends Model
 {
     /** @use HasFactory<\Database\Factories\RecurringRuleFactory> */
-    use HasFactory, HasUuids;
+    use BelongsToFamily, HasFactory, HasUuids;
 
     public $timestamps = false;
 
