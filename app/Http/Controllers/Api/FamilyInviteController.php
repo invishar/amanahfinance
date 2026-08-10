@@ -4,15 +4,26 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Families\FamilyInviteActions;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\AcceptFamilyInviteRequest;
 use App\Http\Requests\StoreFamilyInviteRequest;
 use App\Http\Requests\UpdateFamilyInviteRequest;
 use App\Http\Resources\FamilyInviteResource;
+use App\Http\Resources\FamilyMemberResource;
 use App\Models\FamilyInvite;
 use Illuminate\Http\Request;
 
 class FamilyInviteController extends Controller
 {
     public function __construct(private FamilyInviteActions $actions) {}
+
+    // Deliberately outside resolve.family: the user accepting has no
+    // membership in the target family yet -- see routes/api.php.
+    public function accept(AcceptFamilyInviteRequest $request)
+    {
+        $member = $this->actions->accept($request->user(), $request->validated()['token']);
+
+        return (new FamilyMemberResource($member))->response()->setStatusCode(201);
+    }
 
     public function index()
     {

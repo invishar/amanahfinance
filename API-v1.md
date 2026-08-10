@@ -139,10 +139,23 @@ Response `data`: `id, family_id, user_id, role, nickname, monthly_quota, joined_
 | GET | `/family-invites/{family_invite}` | — | `viewer` |
 | PUT/PATCH | `/family-invites/{family_invite}` | `role`, `expires_at` | **`admin`** |
 | DELETE | `/family-invites/{family_invite}` | — | **`admin`** (revoke) |
+| POST | `/family-invites/accept` | `token*` | Bearer token saja — **di luar `resolve.family`**, lihat di bawah |
 
-`token` (`AMANA-XXXXXX`) dan `expires_at` (+7 hari) dibuat di server. `invited_by` = user yang login. `accepted_at` tidak diisi lewat API ini (alur accept-invite terpisah, belum diimplementasikan).
+`token` (`AMANA-XXXXXX`) dan `expires_at` (+7 hari) dibuat di server. `invited_by` = user yang login.
 
-Response `data`: `id, family_id, invited_by, email, phone, role, token, expires_at, accepted_at, created_at`.
+### Menerima invite
+
+`POST /family-invites/accept` sengaja berada di luar middleware `resolve.family` — user yang menerima belum jadi anggota family tujuan, jadi tidak ada family aktif untuk di-resolve. Body hanya `{ "token": "AMANA-XXXXXX" }`. Response `201` berisi `FamilyMemberResource` (family_id, role, dst — lihat bagian Family Members) untuk membership baru yang dibuat.
+
+Semua kegagalan mengembalikan `422` dengan error di field `token` (bukan `403`/`404`, supaya token yang salah/dicuri tidak membocorkan info soal keberadaannya):
+
+- Token tidak ditemukan.
+- Invite sudah dipakai (`accepted_at` sudah terisi).
+- Invite sudah kedaluwarsa (`expires_at` sudah lewat).
+- `email`/`phone` di invite tidak cocok dengan akun yang sedang login (pencocokan email case-insensitive).
+- User sudah jadi anggota aktif family tersebut.
+
+Response `data` (untuk endpoint selain `accept`): `id, family_id, invited_by, email, phone, role, token, expires_at, accepted_at, created_at`.
 
 ---
 
@@ -362,7 +375,6 @@ Response `data`: `id, family_id, actor_id, entity, entity_id, action, diff, crea
 
 ## Belum diimplementasikan (di luar cakupan dokumen ini)
 
-- Accept `family_invites` (mengubah invite menjadi `family_members` baru).
 - `ConfirmAiAction` (menulis baris nyata dari `ai_actions.pending`).
 - SSE `action_card`, `AssistantService`, job terjadwal `recurring_rules`.
 - `GET /analytics/summary` dan endpoint lain yang memakai `v_wallet_month`/`v_cashflow_month`.

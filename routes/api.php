@@ -37,6 +37,10 @@ Route::prefix('v1')->group(function () {
         // a user may have zero families (first login) or be choosing among several.
         Route::apiResource('families', FamilyController::class);
 
+        // Also outside resolve.family: the user accepting has no membership in
+        // the target family yet, so there is nothing for ResolveFamily to resolve.
+        Route::post('/family-invites/accept', [FamilyInviteController::class, 'accept']);
+
         // Everything below acts on the family resolved by ResolveFamily from the
         // authenticated user's own memberships (+ optional X-Family-Id header).
         Route::middleware('resolve.family')->group(function () {
