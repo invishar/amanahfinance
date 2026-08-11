@@ -20,7 +20,7 @@ class TransactionActions
 
             $transaction = Transaction::create([
                 ...$data,
-                'origin' => 'manual',
+                'origin' => $data['origin'] ?? 'manual',
                 'created_by' => app(CurrentFamily::class)->memberId(),
             ]);
 

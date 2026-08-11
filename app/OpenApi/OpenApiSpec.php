@@ -471,7 +471,9 @@ class OpenApiSpec
             self::standardCrudPaths(),
             self::walletBudgetPaths(),
             self::chatMessagePaths(),
+            self::chatStreamPaths(),
             self::readOnlyPaths(),
+            self::aiActionMutationPaths(),
             self::analyticsPaths(),
             self::llmSettingPaths(),
         );
@@ -1059,6 +1061,66 @@ class OpenApiSpec
         ];
     }
 
+    private static function chatStreamPaths(): array
+    {
+        return [
+            '/chat-threads/{chat_thread}/stream' => [
+                'parameters' => [['name' => 'chat_thread', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']]],
+                'get' => [
+                    'tags' => ['Chat Threads'],
+                    'summary' => 'SSE action_card & balasan Amina (berumur pendek, klien wajib reconnect)',
+                    'description' => 'Server menutup stream sendiri sebelum ±20-25 detik (aman dari max_execution_time shared hosting, tidak ada Redis/pub-sub). Event: message, action_card, retry (berisi cursor untuk ?after= saat reconnect). Bukan JSON biasa -- Content-Type: text/event-stream.',
+                    'parameters' => [[
+                        'name' => 'after', 'in' => 'query', 'required' => false,
+                        'description' => 'Cursor ISO-8601; ambil dari event retry terakhir. Default: waktu koneksi dibuka.',
+                        'schema' => ['type' => 'string', 'format' => 'date-time'],
+                    ]],
+                    'responses' => [
+                        '200' => ['description' => 'text/event-stream', 'content' => ['text/event-stream' => ['schema' => ['type' => 'string']]]],
+                        '403' => self::refResponse('Forbidden'),
+                        '404' => self::refResponse('NotFound'),
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private static function aiActionMutationPaths(): array
+    {
+        return [
+            '/ai-actions/{ai_action}/confirm' => [
+                'parameters' => [['name' => 'ai_action', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']]],
+                'post' => [
+                    'tags' => ['AI Actions'],
+                    'summary' => 'Konfirmasi draft -- menulis baris nyata (ConfirmAiAction)',
+                    'description' => 'Body opsional: field apa pun di dalamnya menimpa payload draft sebelum divalidasi & ditulis (status jadi edited, bukan confirmed). Semua id divalidasi ulang harus milik family yang sama dengan ai_action ini, tidak pernah dipercaya mentah.',
+                    'requestBody' => ['required' => false, 'content' => ['application/json' => ['schema' => [
+                        'type' => 'object', 'description' => 'Subset dari payload draft untuk ditimpa sebelum konfirmasi.', 'additionalProperties' => true,
+                    ]]]],
+                    'responses' => [
+                        '200' => self::jsonResponse('Dikonfirmasi (atau edited jika body mengirim perubahan).', self::envelope('AiAction')),
+                        '403' => self::refResponse('Forbidden'),
+                        '404' => self::refResponse('NotFound'),
+                        '422' => self::refResponse('ValidationError'),
+                    ],
+                ],
+            ],
+            '/ai-actions/{ai_action}/reject' => [
+                'parameters' => [['name' => 'ai_action', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']]],
+                'post' => [
+                    'tags' => ['AI Actions'],
+                    'summary' => 'Tolak draft -- tidak menulis apa pun',
+                    'responses' => [
+                        '200' => self::jsonResponse('Ditolak.', self::envelope('AiAction')),
+                        '403' => self::refResponse('Forbidden'),
+                        '404' => self::refResponse('NotFound'),
+                        '422' => self::refResponse('ValidationError'),
+                    ],
+                ],
+            ],
+        ];
+    }
+
     private static function readOnlyPaths(): array
     {
         $make = function (string $tag, string $base, string $param, string $schema, string $description): array {
@@ -1092,7 +1154,7 @@ class OpenApiSpec
         return array_merge(
             $make(
                 'AI Actions', '/ai-actions', 'ai_action', 'AiAction',
-                'Read-only: AI tidak pernah menulis tabel bisnis (aturan #5); ai_actions hanya diubah oleh ConfirmAiAction (belum diimplementasikan), tidak pernah dihapus.'
+                'AI tidak pernah menulis tabel bisnis langsung (aturan #5); ai_actions hanya diubah lewat POST .../confirm dan .../reject (lihat di bawah), tidak pernah dihapus.'
             ),
             $make(
                 'Audit Logs', '/audit-logs', 'audit_log', 'AuditLog',

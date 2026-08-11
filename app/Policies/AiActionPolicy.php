@@ -6,8 +6,9 @@ use App\Models\AiAction;
 use App\Models\User;
 use App\Policies\Concerns\AuthorizesWithinFamily;
 
-// Read-only: AI never writes business tables directly, and ai_actions rows
-// are only ever mutated by ConfirmAiAction -- no create/update/delete here.
+// AI never writes business tables directly -- ai_actions rows are only ever
+// mutated by ConfirmAiAction, reached through confirm()/reject() here (no
+// generic create/update/destroy on this resource).
 class AiActionPolicy
 {
     use AuthorizesWithinFamily;
@@ -20,5 +21,17 @@ class AiActionPolicy
     public function view(User $user, AiAction $aiAction): bool
     {
         return $this->belongsToCurrentFamily($aiAction->family_id);
+    }
+
+    public function confirm(User $user, AiAction $aiAction): bool
+    {
+        return $this->belongsToCurrentFamily($aiAction->family_id)
+            && $this->roleIn(['admin', 'member']);
+    }
+
+    public function reject(User $user, AiAction $aiAction): bool
+    {
+        return $this->belongsToCurrentFamily($aiAction->family_id)
+            && $this->roleIn(['admin', 'member']);
     }
 }

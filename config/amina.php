@@ -24,4 +24,13 @@ TEXT,
         'goals' => 'Ada target tabungan yang lagi pengen dicapai keluarga?',
     ],
 
+    // Short-lived SSE (CLAUDE.md "Alur AI"): the server closes the stream
+    // itself well under shared-hosting max_execution_time; the client
+    // reconnects with ?after=<cursor> from the final `retry` event.
+    // Overridden in tests to near-zero so the polling loop stays fast.
+    'sse' => [
+        'duration_seconds' => env('AMINA_SSE_DURATION_SECONDS', 20),
+        'poll_interval_ms' => env('AMINA_SSE_POLL_INTERVAL_MS', 500),
+    ],
+
 ];

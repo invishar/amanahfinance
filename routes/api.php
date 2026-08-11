@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuditLogController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\ChatMessageController;
+use App\Http\Controllers\Api\ChatStreamController;
 use App\Http\Controllers\Api\ChatThreadController;
 use App\Http\Controllers\Api\FamilyController;
 use App\Http\Controllers\Api\FamilyInviteController;
@@ -67,14 +68,19 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('transactions', TransactionController::class);
             Route::apiResource('recurring-rules', RecurringRuleController::class);
             Route::apiResource('chat-threads', ChatThreadController::class);
+            Route::get('/chat-threads/{chat_thread}/stream', [ChatStreamController::class, 'stream']);
             Route::apiResource('chat-threads.messages', ChatMessageController::class)
                 ->shallow()
                 ->only(['index', 'store', 'show']);
             Route::apiResource('onboarding-answers', OnboardingAnswerController::class);
             Route::apiResource('notifications', NotificationController::class);
 
-            // Read-only (aturan #5 & jejak audit): no store/update/destroy routes.
+            // No store/update/destroy: ai_actions rows are only ever created
+            // by AssistantService and only ever mutated via confirm/reject
+            // below (aturan #5 & jejak audit -- baris tidak pernah dihapus).
             Route::apiResource('ai-actions', AiActionController::class)->only(['index', 'show']);
+            Route::post('/ai-actions/{ai_action}/confirm', [AiActionController::class, 'confirm']);
+            Route::post('/ai-actions/{ai_action}/reject', [AiActionController::class, 'reject']);
             Route::apiResource('audit-logs', AuditLogController::class)->only(['index', 'show']);
         });
     });

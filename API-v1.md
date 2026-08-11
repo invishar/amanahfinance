@@ -315,9 +315,31 @@ Nested di bawah thread; **read-only setelah dibuat** (tidak ada `update`/`destro
 | POST | `/chat-threads/{chat_thread}/messages` | `content` (wajib jika tidak ada `attachment_url`), `input_mode` (`text`\|`voice`\|`image`), `attachment_url` | `member` |
 | GET | `/messages/{message}` | — | `viewer` |
 
-`role` selalu dipaksa `user` untuk pesan yang dibuat lewat endpoint ini — balasan `assistant`/`system` hanya ditulis oleh `AssistantService` (alur AI, lihat `CLAUDE.md`), bukan lewat API publik ini. Membuat pesan memperbarui `chat_threads.last_message_at`.
+`role` selalu dipaksa `user` untuk pesan yang dibuat lewat endpoint ini — balasan `assistant`/`system` hanya ditulis oleh `AssistantService` (alur AI, lihat `CLAUDE.md`), bukan lewat API publik ini. Membuat pesan memperbarui `chat_threads.last_message_at` dan mengantre `ProcessAssistantMessage` (balasan Amina serta `action_card` apa pun muncul belakangan lewat SSE di bawah, bukan di response `POST` ini).
 
 Response `data`: `id, thread_id, role, content, input_mode, attachment_url, token_usage, created_at`.
+
+---
+
+## Chat Stream (SSE)
+
+Server-Sent Events **berumur pendek** (CLAUDE.md "Alur AI"): server menutup koneksi sendiri sebelum ±20-25 detik ketimbang menahannya tanpa batas, supaya aman dari `max_execution_time` shared hosting. Tidak ada Redis/pub-sub di baliknya — endpoint ini polling DB tiap ~500ms selama stream masih terbuka. Klien **wajib reconnect** begitu koneksi ditutup, memakai cursor dari event `retry` terakhir.
+
+| Method | Path | Query | Role |
+| --- | --- | --- | --- |
+| GET | `/chat-threads/{chat_thread}/stream` | `after` (opsional, ISO-8601; default waktu koneksi dibuka) | `viewer` |
+
+Event yang dikirim (`Content-Type: text/event-stream`):
+
+| Event | `data` | Kapan |
+| --- | --- | --- |
+| `message` | `id, content, created_at` | Ada balasan baru `role=assistant` di thread ini sejak cursor |
+| `action_card` | `id, action, payload, created_at` | Ada `ai_actions` baru berstatus `pending` dari pesan di thread ini sejak cursor |
+| `retry` | `after` | Selalu dikirim tepat sebelum stream ditutup — pakai nilai ini sebagai `?after=` saat reconnect |
+
+Klien **wajib dedupe berdasarkan `id`**: cursor resume di event `retry` adalah yang **paling lama** di antara kedua cursor internal (`message` dan `action_card`), jadi reconnect bisa mengirim ulang satu event yang sudah pernah diterima di stream sebelumnya.
+
+`GET /chat-threads/{chat_thread}/stream` memakai policy `view` pada `ChatThread` yang sama seperti resource chat lain — bukan endpoint terpisah dari isolasi tenant.
 
 ---
 
@@ -349,16 +371,24 @@ Response `data`: `id, family_id, member_id, kind, title, body, deeplink, read_at
 
 ---
 
-## AI Actions — read only
+## AI Actions
 
-Jejak audit AI → data nyata (lihat "Alur AI" di `CLAUDE.md`). Tidak ada `store`/`update`/`destroy`: AI tidak pernah menulis tabel bisnis, dan baris `ai_actions` sendiri hanya diubah oleh `ConfirmAiAction` (belum diimplementasikan) — tidak lewat endpoint publik ini, dan tidak pernah dihapus.
+Jejak audit AI → data nyata (lihat "Alur AI" di `CLAUDE.md`). Tidak ada `store`/`update`/`destroy` generik: AI tidak pernah menulis tabel bisnis, dan baris `ai_actions` sendiri hanya diubah lewat `confirm`/`reject` di bawah (keduanya delegasi ke `ConfirmAiAction`) — tidak pernah dihapus.
 
-| Method | Path | Role |
-| --- | --- | --- |
-| GET | `/ai-actions` | `viewer` |
-| GET | `/ai-actions/{ai_action}` | `viewer` |
+| Method | Path | Body | Role |
+| --- | --- | --- | --- |
+| GET | `/ai-actions` | — | `viewer` |
+| GET | `/ai-actions/{ai_action}` | — | `viewer` |
+| POST | `/ai-actions/{ai_action}/confirm` | (opsional) field pengganti sebagian dari `payload` draft, mis. `{"amount": 25000}` | `member` |
+| POST | `/ai-actions/{ai_action}/reject` | — | `member` |
 
 Response `data`: `id, message_id, family_id, action, payload, status, result_table, result_id, confidence, resolved_at, resolved_by, created_at`.
+
+`confirm` menulis baris nyata sesuai `action`: `create_transaction`→`transactions` (origin otomatis `chat_text`/`chat_voice`/`receipt_ocr` dari `input_mode` pesan asal, bukan `manual`), `create_wallet`→`wallets`, `create_account`→`accounts`, `create_income_source`→`income_sources`, `create_savings_goal`→`savings_goals`. `action=advice` tidak menulis apa pun — `confirm` di situ cuma menandai kartu saran sudah "diakui" (`result_table`/`result_id` tetap `null`).
+
+Body `confirm` opsional: field apa pun di dalamnya menimpa `payload` draft sebelum divalidasi & ditulis (mis. user mengoreksi `amount` sebelum konfirmasi). Ada perubahan → `status` jadi `edited`; tanpa body → `confirmed`. Semua id di `payload`/body (`account_id`, `wallet_id`, dst.) divalidasi ulang tervalidasi milik family yang sama seperti `ai_action`-nya — tidak pernah dipercaya mentah dari draft LLM maupun dari body request. Field yang wajib untuk `action` terkait tapi masih `null` di draft (NameResolver ragu, lihat "Alur AI") membuat `confirm` gagal `422` sampai user melengkapinya lewat body.
+
+`confirm`/`reject` pada draft yang sudah tidak `pending` (`confirmed`/`edited`/`rejected`/`expired`) gagal `422`.
 
 ---
 
@@ -439,6 +469,5 @@ Response `data`:
 
 ## Belum diimplementasikan (di luar cakupan dokumen ini)
 
-- `ConfirmAiAction` (menulis baris nyata dari `ai_actions.pending`).
-- SSE `action_card`, `AssistantService`, job terjadwal `recurring_rules`.
+- Job terjadwal `recurring_rules`.
 - Job harian yang mengisi `insight` naratif untuk `GET /analytics/summary`.

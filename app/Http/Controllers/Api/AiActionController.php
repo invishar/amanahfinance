@@ -2,13 +2,16 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Actions\AiActions\ConfirmAiAction;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\ConfirmAiActionRequest;
+use App\Http\Requests\RejectAiActionRequest;
 use App\Http\Resources\AiActionResource;
 use App\Models\AiAction;
 
-// Read-only: AI never writes business tables directly (aturan #5) and
-// ai_actions itself is only ever mutated by ConfirmAiAction -- no
-// create/update/destroy exists here on purpose.
+// AI never writes business tables directly (aturan #5); confirm()/reject()
+// are the only mutation entry points, both delegating to ConfirmAiAction --
+// no generic create/update/destroy exists here on purpose.
 class AiActionController extends Controller
 {
     public function index()
@@ -25,5 +28,15 @@ class AiActionController extends Controller
         $this->authorize('view', $aiAction);
 
         return new AiActionResource($aiAction);
+    }
+
+    public function confirm(ConfirmAiActionRequest $request, AiAction $aiAction, ConfirmAiAction $action)
+    {
+        return new AiActionResource($action->confirm($aiAction, $request->all()));
+    }
+
+    public function reject(RejectAiActionRequest $request, AiAction $aiAction, ConfirmAiAction $action)
+    {
+        return new AiActionResource($action->reject($aiAction));
     }
 }
