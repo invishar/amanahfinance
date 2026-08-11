@@ -11,6 +11,7 @@ use App\Http\Controllers\Api\FamilyController;
 use App\Http\Controllers\Api\FamilyInviteController;
 use App\Http\Controllers\Api\FamilyMemberController;
 use App\Http\Controllers\Api\IncomeSourceController;
+use App\Http\Controllers\Api\LlmSettingController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\OnboardingAnswerController;
 use App\Http\Controllers\Api\OpenApiController;
@@ -45,6 +46,11 @@ Route::prefix('v1')->group(function () {
         // Also outside resolve.family: the user accepting has no membership in
         // the target family yet, so there is nothing for ResolveFamily to resolve.
         Route::post('/family-invites/accept', [FamilyInviteController::class, 'accept']);
+
+        // Platform-wide, not family-scoped -- gated by users.is_platform_admin
+        // (LlmSettingPolicy), never by any family's role.
+        Route::get('/llm-settings', [LlmSettingController::class, 'show']);
+        Route::put('/llm-settings', [LlmSettingController::class, 'update']);
 
         // Everything below acts on the family resolved by ResolveFamily from the
         // authenticated user's own memberships (+ optional X-Family-Id header).

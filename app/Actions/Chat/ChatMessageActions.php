@@ -2,6 +2,7 @@
 
 namespace App\Actions\Chat;
 
+use App\Jobs\ProcessAssistantMessage;
 use App\Models\ChatMessage;
 use App\Models\ChatThread;
 
@@ -19,6 +20,10 @@ class ChatMessageActions
         $message = $message->fresh();
 
         $chatThread->update(['last_message_at' => $message->created_at]);
+
+        // LLM call happens in the queue, never in this web request (aturan
+        // CLAUDE.md). Amina's reply arrives later as its own ChatMessage.
+        ProcessAssistantMessage::dispatch($message->id);
 
         return $message;
     }

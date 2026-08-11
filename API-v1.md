@@ -375,6 +375,25 @@ Response `data`: `id, family_id, actor_id, entity, entity_id, action, diff, crea
 
 ---
 
+## LLM Settings — platform admin only
+
+Kredensial LLM platform-wide (aturan #7), **bukan** resource per-family — tidak berada di bawah `resolve.family` maupun `X-Family-Id`. Otorisasi lewat `users.is_platform_admin` (kolom terpisah dari `family_members.role`; admin family manapun **tidak** otomatis punya akses ini). Flag ini hanya bisa di-set manual (tinker/seeder), tidak ada endpoint self-service untuk menaikkan privilege.
+
+Singleton: hanya ada satu baris `llm_settings` yang berlaku untuk seluruh platform. Tidak ada `index`/`store`/`destroy` — cuma `show`/`update` pada "the" settings.
+
+| Method | Path | Body | Role |
+| --- | --- | --- | --- |
+| GET | `/llm-settings` | — | `is_platform_admin` |
+| PUT | `/llm-settings` | `key` (opsional; kosongkan untuk mempertahankan key lama), `model*`, `base_url` (opsional) | `is_platform_admin` |
+
+`key` **tidak pernah** dikembalikan lewat response — disimpan ter-enkripsi (Laravel `encrypted` cast, pakai `APP_KEY`) dan hanya diekspos sebagai `has_key` (boolean) + `key_preview` (4 karakter terakhir, untuk verifikasi visual saja). Sebelum baris DB pernah dibuat, `GET` menampilkan fallback dari `.env` (`LLM_API_KEY`/`LLM_MODEL`/`LLM_BASE_URL`) supaya admin tahu apa yang sedang efektif dipakai.
+
+`AssistantService` membaca setting ini **dinamis di setiap pemanggilan** (bukan di-cache lintas request) — ganti `model`/`key`/`base_url` langsung berlaku tanpa restart/redeploy.
+
+Response `data`: `model, base_url, has_key, key_preview, updated_at, updated_by`.
+
+---
+
 ## Analytics — read only
 
 Sumber data **wajib** view `v_wallet_month` / `v_cashflow_month` (aturan CLAUDE.md: "bukan query ad-hoc"). Tidak pernah memanggil LLM di sini — `insight` (komentar naratif dari AI) di-cache oleh job harian terpisah dan **belum** termasuk dalam response ini (job tersebut belum diimplementasikan).

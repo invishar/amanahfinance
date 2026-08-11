@@ -34,7 +34,17 @@ class User extends Authenticatable
         return [
             'last_login_at' => 'datetime',
             'created_at' => 'datetime',
+            'is_platform_admin' => 'boolean',
         ];
+    }
+
+    /**
+     * Deliberately not in #[Fillable] -- this is a privilege flag with no
+     * self-service update endpoint. Only ever set directly (tinker/seeder).
+     */
+    public function isPlatformAdmin(): bool
+    {
+        return $this->is_platform_admin === true;
     }
 
     /**

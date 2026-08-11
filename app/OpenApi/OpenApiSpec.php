@@ -56,7 +56,7 @@ class OpenApiSpec
                 'Auth', 'Families', 'Family Members', 'Family Invites', 'Accounts', 'Wallets',
                 'Wallet Budgets', 'Income Sources', 'Savings Goals', 'Transactions', 'Recurring Rules',
                 'Chat Threads', 'Chat Messages', 'Onboarding Answers', 'Notifications',
-                'AI Actions', 'Audit Logs', 'Analytics',
+                'AI Actions', 'Audit Logs', 'Analytics', 'LLM Settings',
             ]
         );
     }
@@ -444,6 +444,18 @@ class OpenApiSpec
                     'wallets' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/AnalyticsWallet']],
                 ],
             ],
+            'LlmSetting' => [
+                'type' => 'object',
+                'description' => 'Kredensial LLM platform-wide. key tidak pernah dikembalikan lewat API.',
+                'properties' => [
+                    'model' => ['type' => 'string', 'example' => 'claude-sonnet-5'],
+                    'base_url' => ['type' => 'string', 'nullable' => true],
+                    'has_key' => ['type' => 'boolean'],
+                    'key_preview' => ['type' => 'string', 'nullable' => true, 'example' => '...alue'],
+                    'updated_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'updated_by' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
+                ],
+            ],
         ];
     }
 
@@ -461,7 +473,43 @@ class OpenApiSpec
             self::chatMessagePaths(),
             self::readOnlyPaths(),
             self::analyticsPaths(),
+            self::llmSettingPaths(),
         );
+    }
+
+    private static function llmSettingPaths(): array
+    {
+        return [
+            '/llm-settings' => [
+                'get' => [
+                    'tags' => ['LLM Settings'],
+                    'summary' => 'Lihat setting LLM platform (is_platform_admin)',
+                    'description' => 'Platform-wide, bukan per-family -- tidak di bawah resolve.family/X-Family-Id. Sebelum baris DB pernah dibuat, menampilkan fallback dari .env.',
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::envelope('LlmSetting')),
+                        '403' => self::refResponse('Forbidden'),
+                    ],
+                ],
+                'put' => [
+                    'tags' => ['LLM Settings'],
+                    'summary' => 'Update setting LLM platform (is_platform_admin)',
+                    'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [
+                        'type' => 'object',
+                        'required' => ['model'],
+                        'properties' => [
+                            'key' => ['type' => 'string', 'nullable' => true, 'description' => 'Opsional; kosongkan untuk mempertahankan key lama. Tidak pernah dikembalikan lewat GET.'],
+                            'model' => ['type' => 'string'],
+                            'base_url' => ['type' => 'string', 'nullable' => true],
+                        ],
+                    ]]]],
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::envelope('LlmSetting')),
+                        '403' => self::refResponse('Forbidden'),
+                        '422' => self::refResponse('ValidationError'),
+                    ],
+                ],
+            ],
+        ];
     }
 
     private static function authPaths(): array
