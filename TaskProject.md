@@ -29,6 +29,8 @@ UI seluruh layar sudah jadi dan berjalan di atas data mock. Sasaran pekerjaan in
 
 ### Blocker (butuh backend, bukan pekerjaan frontend)
 
+> Daftar lengkap permintaan ke backend — beserta usulan kontraknya — ada di [CatatanBackend.md](CatatanBackend.md).
+
 1. **Balasan Amina belum ada.** `POST /chat-threads/{id}/messages` hanya menyimpan pesan user lalu balik `201` seketika. Tidak ada pesan `role: assistant`, tidak ada baris `ai_actions`, tidak ada SSE/streaming di spec.
 2. **Tidak ada endpoint confirm/reject `ai_actions`.** Spec cuma punya `GET /ai-actions` dan `GET /ai-actions/{id}`. Tombol "Ya, lanjutkan" tidak punya lawan bicara. **Jangan diakali dengan `POST /transactions` langsung dari layar chat** — melanggar aturan 6 di CLAUDE.md.
 3. **Tidak ada `GET /dashboard`.** Dashboard dirakit dari beberapa endpoint (lihat Fase 5).
