@@ -12,6 +12,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Prototipe desain (referensi, bukan kode produksi).
+    "template/**",
   ]),
 ]);
 
