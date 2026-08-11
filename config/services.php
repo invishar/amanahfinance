@@ -35,4 +35,14 @@ return [
         ],
     ],
 
+    // Alur AI (Amina). Kunci hanya hidup di sini (aturan #7) -- tidak pernah
+    // dikirim ke klien. model/base_url sengaja env-driven, bukan hardcode di
+    // AssistantService, supaya bisa ganti model/provider-compatible-endpoint
+    // tanpa deploy kode baru.
+    'anthropic' => [
+        'key' => env('ANTHROPIC_API_KEY'),
+        'model' => env('ANTHROPIC_MODEL', 'claude-sonnet-5'),
+        'base_url' => env('ANTHROPIC_BASE_URL'),
+    ],
+
 ];
