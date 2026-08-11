@@ -1,6 +1,3 @@
-@AGENTS.md
-
-
 # CLAUDE.md — amanafinance-web
 
 Klien AmanaFinance: seluruh antarmuka pengguna. **Tidak ada logika bisnis dan tidak ada kunci API LLM di repo ini.** Semua data datang dari `amanafinance-api`.
