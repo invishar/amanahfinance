@@ -1,24 +1,54 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
-import { useAmana } from "@/lib/store";
+import { ApiError } from "@/lib/api/client";
+import { useAcceptInvite, useActiveFamily, useCreateFamily } from "@/lib/api/hooks";
+import { useSession } from "@/lib/auth";
 
 type Mode = "create" | "join";
 
 export default function OnboardingPage() {
   const router = useRouter();
-  const { startOnboarding } = useAmana();
-  const [mode, setMode] = useState<Mode>("create");
-  const [familyName, setFamilyName] = useState("Keluarga Pratama");
-  const [joinCode, setJoinCode] = useState("");
+  const { status } = useSession();
+  const { familyId, isLoading } = useActiveFamily();
+  const createFamily = useCreateFamily();
+  const acceptInvite = useAcceptInvite();
 
-  const submit = () => {
-    // TODO: POST /families atau POST /families/join. Backend yang membuka
-    // thread `kind: 'onboarding'` beserta pertanyaan wawancaranya.
-    startOnboarding(mode === "create" ? familyName : null);
-    router.push("/chat");
+  const [mode, setMode] = useState<Mode>("create");
+  const [familyName, setFamilyName] = useState("");
+  const [joinCode, setJoinCode] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (status === "anonymous") router.replace("/login");
+  }, [status, router]);
+
+  // Sudah punya family → tidak ada yang perlu disiapkan.
+  useEffect(() => {
+    if (familyId) router.replace("/chat");
+  }, [familyId, router]);
+
+  const pending = createFamily.isPending || acceptInvite.isPending;
+
+  const submit = async () => {
+    setError(null);
+    try {
+      if (mode === "create") {
+        await createFamily.mutateAsync(familyName.trim());
+      } else {
+        await acceptInvite.mutateAsync(joinCode.trim());
+      }
+      router.replace("/chat");
+    } catch (e) {
+      if (e instanceof ApiError) {
+        const field = mode === "create" ? "name" : "token";
+        setError(e.fieldMessage(field) ?? e.message);
+      } else {
+        setError("Terjadi kesalahan tak terduga.");
+      }
+    }
   };
 
   return (
@@ -82,13 +112,16 @@ export default function OnboardingPage() {
           </div>
         )}
 
+        {error && <p className="field-error">{error}</p>}
+
         <button
           type="button"
           className="btn btn-primary btn-block"
           style={{ height: 44, fontSize: 15 }}
           onClick={submit}
+          disabled={pending || isLoading}
         >
-          Lanjut ke AmanaFinance
+          {pending ? "Menyiapkan…" : "Lanjut ke AmanaFinance"}
         </button>
       </div>
     </div>

@@ -1,111 +1,169 @@
-// View model per layar. SEMENTARA: seluruh perhitungan di sini milik server
-// (`GET /dashboard`, `GET /analytics/summary`, field `spent`/`status`/`percent`
-// pada wallet & goal). Begitu `lib/api.ts` hidup, fungsi-fungsi ini menyusut
-// jadi pemetaan label saja.
+// Pemetaan data API → label siap tampil. TIDAK ada perhitungan turunan di
+// sini: `spent`, `percent`, `status`, dan total kas semuanya datang dari
+// `GET /analytics/summary` atau dari field entitasnya sendiri.
 
 import { formatDateID, formatRupiah } from "@/lib/format";
-import { accountTypeIcon, accountTypeLabel } from "@/lib/mock/data";
-import {
-  budgetStatus,
-  estimateGoalCompletion,
-  walletSpent,
-  type BudgetStatus,
-} from "@/lib/mock/derive";
 import type {
   Account,
+  AnalyticsSummary,
   IncomeSource,
   SavingsGoal,
   Transaction,
   Wallet,
-} from "@/lib/types";
+} from "@/lib/api/hooks";
+
+type AnalyticsWallet = NonNullable<AnalyticsSummary["wallets"]>[number];
+type BudgetStatus = NonNullable<AnalyticsWallet["status"]>;
 
 const STATUS_LABEL: Record<BudgetStatus, string> = {
-  safe: "Aman",
-  near: "Hampir habis",
+  ok: "Aman",
+  warning: "Hampir habis",
   over: "Lewat budget",
+  no_budget: "Tanpa budget",
 };
 
 const STATUS_COLOR: Record<BudgetStatus, string> = {
-  safe: "var(--color-text)",
-  near: "var(--color-accent-600)",
+  ok: "var(--color-text)",
+  warning: "var(--color-accent-600)",
   over: "var(--color-accent-800)",
+  no_budget: "var(--color-text)",
 };
 
 const STATUS_BAR_COLOR: Record<BudgetStatus, string> = {
-  safe: "var(--color-accent-400)",
-  near: "var(--color-accent-600)",
+  ok: "var(--color-accent-400)",
+  warning: "var(--color-accent-600)",
   over: "var(--color-accent-800)",
+  no_budget: "var(--color-neutral-400)",
 };
 
-export interface WalletView extends Wallet {
-  spent: number;
+export interface WalletView {
+  id: string;
+  name: string;
+  icon: string;
   spentLabel: string;
   budgetLabel: string;
-  pct: number;
+  percent: number;
   statusLabel: string;
   statusColor: string;
   barColor: string;
+  raw: Wallet;
 }
 
+/** Gabungkan daftar wallet dengan angka bulan berjalan dari analytics. */
 export function walletsView(
   wallets: Wallet[],
-  transactions: Transaction[],
+  analytics?: AnalyticsSummary,
 ): WalletView[] {
-  return wallets.map((w) => {
-    const spent = walletSpent(w.id, transactions);
-    const pct = w.monthly_budget
-      ? Math.min(100, Math.round((spent / w.monthly_budget) * 100))
-      : 0;
-    const status = budgetStatus(spent, w.monthly_budget);
+  const byId = new Map(
+    (analytics?.wallets ?? []).map((w) => [w.wallet_id, w] as const),
+  );
+
+  return wallets.map((wallet) => {
+    const stats = byId.get(wallet.id);
+    const status: BudgetStatus = stats?.status ?? "no_budget";
     return {
-      ...w,
-      spent,
-      spentLabel: formatRupiah(spent),
-      budgetLabel: formatRupiah(w.monthly_budget),
-      pct,
+      id: wallet.id ?? "",
+      name: wallet.name ?? "",
+      icon: wallet.icon ?? "shopping-cart",
+      spentLabel: formatRupiah(stats?.spent ?? 0),
+      budgetLabel: formatRupiah(stats?.budget ?? wallet.monthly_budget ?? 0),
+      percent: stats?.percent ?? 0,
       statusLabel: STATUS_LABEL[status],
       statusColor: STATUS_COLOR[status],
       barColor: STATUS_BAR_COLOR[status],
+      raw: wallet,
     };
   });
 }
 
-export interface WalletBar extends WalletView {
-  /** Panjang bar relatif terhadap wallet paling boros. */
-  barPct: number;
+/** Urutan bar dashboard/analisa: paling boros di atas. */
+export function sortBySpent(views: WalletView[]): WalletView[] {
+  return [...views].sort((a, b) => b.percent - a.percent);
 }
 
-export function walletBars(
-  wallets: Wallet[],
-  transactions: Transaction[],
-): WalletBar[] {
-  const views = walletsView(wallets, transactions);
-  const maxSpent = Math.max(1, ...views.map((w) => w.spent));
-  return views
-    .map((w) => ({ ...w, barPct: Math.round((w.spent / maxSpent) * 100) }))
-    .sort((a, b) => b.barPct - a.barPct);
-}
-
-export interface AccountView extends Account {
+export interface AccountView {
+  id: string;
+  name: string;
   balanceLabel: string;
   typeLabel: string;
   typeIcon: string;
+  raw: Account;
 }
 
+const ACCOUNT_TYPE_LABEL: Record<string, string> = {
+  bank: "Bank",
+  ewallet: "E-Wallet",
+  cash: "Tunai",
+  other: "Lainnya",
+};
+
+const ACCOUNT_TYPE_ICON: Record<string, string> = {
+  bank: "landmark",
+  ewallet: "smartphone",
+  cash: "banknote",
+  other: "wallet",
+};
+
 export function accountsView(accounts: Account[]): AccountView[] {
-  return accounts.map((a) => ({
-    ...a,
-    balanceLabel: formatRupiah(a.current_balance),
-    typeLabel: accountTypeLabel[a.account_type],
-    typeIcon: accountTypeIcon[a.account_type],
+  return accounts.map((account) => ({
+    id: account.id ?? "",
+    name: account.name ?? "",
+    balanceLabel: formatRupiah(account.current_balance ?? 0),
+    typeLabel: ACCOUNT_TYPE_LABEL[account.account_type ?? "other"] ?? "Lainnya",
+    typeIcon: ACCOUNT_TYPE_ICON[account.account_type ?? "other"] ?? "wallet",
+    raw: account,
   }));
 }
 
 export function totalBalance(accounts: Account[]): number {
-  return accounts.reduce((sum, a) => sum + a.current_balance, 0);
+  return accounts.reduce((sum, a) => sum + (a.current_balance ?? 0), 0);
 }
 
-export interface TransactionView extends Transaction {
+export interface GoalView {
+  id: string;
+  name: string;
+  percent: number;
+  currentLabel: string;
+  targetLabel: string;
+  deadlineLabel: string | null;
+  raw: SavingsGoal;
+}
+
+export function goalsView(goals: SavingsGoal[]): GoalView[] {
+  return goals.map((goal) => ({
+    id: goal.id ?? "",
+    name: goal.target_name ?? "",
+    percent: goal.percent ?? 0,
+    currentLabel: formatRupiah(goal.current_amount ?? 0),
+    targetLabel: formatRupiah(goal.target_amount ?? 0),
+    deadlineLabel: goal.deadline ? formatDateID(goal.deadline) : null,
+    raw: goal,
+  }));
+}
+
+export interface IncomeSourceView {
+  id: string;
+  name: string;
+  /** `expected_amount` bila diisi — API belum menyediakan realisasi per sumber. */
+  expectedLabel: string | null;
+  raw: IncomeSource;
+}
+
+export function incomeSourcesView(sources: IncomeSource[]): IncomeSourceView[] {
+  return sources.map((source) => ({
+    id: source.id ?? "",
+    name: source.name ?? "",
+    expectedLabel:
+      typeof source.expected_amount === "number"
+        ? formatRupiah(source.expected_amount)
+        : null,
+    raw: source,
+  }));
+}
+
+export interface TransactionView {
+  id: string;
+  note: string;
   amountLabel: string;
   dateLabel: string;
   walletName: string;
@@ -114,6 +172,8 @@ export interface TransactionView extends Transaction {
   iconColor: string;
 }
 
+const INFLOW: ReadonlySet<string> = new Set(["income"]);
+
 export function recentTransactions(
   transactions: Transaction[],
   wallets: Wallet[],
@@ -121,24 +181,21 @@ export function recentTransactions(
   limit = 8,
 ): TransactionView[] {
   return [...transactions]
-    .sort(
-      (a, b) =>
-        new Date(b.transaction_date).getTime() -
-        new Date(a.transaction_date).getTime(),
+    .sort((a, b) =>
+      (b.transaction_date ?? "").localeCompare(a.transaction_date ?? ""),
     )
     .slice(0, limit)
     .map((t) => {
-      const isIncome = t.type === "income";
+      const isIncome = INFLOW.has(t.type ?? "");
       return {
-        ...t,
-        amountLabel: (isIncome ? "+ " : "− ") + formatRupiah(t.amount),
-        dateLabel: formatDateID(t.transaction_date),
+        id: t.id ?? "",
+        note: t.note || labelForType(t.type),
+        amountLabel: (isIncome ? "+ " : "− ") + formatRupiah(t.amount ?? 0),
+        dateLabel: t.transaction_date ? formatDateID(t.transaction_date) : "",
         walletName:
           wallets.find((w) => w.id === t.wallet_id)?.name ??
-          (isIncome
-            ? (incomeSources.find((i) => i.id === t.source_id)?.name ??
-              "Pemasukan")
-            : "—"),
+          incomeSources.find((s) => s.id === t.source_id)?.name ??
+          labelForType(t.type),
         icon: isIncome ? "arrow-down-left" : "arrow-up-right",
         iconBg: isIncome ? "var(--color-income-bg)" : "var(--color-accent-100)",
         iconColor: isIncome
@@ -148,59 +205,17 @@ export function recentTransactions(
     });
 }
 
-export interface GoalView extends SavingsGoal {
-  pct: number;
-  currentLabel: string;
-  targetLabel: string;
-  deadlineLabel: string;
-  etaLabel: string;
-}
-
-export function goalsView(goals: SavingsGoal[]): GoalView[] {
-  return goals.map((g) => ({
-    ...g,
-    pct: Math.round(Math.min(100, (g.current_amount / g.target_amount) * 100)),
-    currentLabel: formatRupiah(g.current_amount),
-    targetLabel: formatRupiah(g.target_amount),
-    deadlineLabel: formatDateID(g.deadline),
-    etaLabel: estimateGoalCompletion(g),
-  }));
-}
-
-export interface IncomeSourceView extends IncomeSource {
-  totalLabel: string;
-}
-
-export function incomeView(
-  sources: IncomeSource[],
-  transactions: Transaction[],
-): IncomeSourceView[] {
-  return sources.map((src) => ({
-    ...src,
-    totalLabel: formatRupiah(
-      transactions
-        .filter((t) => t.source_id === src.id)
-        .reduce((sum, t) => sum + t.amount, 0),
-    ),
-  }));
-}
-
-export interface AnalyticsSummary {
-  totalIncomeLabel: string;
-  totalExpenseLabel: string;
-  netLabel: string;
-}
-
-export function analyticsSummary(transactions: Transaction[]): AnalyticsSummary {
-  const totalIncome = transactions
-    .filter((t) => t.type === "income")
-    .reduce((sum, t) => sum + t.amount, 0);
-  const totalExpense = transactions
-    .filter((t) => t.type === "expense")
-    .reduce((sum, t) => sum + t.amount, 0);
-  return {
-    totalIncomeLabel: formatRupiah(totalIncome),
-    totalExpenseLabel: formatRupiah(totalExpense),
-    netLabel: formatRupiah(totalIncome - totalExpense),
-  };
+function labelForType(type: Transaction["type"]): string {
+  switch (type) {
+    case "income":
+      return "Pemasukan";
+    case "expense":
+      return "Pengeluaran";
+    case "transfer":
+      return "Transfer";
+    case "savings":
+      return "Tabungan";
+    default:
+      return "—";
+  }
 }

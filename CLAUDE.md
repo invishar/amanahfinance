@@ -20,11 +20,11 @@ app/(app)/{chat,dashboard,wallets,accounts,income,goals,analysis,settings}
 app/(app)/layout.tsx    -> <AppShell>          app/globals.css  token + kelas komponen
 components/app-shell.tsx  sidebar / tab bar / more sheet / modal
 components/chat/*         message list, action card
-components/{icon,ui,crud-dialog,auth-header}.tsx
-lib/store.tsx      state global sementara (lihat "Utang teknis")
-lib/selectors.ts   view model per layar (sementara)
-lib/mock/*         data & balasan Amina palsu (sementara)
-lib/{types,format,nav,use-viewport}.ts
+components/{icon,ui,crud-dialog,confirm-dialog,require-session,auth-header}.tsx
+lib/api/*          client, schema hasil generate, hooks, query key
+lib/{auth,token-store,ui-store,entity-forms,selectors}.ts(x)
+lib/mock/assistant.ts  DEMO balasan Amina (lihat "Status integrasi")
+lib/{format,nav,use-viewport}.ts
 ```
 
 Ikon: `lucide-react`, selalu lewat `components/icon.tsx`.
@@ -57,28 +57,30 @@ Pemetaan layar → endpoint yang benar:
 
 Beda lain dengan prototipe yang perlu ditangani saat menyambung API: `Transaction.type` punya `transfer` dan `savings` (desain baru meng-cover `income`/`expense`), ada `origin`, `receipt_url`, `to_account_id`, `goal_id`; ada entitas `recurring-rules`, `notifications`, `audit-logs`, `llm-settings` yang belum punya layar.
 
-## Utang teknis — dihapus saat API tersambung
+## Status integrasi
 
-Backend belum dipakai sama sekali; UI jalan di atas mock. Yang berikut **sengaja melanggar** aturan 3, 5, dan 7 di bawah dan wajib dibuang, bukan dikembangkan:
+API **sudah tersambung** (lihat [TaskProject.md](TaskProject.md)): auth, family, CRUD wallet/akun/pemasukan/target, dashboard, analisa, dan pengaturan keluarga semuanya memakai data sungguhan lewat TanStack Query.
 
-| File | Nasib |
-| --- | --- |
-| `lib/mock/data.ts`, `lib/mock/assistant.ts` | hapus — diganti response API |
-| `lib/mock/derive.ts` | hapus — `spent`, `percent`, status budget, estimasi target dihitung server |
-| `lib/selectors.ts` | susut jadi pemetaan label saja (format Rupiah/tanggal/ikon) |
-| `lib/types.ts` | hapus — ganti hasil generate dari `openapi.json` |
-| `lib/store.tsx` | pecah: state UI tetap di klien, sisanya pindah ke TanStack Query + `lib/api.ts` |
+```
+lib/api/client.ts   satu-satunya fetch + ApiError (status, fieldErrors)
+lib/api/schema.d.ts hasil `npm run api:types` — jangan diedit tangan
+lib/api/hooks.ts    query & mutation per entitas
+lib/auth.tsx        sesi Sanctum (token via lib/token-store.ts)
+lib/ui-store.tsx    state klien: modal, bottom sheet, draft form
+lib/entity-forms.ts pemetaan field desain → field API
+lib/selectors.ts    pemetaan label (tanpa hitungan turunan)
+```
 
-Selama masih mock: **komponen tidak boleh meng-import `lib/mock/*` langsung**, semuanya lewat `lib/store.tsx`.
+Yang **masih demo** dan wajib dihapus begitu backend siap: `lib/mock/assistant.ts` di balik flag `NEXT_PUBLIC_MOCK_AMINA` — balasan Amina, kartu aksi, dan naskah wawancara awal. Alasannya: `POST /chat-threads/{id}/messages` menyimpan pesan user tapi belum membalas, dan tidak ada endpoint confirm/reject `ai_actions`. Pesan user tetap dikirim ke API sungguhan; header chat menampilkan penanda "Balasan demo" supaya tidak ada yang mengira itu jawaban asli.
 
-Belum dikerjakan: tombol "Edit" di action card masih no-op; pesan error 422/401 baru kerangkanya (validasi klien).
+Catatan penting soal sesi: token dibaca dari `tokenStore` **pada tiap request**, bukan dicermin ke variabel modul lewat `useEffect` — versi effect membuat request pertama setelah reload jalan tanpa header dan memicu `401` palsu.
 
 ## Aturan yang tidak boleh dilanggar
 
 1. **Uang adalah integer rupiah penuh.** Jangan pernah pakai float. Format tampilan: `'Rp ' + n.toLocaleString('id-ID')`, tanpa desimal — lewat `formatRupiah()` di `lib/format.ts`.
 2. **Jangan ketik ulang tipe API.** Generate dari `/api/v1/openapi.json` (`openapi-typescript` + `openapi-fetch` atau Orval) dan commit hasilnya.
 3. **Jangan hitung apa pun yang dihitung server** — spent per wallet, status budget, percent, estimasi target, insight.
-4. **Semua `fetch` lewat satu modul `lib/api.ts`.** Tidak ada `fetch` tersebar di komponen.
+4. **Semua `fetch` lewat `lib/api/client.ts`.** Tidak ada `fetch` tersebar di komponen.
 5. **Server state pakai TanStack Query** dengan key ber-`familyId`, mis. `['wallets', familyId]`. Jangan menyalin data server ke state lokal kecuali draft form.
 6. **Tidak ada penulisan data langsung dari klien saat chat** — hanya lewat konfirmasi `ai_actions`. Catatan: `openapi.json` baru mengekspos `GET /ai-actions`; endpoint confirm/reject belum ada. Kalau butuh, **tanya backend dulu — jangan diakali dengan `POST /transactions` dari layar chat.**
 7. **Naskah pertanyaan onboarding tidak disimpan di klien.** Render urutan yang dikirim API (thread `kind: onboarding` + `/onboarding-answers`).
@@ -116,15 +118,16 @@ Hover nav/tab → `accent-100`. Primary hover → `accent-600`, active → `acce
 
 ## State milik klien vs server
 
-Klien: `moreSheetOpen`, `chatInput`, `isRecording`, `pendingMessageId`, `modal`, draft form + error per-field. (Layar & tab aktif ikut router; desktop/mobile ikut CSS — jangan dijadikan state lagi.)
+Klien (`lib/ui-store.tsx` + state lokal komponen): `modal`, `moreSheetOpen`, `chatInput`, `isRecording`, draft form + error per-field. Layar & tab aktif ikut router; desktop/mobile ikut CSS — jangan dijadikan state lagi.
 
-Server (TanStack Query): `messages`, `wallets`, `accounts`, `incomeSources`, `savingsGoals`, `transactions`, `analytics`, `family`, `members`, `invites`.
+Server (TanStack Query, `lib/api/hooks.ts`): `messages`, `wallets`, `accounts`, `incomeSources`, `savingsGoals`, `transactions`, `analytics`, `family`, `members`, `invites`.
 
 ## Penanganan error
 
-- `422` → pesan per-field di bawah input (12px, `accent-800`) — kelas `.field-error`.
+- `422` → pesan per-field di bawah input (12px, `accent-800`) — kelas `.field-error`. Backend masih mengirim kunci mentah (`validation.required`); pemetaan sementara ada di `translateValidation()` pada `lib/api/client.ts`.
 - `401` → satu baris di atas tombol / redirect ke login.
 - `403` → bukan anggota family atau role kurang; sembunyikan aksi yang tidak diizinkan untuk `viewer`.
+- `409` → entitas masih dipakai data lain (mis. wallet dengan transaksi); tampilkan alasannya di dialog konfirmasi.
 - Loading pakai **skeleton yang meniru tinggi kartu asli** (`components/ui.tsx`), bukan spinner tengah layar. Empty state selalu punya ajakan tindakan.
 
 ## Jangan

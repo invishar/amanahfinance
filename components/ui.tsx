@@ -52,9 +52,7 @@ export function RowActions({
       <button
         type="button"
         className="btn btn-icon-sm btn-secondary"
-        onClick={() => {
-          if (window.confirm(`Hapus ${label}?`)) onDelete();
-        }}
+        onClick={onDelete}
         aria-label={`Hapus ${label}`}
       >
         <Icon name="trash-2" size={14} />

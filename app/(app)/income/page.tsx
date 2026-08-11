@@ -3,22 +3,31 @@
 import { useMemo } from "react";
 
 import { PageHeader, RowActions, SkeletonList } from "@/components/ui";
-import { incomeView } from "@/lib/selectors";
-import { useAmana } from "@/lib/store";
+import { useDeleteFlow } from "@/components/use-delete-flow";
+import { useIncomeSources } from "@/lib/api/hooks";
+import { incomeSourcesView } from "@/lib/selectors";
+import { useUi } from "@/lib/ui-store";
 
 export default function IncomePage() {
-  const { ready, incomeSources, transactions, openModal, deleteItem } = useAmana();
+  const sources = useIncomeSources();
+  const { openModal } = useUi();
+  const { askDelete, dialog } = useDeleteFlow("income");
+
   const list = useMemo(
-    () => incomeView(incomeSources, transactions),
-    [incomeSources, transactions],
+    () => incomeSourcesView(sources.data ?? []),
+    [sources.data],
   );
 
   return (
     <div className="amana-container">
       <PageHeader title="Sumber Pemasukan" onAdd={() => openModal("income")} />
 
-      {!ready ? (
+      {sources.isPending ? (
         <SkeletonList count={2} height={74} />
+      ) : sources.isError ? (
+        <p className="field-error">
+          Gagal memuat sumber pemasukan. Coba muat ulang halaman.
+        </p>
       ) : list.length === 0 ? (
         <p className="text-muted" style={{ fontSize: 13 }}>
           Belum ada sumber pemasukan.
@@ -39,21 +48,26 @@ export default function IncomePage() {
               {src.name}
             </div>
             <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-              <div
-                className="text-muted"
-                style={{ fontSize: 13, whiteSpace: "nowrap" }}
-              >
-                Bulan ini: {src.totalLabel}
-              </div>
+              {/* API belum menyediakan realisasi per sumber; yang ada perkiraannya. */}
+              {src.expectedLabel && (
+                <div
+                  className="text-muted"
+                  style={{ fontSize: 13, whiteSpace: "nowrap" }}
+                >
+                  Perkiraan: {src.expectedLabel}
+                </div>
+              )}
               <RowActions
                 label={`sumber pemasukan ${src.name}`}
-                onEdit={() => openModal("income", src.id)}
-                onDelete={() => deleteItem("income", src.id)}
+                onEdit={() => openModal("income", src.raw)}
+                onDelete={() => askDelete(src.id, `sumber pemasukan ${src.name}`)}
               />
             </div>
           </div>
         ))
       )}
+
+      {dialog}
     </div>
   );
 }

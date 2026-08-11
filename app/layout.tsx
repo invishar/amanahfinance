@@ -1,7 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Plus_Jakarta_Sans, Sora } from "next/font/google";
 
-import { AmanaProvider } from "@/lib/store";
+import { Providers } from "@/app/providers";
 import "./globals.css";
 
 // Font di-self-host oleh next/font (tidak menembak Google CDN saat runtime).
@@ -34,7 +34,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="id" className={`${sora.variable} ${plusJakartaSans.variable}`}>
       <body>
-        <AmanaProvider>{children}</AmanaProvider>
+        <Providers>{children}</Providers>
       </body>
     </html>
   );

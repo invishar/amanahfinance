@@ -4,19 +4,26 @@ import { useMemo } from "react";
 
 import { Icon } from "@/components/icon";
 import { PageHeader, RowActions, SkeletonList } from "@/components/ui";
+import { useDeleteFlow } from "@/components/use-delete-flow";
+import { useAccounts } from "@/lib/api/hooks";
 import { accountsView } from "@/lib/selectors";
-import { useAmana } from "@/lib/store";
+import { useUi } from "@/lib/ui-store";
 
 export default function AccountsPage() {
-  const { ready, accounts, openModal, deleteItem } = useAmana();
-  const list = useMemo(() => accountsView(accounts), [accounts]);
+  const accounts = useAccounts();
+  const { openModal } = useUi();
+  const { askDelete, dialog } = useDeleteFlow("account");
+
+  const list = useMemo(() => accountsView(accounts.data ?? []), [accounts.data]);
 
   return (
     <div className="amana-container">
       <PageHeader title="Akun Bank & E-Wallet" onAdd={() => openModal("account")} />
 
-      {!ready ? (
+      {accounts.isPending ? (
         <SkeletonList count={3} height={82} />
+      ) : accounts.isError ? (
+        <p className="field-error">Gagal memuat akun. Coba muat ulang halaman.</p>
       ) : list.length === 0 ? (
         <p className="text-muted" style={{ fontSize: 13 }}>
           Belum ada akun. Tambah tempat uangmu berada.
@@ -54,13 +61,15 @@ export default function AccountsPage() {
               </div>
               <RowActions
                 label={`akun ${a.name}`}
-                onEdit={() => openModal("account", a.id)}
-                onDelete={() => deleteItem("account", a.id)}
+                onEdit={() => openModal("account", a.raw)}
+                onDelete={() => askDelete(a.id, `akun ${a.name}`)}
               />
             </div>
           </div>
         ))
       )}
+
+      {dialog}
     </div>
   );
 }

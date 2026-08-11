@@ -5,41 +5,56 @@ import { useMemo } from "react";
 
 import { Icon } from "@/components/icon";
 import { EmptyState, ProgressBar, Skeleton, SkeletonList } from "@/components/ui";
+import {
+  useAccounts,
+  useAnalytics,
+  useIncomeSources,
+  useSavingsGoals,
+  useTransactions,
+  useWallets,
+} from "@/lib/api/hooks";
+import { useMe } from "@/lib/auth";
 import { firstName, formatDayDateID, formatRupiah, initials } from "@/lib/format";
 import {
   accountsView,
   goalsView,
   recentTransactions,
+  sortBySpent,
   totalBalance,
-  walletBars,
+  walletsView,
 } from "@/lib/selectors";
-import { useAmana } from "@/lib/store";
 
 export default function DashboardPage() {
   const router = useRouter();
-  const {
-    ready,
-    today,
-    currentUser,
-    wallets,
-    accounts,
-    incomeSources,
-    savingsGoals,
-    transactions,
-  } = useAmana();
+  const me = useMe();
+  const accounts = useAccounts();
+  const analytics = useAnalytics();
+  const wallets = useWallets();
+  const goals = useSavingsGoals();
+  const transactions = useTransactions();
+  const incomeSources = useIncomeSources();
 
-  // Di produksi seluruh blok ini satu panggilan `GET /dashboard`.
-  const accountList = useMemo(() => accountsView(accounts), [accounts]);
+  // API tidak punya `GET /dashboard`; layar ini dirakit dari beberapa query.
+  const accountList = useMemo(
+    () => accountsView(accounts.data ?? []),
+    [accounts.data],
+  );
   const bars = useMemo(
-    () => walletBars(wallets, transactions),
-    [wallets, transactions],
+    () => sortBySpent(walletsView(wallets.data ?? [], analytics.data)),
+    [wallets.data, analytics.data],
   );
-  const goals = useMemo(() => goalsView(savingsGoals), [savingsGoals]);
+  const goalList = useMemo(() => goalsView(goals.data ?? []), [goals.data]);
   const recent = useMemo(
-    () => recentTransactions(transactions, wallets, incomeSources),
-    [transactions, wallets, incomeSources],
+    () =>
+      recentTransactions(
+        transactions.data ?? [],
+        wallets.data ?? [],
+        incomeSources.data ?? [],
+      ),
+    [transactions.data, wallets.data, incomeSources.data],
   );
 
+  const userName = me.data?.full_name ?? "";
   const goToChat = () => router.push("/chat");
 
   return (
@@ -53,10 +68,10 @@ export default function DashboardPage() {
       >
         <div>
           <div className="text-muted" style={{ fontSize: 13 }}>
-            {formatDayDateID(today)}
+            {formatDayDateID(new Date().toISOString().slice(0, 10))}
           </div>
           <h1 style={{ fontSize: 26, margin: "2px 0 0" }}>
-            Halo, {firstName(currentUser.name)}
+            Halo{userName ? `, ${firstName(userName)}` : ""}
           </h1>
         </div>
         <div
@@ -75,12 +90,12 @@ export default function DashboardPage() {
             flex: "none",
           }}
         >
-          {initials(currentUser.name)}
+          {userName ? initials(userName) : ""}
         </div>
       </div>
 
       {/* Hero saldo */}
-      {!ready ? (
+      {accounts.isPending ? (
         <Skeleton height={196} style={{ borderRadius: "var(--radius-lg)" }} />
       ) : (
         <div
@@ -116,55 +131,61 @@ export default function DashboardPage() {
               wordBreak: "break-word",
             }}
           >
-            {formatRupiah(totalBalance(accounts))}
+            {formatRupiah(totalBalance(accounts.data ?? []))}
           </div>
-          <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-            {accountList.map((a) => (
-              <div
-                key={a.id}
-                style={{
-                  flex: "1 1 120px",
-                  minWidth: 0,
-                  background: "rgba(255,255,255,0.18)",
-                  borderRadius: "var(--radius-md)",
-                  padding: "10px 12px",
-                  display: "flex",
-                  flexDirection: "column",
-                  gap: 4,
-                }}
-              >
+          {accountList.length === 0 ? (
+            <div style={{ fontSize: 13, opacity: 0.9 }}>
+              Belum ada akun — tambahkan di menu Akun.
+            </div>
+          ) : (
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+              {accountList.map((a) => (
                 <div
+                  key={a.id}
                   style={{
+                    flex: "1 1 120px",
+                    minWidth: 0,
+                    background: "rgba(255,255,255,0.18)",
+                    borderRadius: "var(--radius-md)",
+                    padding: "10px 12px",
                     display: "flex",
-                    alignItems: "center",
-                    gap: 6,
-                    fontSize: 12,
-                    opacity: 0.9,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
+                    flexDirection: "column",
+                    gap: 4,
                   }}
                 >
-                  <Icon name={a.typeIcon} size={13} />
-                  <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
-                    {a.name}
-                  </span>
+                  <div
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 12,
+                      opacity: 0.9,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    <Icon name={a.typeIcon} size={13} />
+                    <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                      {a.name}
+                    </span>
+                  </div>
+                  <div
+                    style={{
+                      fontFamily: "var(--font-heading)",
+                      fontSize: 14,
+                      fontWeight: 600,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
+                    {a.balanceLabel}
+                  </div>
                 </div>
-                <div
-                  style={{
-                    fontFamily: "var(--font-heading)",
-                    fontSize: 14,
-                    fontWeight: 600,
-                    whiteSpace: "nowrap",
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                  }}
-                >
-                  {a.balanceLabel}
-                </div>
-              </div>
-            ))}
-          </div>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
@@ -173,7 +194,7 @@ export default function DashboardPage() {
         <div className="card-title" style={{ marginBottom: 10 }}>
           Pengeluaran per Wallet
         </div>
-        {!ready ? (
+        {wallets.isPending || analytics.isPending ? (
           <div
             style={{
               display: "grid",
@@ -216,15 +237,11 @@ export default function DashboardPage() {
                       flex: "none",
                     }}
                   >
-                    <Icon
-                      name={w.icon}
-                      size={15}
-                      color="var(--color-accent-700)"
-                    />
+                    <Icon name={w.icon} size={15} color="var(--color-accent-700)" />
                   </div>
                   <div style={{ fontSize: 13, fontWeight: 600 }}>{w.name}</div>
                 </div>
-                <ProgressBar pct={w.barPct} height={6} />
+                <ProgressBar pct={w.percent} height={6} color={w.barColor} />
                 <div className="text-muted" style={{ fontSize: 12 }}>
                   {w.spentLabel}
                 </div>
@@ -245,14 +262,14 @@ export default function DashboardPage() {
             marginTop: 8,
           }}
         >
-          {!ready ? (
+          {goals.isPending ? (
             <SkeletonList count={3} height={44} />
-          ) : goals.length === 0 ? (
+          ) : goalList.length === 0 ? (
             <p className="text-muted" style={{ margin: 0, fontSize: 13 }}>
               Belum ada target tabungan.
             </p>
           ) : (
-            goals.map((g) => (
+            goalList.map((g) => (
               <div
                 key={g.id}
                 style={{ display: "flex", alignItems: "center", gap: 12 }}
@@ -262,7 +279,7 @@ export default function DashboardPage() {
                     width: 44,
                     height: 44,
                     borderRadius: "50%",
-                    background: `conic-gradient(var(--color-accent-500) ${g.pct}%, var(--color-neutral-200) 0)`,
+                    background: `conic-gradient(var(--color-accent-500) ${g.percent}%, var(--color-neutral-200) 0)`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -282,13 +299,11 @@ export default function DashboardPage() {
                       fontWeight: 700,
                     }}
                   >
-                    {g.pct}%
+                    {g.percent}%
                   </div>
                 </div>
                 <div style={{ flex: 1, minWidth: 0 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600 }}>
-                    {g.target_name}
-                  </div>
+                  <div style={{ fontSize: 13, fontWeight: 600 }}>{g.name}</div>
                   <div className="text-muted" style={{ fontSize: 12 }}>
                     {g.currentLabel} / {g.targetLabel}
                   </div>
@@ -302,10 +317,8 @@ export default function DashboardPage() {
       {/* Transaksi terbaru */}
       <div className="card elev-sm">
         <div className="card-title">Transaksi Terbaru</div>
-        <div
-          style={{ display: "flex", flexDirection: "column", marginTop: 6 }}
-        >
-          {!ready ? (
+        <div style={{ display: "flex", flexDirection: "column", marginTop: 6 }}>
+          {transactions.isPending ? (
             <SkeletonList count={6} height={54} />
           ) : recent.length === 0 ? (
             <p className="text-muted" style={{ margin: "8px 0 0", fontSize: 13 }}>

@@ -1,55 +1,231 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "@/components/icon";
-import { MessageList } from "@/components/chat/message-list";
-import { onboardQuestions, type Scenario } from "@/lib/mock/assistant";
-import { useAmana } from "@/lib/store";
+import { MessageList, type ChatItem } from "@/components/chat/message-list";
+import {
+  useAccounts,
+  useActiveFamily,
+  useChatThreads,
+  useCreateThread,
+  useMessages,
+  useSendMessage,
+  useWallets,
+} from "@/lib/api/hooks";
+import {
+  DEMO_AMINA,
+  DEMO_CHIPS,
+  DEMO_ONBOARD_QUESTIONS,
+  demoGreeting,
+  demoReply,
+  type DemoActionCard,
+  type Scenario,
+} from "@/lib/mock/assistant";
 
-const CHIPS: { label: string; scenario: Scenario; demoText: string }[] = [
-  { label: "Catat pengeluaran", scenario: "transaction_text", demoText: "Tadi beli kopi sama snack 45rb pakai GoPay" },
-  { label: "Buat wallet baru", scenario: "create_wallet", demoText: "Aku mau bikin wallet baru buat Kesehatan" },
-  { label: "Tambah akun baru", scenario: "create_account", demoText: "Tolong tambahin akun Dana sebagai e-wallet" },
-  { label: "Minta saran keuangan", scenario: "advice", demoText: "Gimana kondisi keuangan bulan ini?" },
-];
+interface DemoItem extends ChatItem {
+  at: number;
+}
 
 export default function ChatPage() {
-  const { messages, isTyping, onboardStep, family, sendChat, skipOnboardStep } =
-    useAmana();
+  const { family } = useActiveFamily();
+  const threads = useChatThreads();
+  const createThread = useCreateThread();
+  const wallets = useWallets();
+  const accounts = useAccounts();
+
+  const threadId = threads.data?.[0]?.id ?? null;
+  const messages = useMessages(threadId ?? null);
+  const sendMessage = useSendMessage(threadId ?? null);
+
   const [input, setInput] = useState("");
   const [isRecording, setIsRecording] = useState(false);
-  const recordTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
+
+  /* --- Bagian demo (aktif selama backend belum membalas) ----------------- */
+  const [demoItems, setDemoItems] = useState<DemoItem[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
+  // `undefined` = belum pernah diubah pengguna; nilainya diturunkan di bawah.
+  const [stepOverride, setStepOverride] = useState<number | null | undefined>(
+    undefined,
+  );
+  const threadRequested = useRef(false);
+
+  // Belum punya thread → buat satu (sekali saja).
+  useEffect(() => {
+    if (
+      threads.isSuccess &&
+      (threads.data?.length ?? 0) === 0 &&
+      !threadRequested.current
+    ) {
+      threadRequested.current = true;
+      createThread.mutate("general");
+    }
+  }, [threads.isSuccess, threads.data, createThread]);
+
+  // Sapaan + pertanyaan pertama: nilai turunan yang dipatok ke waktu thread
+  // dibuat, supaya tetap di urutan paling atas dan tidak butuh state/effect.
+  const thread = threads.data?.[0];
+  const introItems = useMemo<DemoItem[]>(() => {
+    if (!DEMO_AMINA || !thread) return [];
+    const at = thread.created_at ? Date.parse(thread.created_at) : 0;
+    return [
+      {
+        id: "demo-greeting",
+        role: "assistant",
+        content: demoGreeting(family?.name ?? "keluargamu"),
+        at,
+      },
+      {
+        id: "demo-q0",
+        role: "assistant",
+        content: DEMO_ONBOARD_QUESTIONS[0],
+        at: at + 1,
+      },
+    ];
+  }, [thread, family?.name]);
+
+  // Wawancara dianggap berjalan selama thread belum punya pesan dari user.
+  const serverUserMessages = (messages.data ?? []).filter(
+    (m) => m.role === "user",
+  ).length;
+  const onboardStep =
+    stepOverride !== undefined
+      ? stepOverride
+      : DEMO_AMINA && messages.isSuccess && serverUserMessages === 0
+        ? 0
+        : null;
 
   useEffect(
     () => () => {
-      if (recordTimer.current) clearTimeout(recordTimer.current);
+      timers.current.forEach(clearTimeout);
     },
     [],
   );
 
-  const send = () => {
-    const text = input.trim();
-    if (!text) return;
-    setInput("");
-    sendChat(text);
+  const later = (fn: () => void, ms: number) => {
+    timers.current.push(setTimeout(fn, ms));
   };
 
-  // Placeholder Web Speech API / unggah audio.
+  const pushDemo = (item: Omit<DemoItem, "at" | "id"> & { id?: string }) => {
+    setDemoItems((prev) => [
+      ...prev,
+      {
+        ...item,
+        id: item.id ?? `demo-${Date.now()}-${prev.length}`,
+        at: Date.now(),
+      },
+    ]);
+  };
+
+  const runDemoAnswer = (text: string, scenario?: Scenario) => {
+    if (!DEMO_AMINA) return;
+    setIsTyping(true);
+
+    // Timer di sini adalah bagian dari demo; balasan sungguhan nanti dipicu
+    // event dari server, bukan setTimeout.
+    if (onboardStep !== null && scenario === undefined) {
+      later(() => {
+        setIsTyping(false);
+        const next = onboardStep + 1;
+        if (next < DEMO_ONBOARD_QUESTIONS.length) {
+          setStepOverride(next);
+          pushDemo({ role: "assistant", content: DEMO_ONBOARD_QUESTIONS[next] });
+        } else {
+          setStepOverride(null);
+          pushDemo({
+            role: "assistant",
+            content:
+              "Makasih banyak infonya! Sekarang kamu bisa langsung cerita transaksi atau lihat ringkasannya di Dashboard.",
+          });
+        }
+      }, 700);
+      return;
+    }
+
+    later(() => {
+      setIsTyping(false);
+      const reply = demoReply(text, scenario, {
+        walletName: wallets.data?.[0]?.name,
+        accountName: accounts.data?.[0]?.name,
+      });
+      pushDemo({
+        role: "assistant",
+        content: reply.content,
+        card: reply.card,
+      });
+    }, 750);
+  };
+
+  const send = (text: string, scenario?: Scenario) => {
+    const content = text.trim();
+    if (!content || !threadId) return;
+    setInput("");
+    sendMessage.mutate({
+      content,
+      input_mode: scenario === "transaction_voice" ? "voice" : "text",
+    });
+    runDemoAnswer(content, scenario);
+  };
+
+  const skipOnboardStep = () => {
+    if (onboardStep === null) return;
+    setIsTyping(true);
+    later(() => {
+      setIsTyping(false);
+      pushDemo({
+        role: "assistant",
+        content: "Oke, nggak masalah — bisa diisi belakangan.",
+      });
+      const next = onboardStep + 1;
+      if (next < DEMO_ONBOARD_QUESTIONS.length) {
+        setStepOverride(next);
+        later(
+          () =>
+            pushDemo({
+              role: "assistant",
+              content: DEMO_ONBOARD_QUESTIONS[next],
+            }),
+          500,
+        );
+      } else {
+        setStepOverride(null);
+      }
+    }, 700);
+  };
+
+  const resolveCard = (id: string, status: "confirmed" | "cancelled") => {
+    setDemoItems((prev) =>
+      prev.map((item) =>
+        item.id === id && item.card
+          ? { ...item, card: { ...item.card, status } as DemoActionCard }
+          : item,
+      ),
+    );
+  };
+
   const toggleRecording = () => {
     if (isRecording) return;
     setIsRecording(true);
-    recordTimer.current = setTimeout(() => {
+    later(() => {
       setIsRecording(false);
-      sendChat(
-        "Tadi abis makan siang di warteg 25rb dari GoPay",
-        "transaction_voice",
-      );
+      send("Tadi abis makan siang di warteg 25rb dari GoPay", "transaction_voice");
     }, 1500);
   };
 
-  // Placeholder POST /uploads + pesan dengan input_mode: 'image'.
-  const sendReceipt = () => sendChat("[Foto struk diunggah]", "transaction_receipt");
+  /** Pesan server + item demo, diurutkan berdasarkan waktu. */
+  const items: DemoItem[] = useMemo(() => {
+    const fromServer = (messages.data ?? []).map((m) => ({
+      id: m.id ?? "",
+      role: (m.role === "assistant" ? "assistant" : "user") as "user" | "assistant",
+      content: m.content ?? "",
+      pending: (m.id ?? "").startsWith("optimistic-"),
+      at: m.created_at ? Date.parse(m.created_at) : 0,
+    }));
+    return [...introItems, ...fromServer, ...demoItems].sort(
+      (a, b) => a.at - b.at,
+    );
+  }, [introItems, messages.data, demoItems]);
 
   const inWawancara = onboardStep !== null;
 
@@ -70,7 +246,7 @@ export default function ChatPage() {
         >
           A
         </div>
-        <div>
+        <div style={{ flex: 1, minWidth: 0 }}>
           <div
             style={{
               fontFamily: "var(--font-heading)",
@@ -81,19 +257,26 @@ export default function ChatPage() {
             Amina
           </div>
           <div className="text-muted" style={{ fontSize: 12 }}>
-            Asisten keuangan {family.name}
+            Asisten keuangan {family?.name ?? ""}
           </div>
         </div>
+        {DEMO_AMINA && (
+          <span className="tag tag-neutral" title="Balasan Amina belum datang dari server">
+            Balasan demo
+          </span>
+        )}
       </div>
 
-      <MessageList messages={messages} isTyping={isTyping} />
+      <MessageList
+        items={items}
+        isTyping={isTyping}
+        demo={DEMO_AMINA}
+        onResolveCard={resolveCard}
+      />
 
       {inWawancara && (
-        <div
-          className="text-muted"
-          style={{ padding: "0 var(--space-4)", fontSize: 11 }}
-        >
-          Pertanyaan {(onboardStep ?? 0) + 1} dari {onboardQuestions.length} —
+        <div className="text-muted" style={{ padding: "0 var(--space-4)", fontSize: 11 }}>
+          Pertanyaan {(onboardStep ?? 0) + 1} dari {DEMO_ONBOARD_QUESTIONS.length} —
           boleh dilewati kapan saja
         </div>
       )}
@@ -116,19 +299,25 @@ export default function ChatPage() {
             Lewati pertanyaan ini
           </button>
         ) : (
-          CHIPS.map((c) => (
+          DEMO_CHIPS.map((c) => (
             <button
               key={c.label}
               type="button"
               className="btn btn-secondary"
               style={{ fontSize: 12, whiteSpace: "nowrap", flex: "none" }}
-              onClick={() => sendChat(c.demoText, c.scenario)}
+              onClick={() => send(c.demoText, c.scenario)}
             >
               {c.label}
             </button>
           ))
         )}
       </div>
+
+      {sendMessage.isError && (
+        <p className="field-error" style={{ padding: "0 var(--space-4)" }}>
+          Pesan gagal terkirim. Coba lagi.
+        </p>
+      )}
 
       <div
         style={{
@@ -139,10 +328,11 @@ export default function ChatPage() {
           alignItems: "center",
         }}
       >
+        {/* Unggah struk & rekaman menunggu endpoint upload di API. */}
         <button
           type="button"
           className="btn btn-icon btn-secondary"
-          onClick={sendReceipt}
+          onClick={() => send("[Foto struk diunggah]", "transaction_receipt")}
           title="Kirim foto struk"
           aria-label="Kirim foto struk"
         >
@@ -163,9 +353,7 @@ export default function ChatPage() {
           <Icon
             name="mic"
             size={18}
-            style={
-              isRecording ? { animation: "amanaPulse 1s infinite" } : undefined
-            }
+            style={isRecording ? { animation: "amanaPulse 1s infinite" } : undefined}
           />
         </button>
         <input
@@ -177,17 +365,19 @@ export default function ChatPage() {
           onKeyDown={(e) => {
             if (e.key === "Enter") {
               e.preventDefault();
-              send();
+              send(input);
             }
           }}
           aria-label="Pesan untuk Amina"
+          disabled={!threadId}
         />
         <button
           type="button"
           className="btn btn-icon btn-primary"
-          onClick={send}
+          onClick={() => send(input)}
           title="Kirim"
           aria-label="Kirim"
+          disabled={!threadId}
         >
           <Icon name="send" size={18} />
         </button>

@@ -3,20 +3,33 @@
 import { useEffect, useRef } from "react";
 
 import { ActionCard } from "@/components/chat/action-card";
-import type { ChatMessage } from "@/lib/types";
+import type { DemoActionCard } from "@/lib/mock/assistant";
+
+export interface ChatItem {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  card?: DemoActionCard;
+  /** Pesan optimistic yang belum dikonfirmasi server. */
+  pending?: boolean;
+}
 
 export function MessageList({
-  messages,
+  items,
   isTyping,
+  demo,
+  onResolveCard,
 }: {
-  messages: ChatMessage[];
+  items: ChatItem[];
   isTyping: boolean;
+  demo: boolean;
+  onResolveCard: (id: string, status: "confirmed" | "cancelled") => void;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ block: "end" });
-  }, [messages, isTyping]);
+  }, [items, isTyping]);
 
   return (
     <div
@@ -29,7 +42,7 @@ export function MessageList({
         gap: "var(--space-3)",
       }}
     >
-      {messages.map((m) => (
+      {items.map((m) => (
         <div
           key={m.id}
           style={{
@@ -43,6 +56,7 @@ export function MessageList({
               display: "flex",
               flexDirection: "column",
               gap: 8,
+              opacity: m.pending ? 0.6 : 1,
             }}
           >
             {m.content && (
@@ -62,7 +76,14 @@ export function MessageList({
                 {m.content}
               </div>
             )}
-            {m.actionCard && <ActionCard messageId={m.id} card={m.actionCard} />}
+            {m.card && (
+              <ActionCard
+                card={m.card}
+                demo={demo}
+                onConfirm={() => onResolveCard(m.id, "confirmed")}
+                onCancel={() => onResolveCard(m.id, "cancelled")}
+              />
+            )}
           </div>
         </div>
       ))}
@@ -73,7 +94,6 @@ export function MessageList({
   );
 }
 
-/** Dipicu event SSE `thinking` saat API tersambung — bukan timer palsu. */
 function TypingIndicator() {
   return (
     <div style={{ display: "flex", justifyContent: "flex-start" }}>

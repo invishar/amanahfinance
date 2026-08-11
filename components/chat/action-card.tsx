@@ -1,8 +1,7 @@
 "use client";
 
 import { Icon } from "@/components/icon";
-import { useAmana } from "@/lib/store";
-import type { ActionCard as ActionCardData } from "@/lib/types";
+import type { DemoActionCard } from "@/lib/mock/assistant";
 
 const CARD_ICON = {
   create_transaction: "receipt",
@@ -11,14 +10,17 @@ const CARD_ICON = {
 } as const;
 
 export function ActionCard({
-  messageId,
   card,
+  demo,
+  onConfirm,
+  onCancel,
 }: {
-  messageId: string;
-  card: ActionCardData;
+  card: DemoActionCard;
+  /** true selama balasan Amina masih tiruan: konfirmasi tidak menulis ke server. */
+  demo: boolean;
+  onConfirm: () => void;
+  onCancel: () => void;
 }) {
-  const { resolveAction } = useAmana();
-
   return (
     <div
       className="elev-sm"
@@ -42,7 +44,12 @@ export function ActionCard({
       {card.fields.map((f) => (
         <div
           key={f.label}
-          style={{ display: "flex", justifyContent: "space-between", fontSize: 13, gap: 12 }}
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            fontSize: 13,
+            gap: 12,
+          }}
         >
           <span className="text-muted">{f.label}</span>
           <span style={{ textAlign: "right" }}>{f.value}</span>
@@ -55,13 +62,12 @@ export function ActionCard({
             type="button"
             className="btn btn-primary"
             style={{ flex: 1, fontSize: 13, whiteSpace: "nowrap" }}
-            onClick={() => resolveAction(messageId, "confirmed")}
+            onClick={onConfirm}
           >
             <Icon name="check" size={14} />
             Ya, lanjutkan
           </button>
-          {/* TODO: buka modal prefilled lalu confirm dengan payload hasil edit
-              (POST /ai-actions/{id}/confirm) — menunggu API. */}
+          {/* Butuh endpoint confirm dengan payload hasil edit — lihat TaskProject.md */}
           <button type="button" className="btn btn-secondary" style={{ fontSize: 13 }}>
             Edit
           </button>
@@ -69,7 +75,7 @@ export function ActionCard({
             type="button"
             className="btn btn-ghost"
             style={{ fontSize: 13 }}
-            onClick={() => resolveAction(messageId, "cancelled")}
+            onClick={onCancel}
           >
             <Icon name="x" size={14} />
             Batal
@@ -88,7 +94,7 @@ export function ActionCard({
           }}
         >
           <Icon name="check" size={13} />
-          Sudah disimpan
+          {demo ? "Dikonfirmasi (demo, belum tersimpan)" : "Sudah disimpan"}
         </div>
       )}
 

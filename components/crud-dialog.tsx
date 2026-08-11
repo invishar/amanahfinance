@@ -1,44 +1,59 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
-import { useAmana } from "@/lib/store";
-
-const TITLES = {
-  wallet: "Wallet",
-  account: "Akun",
-  income: "Sumber Pemasukan",
-  goal: "Target Tabungan",
-} as const;
+import { ApiError } from "@/lib/api/client";
+import { useSaveEntity } from "@/lib/api/hooks";
+import { buildBody, ENTITY_FORMS } from "@/lib/entity-forms";
+import { useUi, type ModalState } from "@/lib/ui-store";
 
 export function CrudDialog() {
-  const { modal, closeModal, updateModalField, saveModal } = useAmana();
+  const { modal } = useUi();
+  if (!modal) return null;
+  // Key per entitas: draft & error ikut ter-reset saat modal berganti isi.
+  return <CrudDialogInner key={modal.kind + (modal.id ?? "new")} modal={modal} />;
+}
+
+function CrudDialogInner({ modal }: { modal: ModalState }) {
+  const { closeModal, setDraftField } = useUi();
+  const form = ENTITY_FORMS[modal.kind];
+  const isEdit = Boolean(modal.id);
+  const save = useSaveEntity(modal.kind);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [formError, setFormError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!modal) return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeModal();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [modal, closeModal]);
+  }, [closeModal]);
 
-  if (!modal) return null;
-
-  const text = (key: string, value: string) => ({
-    className: "input",
-    value,
-    onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
-      updateModalField(key, e.target.value),
-  });
-
-  const number = (key: string, value: number) => ({
-    className: "input",
-    type: "number",
-    value: String(value),
-    onChange: (e: React.ChangeEvent<HTMLInputElement>) =>
-      updateModalField(key, Number(e.target.value)),
-  });
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFieldErrors({});
+    setFormError(null);
+    try {
+      await save.mutateAsync({
+        id: modal.id,
+        body: buildBody(modal.kind, modal.draft, isEdit),
+      });
+      closeModal();
+    } catch (error) {
+      if (error instanceof ApiError) {
+        const perField: Record<string, string> = {};
+        for (const key of Object.keys(error.fieldErrors)) {
+          const message = error.fieldMessage(key);
+          if (message) perField[key] = message;
+        }
+        setFieldErrors(perField);
+        if (Object.keys(perField).length === 0) setFormError(error.message);
+      } else {
+        setFormError("Terjadi kesalahan tak terduga.");
+      }
+    }
+  };
 
   return (
     <div
@@ -50,106 +65,70 @@ export function CrudDialog() {
       <form
         className="dialog"
         onClick={(e) => e.stopPropagation()}
-        onSubmit={(e) => {
-          e.preventDefault();
-          saveModal();
-        }}
+        onSubmit={submit}
         role="dialog"
         aria-modal="true"
-        aria-label={TITLES[modal.kind]}
+        aria-label={form.title}
       >
-        <div className="dialog-title">{TITLES[modal.kind]}</div>
+        <div className="dialog-title">{form.title}</div>
 
-        {modal.kind === "wallet" && (
-          <>
-            <div className="field">
-              <label htmlFor="wallet-name">Nama wallet</label>
-              <input id="wallet-name" {...text("name", modal.item.name)} />
-            </div>
-            <div className="field">
-              <label htmlFor="wallet-budget">Budget bulanan (Rp)</label>
-              <input
-                id="wallet-budget"
-                {...number("monthly_budget", modal.item.monthly_budget)}
-              />
-            </div>
-          </>
-        )}
+        {form.fields
+          .filter((field) => !(isEdit && field.createOnly))
+          .map((field) => {
+            const id = `${modal.kind}-${field.name}`;
+            const value = modal.draft[field.name] ?? "";
+            return (
+              <div className="field" key={field.name}>
+                <label htmlFor={id}>{field.label}</label>
+                {field.type === "select" ? (
+                  <select
+                    id={id}
+                    className="input"
+                    value={String(value)}
+                    onChange={(e) => setDraftField(field.name, e.target.value)}
+                  >
+                    {field.options?.map((option) => (
+                      <option key={option.value} value={option.value}>
+                        {option.label}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    id={id}
+                    className="input"
+                    type={field.type === "number" ? "number" : field.type}
+                    value={String(value)}
+                    onChange={(e) =>
+                      setDraftField(
+                        field.name,
+                        field.type === "number"
+                          ? Number(e.target.value)
+                          : e.target.value,
+                      )
+                    }
+                  />
+                )}
+                {field.hint && (
+                  <p className="text-muted" style={{ margin: "6px 0 0", fontSize: 11 }}>
+                    {field.hint}
+                  </p>
+                )}
+                {fieldErrors[field.name] && (
+                  <p className="field-error">{fieldErrors[field.name]}</p>
+                )}
+              </div>
+            );
+          })}
 
-        {modal.kind === "account" && (
-          <>
-            <div className="field">
-              <label htmlFor="account-name">Nama akun</label>
-              <input id="account-name" {...text("name", modal.item.name)} />
-            </div>
-            <div className="field">
-              <label htmlFor="account-type">Jenis</label>
-              <select
-                id="account-type"
-                {...text("account_type", modal.item.account_type)}
-              >
-                <option value="bank">Bank</option>
-                <option value="ewallet">E-Wallet</option>
-                <option value="cash">Tunai</option>
-              </select>
-            </div>
-            <div className="field">
-              <label htmlFor="account-balance">Saldo (Rp)</label>
-              <input
-                id="account-balance"
-                {...number("current_balance", modal.item.current_balance)}
-              />
-            </div>
-          </>
-        )}
-
-        {modal.kind === "income" && (
-          <div className="field">
-            <label htmlFor="income-name">Nama sumber pemasukan</label>
-            <input id="income-name" {...text("name", modal.item.name)} />
-          </div>
-        )}
-
-        {modal.kind === "goal" && (
-          <>
-            <div className="field">
-              <label htmlFor="goal-name">Nama target</label>
-              <input
-                id="goal-name"
-                {...text("target_name", modal.item.target_name)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="goal-target">Target nominal (Rp)</label>
-              <input
-                id="goal-target"
-                {...number("target_amount", modal.item.target_amount)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="goal-current">Sudah terkumpul (Rp)</label>
-              <input
-                id="goal-current"
-                {...number("current_amount", modal.item.current_amount)}
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="goal-deadline">Target tanggal</label>
-              <input
-                id="goal-deadline"
-                type="date"
-                {...text("deadline", modal.item.deadline)}
-              />
-            </div>
-          </>
-        )}
+        {formError && <p className="field-error">{formError}</p>}
 
         <div className="dialog-actions">
           <button type="button" className="btn btn-secondary" onClick={closeModal}>
             Batal
           </button>
-          <button type="submit" className="btn btn-primary">
-            Simpan
+          <button type="submit" className="btn btn-primary" disabled={save.isPending}>
+            {save.isPending ? "Menyimpan…" : "Simpan"}
           </button>
         </div>
       </form>

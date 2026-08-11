@@ -4,22 +4,30 @@ import { useMemo } from "react";
 
 import { Icon } from "@/components/icon";
 import { PageHeader, ProgressBar, RowActions, SkeletonList } from "@/components/ui";
+import { useDeleteFlow } from "@/components/use-delete-flow";
+import { useAnalytics, useWallets } from "@/lib/api/hooks";
 import { walletsView } from "@/lib/selectors";
-import { useAmana } from "@/lib/store";
+import { useUi } from "@/lib/ui-store";
 
 export default function WalletsPage() {
-  const { ready, wallets, transactions, openModal, deleteItem } = useAmana();
+  const wallets = useWallets();
+  const analytics = useAnalytics();
+  const { openModal } = useUi();
+  const { askDelete, dialog } = useDeleteFlow("wallet");
+
   const list = useMemo(
-    () => walletsView(wallets, transactions),
-    [wallets, transactions],
+    () => walletsView(wallets.data ?? [], analytics.data),
+    [wallets.data, analytics.data],
   );
 
   return (
     <div className="amana-container">
       <PageHeader title="Wallets" onAdd={() => openModal("wallet")} />
 
-      {!ready ? (
+      {wallets.isPending ? (
         <SkeletonList count={4} height={122} />
+      ) : wallets.isError ? (
+        <p className="field-error">Gagal memuat wallet. Coba muat ulang halaman.</p>
       ) : list.length === 0 ? (
         <p className="text-muted" style={{ fontSize: 13 }}>
           Belum ada wallet. Tambah kantong anggaran pertamamu.
@@ -40,8 +48,8 @@ export default function WalletsPage() {
               </div>
               <RowActions
                 label={`wallet ${w.name}`}
-                onEdit={() => openModal("wallet", w.id)}
-                onDelete={() => deleteItem("wallet", w.id)}
+                onEdit={() => openModal("wallet", w.raw)}
+                onDelete={() => askDelete(w.id, `wallet ${w.name}`)}
               />
             </div>
             <div
@@ -57,10 +65,12 @@ export default function WalletsPage() {
               </span>
               <span style={{ color: w.statusColor }}>{w.statusLabel}</span>
             </div>
-            <ProgressBar pct={w.pct} color={w.barColor} />
+            <ProgressBar pct={w.percent} color={w.barColor} />
           </div>
         ))
       )}
+
+      {dialog}
     </div>
   );
 }

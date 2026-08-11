@@ -2,30 +2,40 @@
 
 import { useMemo } from "react";
 
-import { Icon } from "@/components/icon";
 import { ProgressBar, SkeletonList } from "@/components/ui";
-import { insights } from "@/lib/mock/data";
-import { analyticsSummary, walletBars } from "@/lib/selectors";
-import { useAmana } from "@/lib/store";
+import { useAnalytics, useWallets } from "@/lib/api/hooks";
+import { formatRupiah } from "@/lib/format";
+import { sortBySpent, walletsView } from "@/lib/selectors";
 
 export default function AnalysisPage() {
-  const { ready, wallets, transactions } = useAmana();
+  const analytics = useAnalytics();
+  const wallets = useWallets();
 
-  // Di produksi: `GET /analytics/summary?period=YYYY-MM` (di-cache server).
-  const summary = useMemo(() => analyticsSummary(transactions), [transactions]);
+  const cashflow = analytics.data?.cashflow;
   const bars = useMemo(
-    () => walletBars(wallets, transactions),
-    [wallets, transactions],
+    () => sortBySpent(walletsView(wallets.data ?? [], analytics.data)),
+    [wallets.data, analytics.data],
   );
+
+  const ready = !analytics.isPending && !wallets.isPending;
 
   return (
     <div className="amana-container">
       <h1 style={{ fontSize: 22, margin: 0 }}>Analisa Keuangan</h1>
 
       <div style={{ display: "flex", gap: "var(--space-3)" }}>
-        <SummaryCard kicker="Pemasukan" value={summary.totalIncomeLabel} ready={ready} />
-        <SummaryCard kicker="Pengeluaran" value={summary.totalExpenseLabel} ready={ready} />
-        <SummaryCard kicker="Selisih" value={summary.netLabel} ready={ready} />
+        <SummaryCard
+          kicker="Pemasukan"
+          value={cashflow ? formatRupiah(cashflow.total_income ?? 0) : null}
+        />
+        <SummaryCard
+          kicker="Pengeluaran"
+          value={cashflow ? formatRupiah(cashflow.total_expense ?? 0) : null}
+        />
+        <SummaryCard
+          kicker="Selisih"
+          value={cashflow ? formatRupiah(cashflow.net ?? 0) : null}
+        />
       </div>
 
       <div className="card elev-sm">
@@ -40,6 +50,10 @@ export default function AnalysisPage() {
         >
           {!ready ? (
             <SkeletonList count={4} height={30} />
+          ) : bars.length === 0 ? (
+            <p className="text-muted" style={{ margin: 0, fontSize: 13 }}>
+              Belum ada wallet untuk dianalisa.
+            </p>
           ) : (
             bars.map((w) => (
               <div key={w.id}>
@@ -55,50 +69,20 @@ export default function AnalysisPage() {
                   <span>{w.name}</span>
                   <span className="text-muted">{w.spentLabel}</span>
                 </div>
-                <ProgressBar pct={w.barPct} />
+                <ProgressBar pct={w.percent} color={w.barColor} />
               </div>
             ))
           )}
         </div>
       </div>
 
-      <div className="card elev-sm">
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          <Icon name="sparkles" size={16} color="var(--color-accent)" />
-          <div className="card-title">Wawasan dari Amina</div>
-        </div>
-        <div
-          style={{
-            display: "flex",
-            flexDirection: "column",
-            gap: 10,
-            marginTop: 6,
-          }}
-        >
-          {!ready ? (
-            <SkeletonList count={3} height={42} />
-          ) : (
-            insights.map((text) => (
-              <p key={text} style={{ margin: 0, fontSize: 13, lineHeight: 1.6 }}>
-                {text}
-              </p>
-            ))
-          )}
-        </div>
-      </div>
+      {/* "Wawasan dari Amina" menunggu endpoint insight di API — seksinya
+          sengaja tidak dirender daripada menampilkan teks karangan klien. */}
     </div>
   );
 }
 
-function SummaryCard({
-  kicker,
-  value,
-  ready,
-}: {
-  kicker: string;
-  value: string;
-  ready: boolean;
-}) {
+function SummaryCard({ kicker, value }: { kicker: string; value: string | null }) {
   return (
     <div className="card elev-sm" style={{ flex: 1, gap: 4, minWidth: 0 }}>
       <div className="card-kicker">{kicker}</div>
@@ -109,7 +93,7 @@ function SummaryCard({
           wordBreak: "break-word",
         }}
       >
-        {ready ? value : "—"}
+        {value ?? "—"}
       </div>
     </div>
   );

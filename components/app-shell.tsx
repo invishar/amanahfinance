@@ -13,7 +13,8 @@ import {
   SIDEBAR_NAV,
   type NavItem,
 } from "@/lib/nav";
-import { useAmana } from "@/lib/store";
+import { useSession } from "@/lib/auth";
+import { useUi } from "@/lib/ui-store";
 import { tabBarPath, useViewportWidth } from "@/lib/use-viewport";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -34,11 +35,11 @@ function useIsActive() {
 }
 
 function useLogout() {
-  const { logout } = useAmana();
+  const { logout } = useSession();
   const router = useRouter();
-  return () => {
-    logout();
-    router.push("/login");
+  return async () => {
+    await logout();
+    router.replace("/login");
   };
 }
 
@@ -124,7 +125,7 @@ function Sidebar() {
 
 function MobileTabBar() {
   const isActive = useIsActive();
-  const { moreSheetOpen, setMoreSheetOpen } = useAmana();
+  const { moreSheetOpen, setMoreSheetOpen } = useUi();
   const width = useViewportWidth();
 
   return (
@@ -178,7 +179,7 @@ function MobileTabBar() {
 }
 
 function MobileTab({ item, active }: { item: NavItem; active: boolean }) {
-  const { setMoreSheetOpen } = useAmana();
+  const { setMoreSheetOpen } = useUi();
   return (
     <Link
       href={item.href}
@@ -193,7 +194,7 @@ function MobileTab({ item, active }: { item: NavItem; active: boolean }) {
 }
 
 function MoreSheet() {
-  const { moreSheetOpen, setMoreSheetOpen } = useAmana();
+  const { moreSheetOpen, setMoreSheetOpen } = useUi();
   if (!moreSheetOpen) return null;
 
   return (
