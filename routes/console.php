@@ -17,3 +17,7 @@ Artisan::command('inspire', function () {
 Schedule::command('queue:work --stop-when-empty --max-time=50 --tries=3')
     ->everyMinute()
     ->withoutOverlapping();
+
+// Cek masa aktif langganan sekali sehari; sama sekali tidak butuh worker/daemon
+// -- satu query bulk UPDATE per burst cron (lihat CLAUDE.md "Perintah").
+Schedule::command('amana:expire-subscriptions')->daily();

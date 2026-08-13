@@ -56,7 +56,7 @@ class OpenApiSpec
                 'Auth', 'Families', 'Family Members', 'Family Invites', 'Accounts', 'Wallets',
                 'Wallet Budgets', 'Income Sources', 'Savings Goals', 'Transactions', 'Recurring Rules',
                 'Chat Threads', 'Chat Messages', 'Uploads', 'Onboarding Answers', 'Notifications',
-                'AI Actions', 'Audit Logs', 'Analytics', 'LLM Settings',
+                'AI Actions', 'Audit Logs', 'Analytics', 'LLM Settings', 'Subscription Plans', 'Subscriptions',
             ]
         );
     }
@@ -476,6 +476,45 @@ class OpenApiSpec
                     'updated_by' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
                 ],
             ],
+            'SubscriptionPlan' => [
+                'type' => 'object',
+                'description' => 'Katalog paket langganan platform-wide, bukan per-family.',
+                'properties' => [
+                    'id' => ['type' => 'string', 'format' => 'uuid'],
+                    'code' => ['type' => 'string', 'example' => 'bulanan'],
+                    'name' => ['type' => 'string'],
+                    'price' => ['type' => 'integer', 'minimum' => 1],
+                    'duration_days' => ['type' => 'integer', 'minimum' => 1],
+                    'description' => ['type' => 'string', 'nullable' => true],
+                    'is_active' => ['type' => 'boolean'],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                    'updated_at' => ['type' => 'string', 'format' => 'date-time'],
+                ],
+            ],
+            'Subscription' => [
+                'type' => 'object',
+                'description' => 'Alur: pending_payment (family pilih paket + konfirmasi bayar) -> active/rejected (platform admin review) -> expired (job harian amana:expire-subscriptions).',
+                'properties' => [
+                    'id' => ['type' => 'string', 'format' => 'uuid'],
+                    'family_id' => ['type' => 'string', 'format' => 'uuid'],
+                    'plan_id' => ['type' => 'string', 'format' => 'uuid'],
+                    'plan_code' => ['type' => 'string'],
+                    'plan_name' => ['type' => 'string'],
+                    'status' => ['type' => 'string', 'enum' => ['pending_payment', 'active', 'rejected', 'expired']],
+                    'amount' => ['type' => 'integer', 'description' => 'Snapshot subscription_plans.price saat request dibuat.'],
+                    'payment_note' => ['type' => 'string', 'nullable' => true],
+                    'payment_proof_url' => ['type' => 'string', 'nullable' => true, 'description' => 'URL hasil POST /uploads (foto bukti transfer).'],
+                    'paid_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'starts_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'ends_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'requested_by' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
+                    'reviewed_by' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
+                    'reviewed_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'review_note' => ['type' => 'string', 'nullable' => true],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                    'updated_at' => ['type' => 'string', 'format' => 'date-time'],
+                ],
+            ],
         ];
     }
 
@@ -497,7 +536,185 @@ class OpenApiSpec
             self::aiActionMutationPaths(),
             self::analyticsPaths(),
             self::llmSettingPaths(),
+            self::subscriptionPlanPaths(),
+            self::subscriptionPaths(),
         );
+    }
+
+    private static function subscriptionPlanPaths(): array
+    {
+        $storeBody = ['type' => 'object', 'required' => ['code', 'name', 'price', 'duration_days'], 'properties' => [
+            'code' => ['type' => 'string', 'description' => 'Unik, referensi stabil (mis. "bulanan").'],
+            'name' => ['type' => 'string'],
+            'price' => ['type' => 'integer', 'minimum' => 1],
+            'duration_days' => ['type' => 'integer', 'minimum' => 1],
+            'description' => ['type' => 'string', 'nullable' => true],
+            'is_active' => ['type' => 'boolean', 'default' => true],
+        ]];
+
+        return [
+            '/subscription-plans' => [
+                'get' => [
+                    'tags' => ['Subscription Plans'],
+                    'summary' => 'List paket langganan',
+                    'description' => 'Sepenuhnya publik -- tidak perlu login sama sekali (mirip /auth/register), supaya katalog bisa ditampilkan sebelum user punya akun.',
+                    'security' => [],
+                    'parameters' => [
+                        ['name' => 'is_active', 'in' => 'query', 'schema' => ['type' => 'boolean']],
+                    ],
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', [
+                            'type' => 'object',
+                            'properties' => ['data' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/SubscriptionPlan']]],
+                        ]),
+                    ],
+                ],
+                'post' => [
+                    'tags' => ['Subscription Plans'],
+                    'summary' => 'Tambah paket (is_platform_admin)',
+                    'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => $storeBody]]],
+                    'responses' => [
+                        '201' => self::jsonResponse('Tersimpan.', self::envelope('SubscriptionPlan')),
+                        '403' => self::refResponse('Forbidden'),
+                        '422' => self::refResponse('ValidationError'),
+                    ],
+                ],
+            ],
+            '/subscription-plans/{subscription_plan}' => [
+                'parameters' => [['name' => 'subscription_plan', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']]],
+                'get' => [
+                    'tags' => ['Subscription Plans'],
+                    'summary' => 'Detail paket',
+                    'description' => 'Sepenuhnya publik -- tidak perlu login sama sekali.',
+                    'security' => [],
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::envelope('SubscriptionPlan')),
+                        '404' => self::refResponse('NotFound'),
+                    ],
+                ],
+                'put' => [
+                    'tags' => ['Subscription Plans'],
+                    'summary' => 'Update paket (is_platform_admin)',
+                    'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [
+                        ...$storeBody, 'required' => [],
+                    ]]]],
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::envelope('SubscriptionPlan')),
+                        '403' => self::refResponse('Forbidden'),
+                        '404' => self::refResponse('NotFound'),
+                        '422' => self::refResponse('ValidationError'),
+                    ],
+                ],
+                'delete' => [
+                    'tags' => ['Subscription Plans'],
+                    'summary' => 'Hapus paket (is_platform_admin)',
+                    'description' => 'Masih dipakai subscriptions -> 409; pakai is_active=false alih-alih menghapus.',
+                    'responses' => [
+                        '204' => ['description' => 'Terhapus.'],
+                        '403' => self::refResponse('Forbidden'),
+                        '404' => self::refResponse('NotFound'),
+                        '409' => self::refResponse('Conflict'),
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private static function subscriptionPaths(): array
+    {
+        $statusEnum = ['pending_payment', 'active', 'rejected', 'expired'];
+        $indexParams = [
+            ['name' => 'status', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => $statusEnum]],
+            ['name' => 'per_page', 'in' => 'query', 'description' => 'Default 20, maks 100.', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+        ];
+
+        return [
+            '/subscriptions' => [
+                'get' => [
+                    'tags' => ['Subscriptions'],
+                    'summary' => 'Riwayat langganan family sendiri',
+                    'parameters' => $indexParams,
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::paginatedEnvelope('Subscription')),
+                        '403' => self::refResponse('Forbidden'),
+                    ],
+                ],
+                'post' => [
+                    'tags' => ['Subscriptions'],
+                    'summary' => 'Pilih paket + konfirmasi pembayaran',
+                    'description' => 'Satu langkah: submit langsung menandai paid_at=now dan berstatus pending_payment, menunggu platform admin activate/reject. Ditolak 409 kalau family masih punya request pending_payment/active.',
+                    'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [
+                        'type' => 'object', 'required' => ['plan_id'], 'properties' => [
+                            'plan_id' => ['type' => 'string', 'format' => 'uuid', 'description' => 'Harus mengacu ke paket dengan is_active=true.'],
+                            'payment_note' => ['type' => 'string', 'nullable' => true, 'description' => 'Mis. metode transfer & referensi, bebas teks.'],
+                            'payment_proof_url' => ['type' => 'string', 'nullable' => true, 'description' => 'URL foto bukti transfer, didapat dari POST /uploads terlebih dulu.'],
+                        ],
+                    ]]]],
+                    'responses' => [
+                        '201' => self::jsonResponse('Tersimpan.', self::envelope('Subscription')),
+                        '403' => self::refResponse('Forbidden'),
+                        '409' => self::refResponse('Conflict'),
+                        '422' => self::refResponse('ValidationError'),
+                    ],
+                ],
+            ],
+            '/subscriptions/{subscription}' => [
+                'parameters' => [['name' => 'subscription', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']]],
+                'get' => [
+                    'tags' => ['Subscriptions'],
+                    'summary' => 'Detail langganan',
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::envelope('Subscription')),
+                        '404' => self::refResponse('NotFound'),
+                    ],
+                ],
+            ],
+            '/admin/subscriptions' => [
+                'get' => [
+                    'tags' => ['Subscriptions'],
+                    'summary' => 'Antrean review lintas-family (is_platform_admin)',
+                    'description' => 'SENGAJA di luar resolve.family: admin melihat permintaan family manapun, bukan cuma family miliknya sendiri.',
+                    'parameters' => $indexParams,
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::paginatedEnvelope('Subscription')),
+                        '403' => self::refResponse('Forbidden'),
+                    ],
+                ],
+            ],
+            '/admin/subscriptions/{subscription}/activate' => [
+                'parameters' => [['name' => 'subscription', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']]],
+                'post' => [
+                    'tags' => ['Subscriptions'],
+                    'summary' => 'Aktifkan langganan (is_platform_admin)',
+                    'description' => 'Hanya dari status pending_payment. starts_at=now, ends_at=starts_at+plan.duration_days.',
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::envelope('Subscription')),
+                        '403' => self::refResponse('Forbidden'),
+                        '404' => self::refResponse('NotFound'),
+                        '422' => self::refResponse('ValidationError'),
+                    ],
+                ],
+            ],
+            '/admin/subscriptions/{subscription}/reject' => [
+                'parameters' => [['name' => 'subscription', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']]],
+                'post' => [
+                    'tags' => ['Subscriptions'],
+                    'summary' => 'Tolak langganan (is_platform_admin)',
+                    'description' => 'Hanya dari status pending_payment.',
+                    'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [
+                        'type' => 'object', 'required' => ['review_note'], 'properties' => [
+                            'review_note' => ['type' => 'string'],
+                        ],
+                    ]]]],
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::envelope('Subscription')),
+                        '403' => self::refResponse('Forbidden'),
+                        '404' => self::refResponse('NotFound'),
+                        '422' => self::refResponse('ValidationError'),
+                    ],
+                ],
+            ],
+        ];
     }
 
     private static function llmSettingPaths(): array

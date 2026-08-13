@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\OnboardingAnswerController;
 use App\Http\Controllers\Api\OpenApiController;
 use App\Http\Controllers\Api\RecurringRuleController;
 use App\Http\Controllers\Api\SavingsGoalController;
+use App\Http\Controllers\Api\SubscriptionController;
+use App\Http\Controllers\Api\SubscriptionPlanController;
 use App\Http\Controllers\Api\TransactionController;
 use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\WalletBudgetController;
@@ -37,6 +39,12 @@ Route::prefix('v1')->group(function () {
     Route::post('/auth/register', [AuthController::class, 'register'])->middleware('throttle:10,1');
     Route::post('/auth/login', [AuthController::class, 'login'])->middleware('throttle:10,1');
 
+    // Also public: browsing the plan catalog should not require an account
+    // yet (mis. landing page sebelum user register/login). No policy gate on
+    // these two -- see SubscriptionPlanController.
+    Route::get('/subscription-plans', [SubscriptionPlanController::class, 'index']);
+    Route::get('/subscription-plans/{subscription_plan}', [SubscriptionPlanController::class, 'show']);
+
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::get('/auth/me', [AuthController::class, 'me']);
@@ -54,6 +62,19 @@ Route::prefix('v1')->group(function () {
         Route::get('/llm-settings', [LlmSettingController::class, 'show']);
         Route::put('/llm-settings', [LlmSettingController::class, 'update']);
 
+        // Katalog paket langganan: mutasi gated is_platform_admin
+        // (SubscriptionPlanPolicy). GET index/show ada di blok publik di atas.
+        Route::post('/subscription-plans', [SubscriptionPlanController::class, 'store']);
+        Route::put('/subscription-plans/{subscription_plan}', [SubscriptionPlanController::class, 'update']);
+        Route::delete('/subscription-plans/{subscription_plan}', [SubscriptionPlanController::class, 'destroy']);
+
+        // Review lintas-family oleh platform admin -- SENGAJA di luar
+        // resolve.family: admin memutuskan permintaan family manapun, bukan
+        // cuma family miliknya sendiri (SubscriptionPolicy::reviewAny/activate/reject).
+        Route::get('/admin/subscriptions', [SubscriptionController::class, 'adminIndex']);
+        Route::post('/admin/subscriptions/{subscription}/activate', [SubscriptionController::class, 'activate']);
+        Route::post('/admin/subscriptions/{subscription}/reject', [SubscriptionController::class, 'reject']);
+
         // Everything below acts on the family resolved by ResolveFamily from the
         // authenticated user's own memberships (+ optional X-Family-Id header).
         Route::middleware('resolve.family')->group(function () {
@@ -66,6 +87,10 @@ Route::prefix('v1')->group(function () {
             Route::apiResource('wallets.budgets', WalletBudgetController::class)->shallow();
             Route::apiResource('income-sources', IncomeSourceController::class);
             Route::apiResource('savings-goals', SavingsGoalController::class);
+            // Family sendiri: pilih paket + konfirmasi pembayaran (store),
+            // lihat riwayat (index/show). activate/reject ada di blok admin
+            // lintas-family di atas, bukan di sini.
+            Route::apiResource('subscriptions', SubscriptionController::class)->only(['index', 'show', 'store']);
             Route::apiResource('transactions', TransactionController::class);
             Route::apiResource('recurring-rules', RecurringRuleController::class);
             Route::apiResource('chat-threads', ChatThreadController::class);

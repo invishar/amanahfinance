@@ -8,7 +8,7 @@ Versi mesin-terbaca (OpenAPI 3.0.3) dari kontrak yang sama tersedia publik di `G
 
 ## Autentikasi
 
-Semua endpoint di bawah `/api/v1`, kecuali `POST /auth/register` dan `POST /auth/login`, memerlukan Sanctum bearer token:
+Semua endpoint di bawah `/api/v1`, kecuali `POST /auth/register`, `POST /auth/login`, `GET /subscription-plans`, dan `GET /subscription-plans/{subscription_plan}`, memerlukan Sanctum bearer token:
 
 ```
 Authorization: Bearer <token>
@@ -496,6 +496,45 @@ Singleton: hanya ada satu baris `llm_settings` yang berlaku untuk seluruh platfo
 `AssistantService` membaca setting ini **dinamis di setiap pemanggilan** (bukan di-cache lintas request) — ganti `model`/`key`/`base_url` langsung berlaku tanpa restart/redeploy.
 
 Response `data`: `model, base_url, has_key, key_preview, updated_at, updated_by`.
+
+---
+
+## Subscription Plans — katalog langganan
+
+Katalog paket langganan platform, **bukan** resource per-family — mirip `llm-settings` di atas: tidak berada di bawah `resolve.family`/`X-Family-Id`. Membaca (`index`/`show`) **sepenuhnya publik, tidak perlu login sama sekali** (satu-satunya endpoint lain yang begitu adalah `/auth/register` dan `/auth/login` — lihat "Autentikasi" di atas), supaya katalog bisa ditampilkan sebelum user punya akun. Mutasi (`store`/`update`/`destroy`) gated `users.is_platform_admin`, sama seperti LLM Settings.
+
+| Method | Path | Body | Role |
+| --- | --- | --- | --- |
+| GET | `/subscription-plans` | `?is_active=` (opsional) | Publik |
+| POST | `/subscription-plans` | `code*` (unik), `name*`, `price*` (int > 0), `duration_days*` (int > 0, jumlah hari masa aktif), `description`, `is_active` (default `true`) | `is_platform_admin` |
+| GET | `/subscription-plans/{subscription_plan}` | — | Publik |
+| PUT/PATCH | `/subscription-plans/{subscription_plan}` | Sama seperti store, semua field opsional | `is_platform_admin` |
+| DELETE | `/subscription-plans/{subscription_plan}` | — | `is_platform_admin`; **409** jika masih direferensikan `subscriptions` (pakai `is_active=false` alih-alih hapus) |
+
+Response `data`: `id, code, name, price, duration_days, description, is_active, created_at, updated_at`.
+
+---
+
+## Subscriptions — pilih paket, konfirmasi bayar, aktivasi admin
+
+Alur: family pilih paket + konfirmasi pembayaran (`POST /subscriptions`, satu langkah) → baris masuk `status=pending_payment` → platform admin **manapun** me-review lintas-family lewat `POST /admin/subscriptions/{subscription}/activate` atau `.../reject` → `active` atau `rejected`. Job harian `amana:expire-subscriptions` (lihat `CLAUDE.md` "Perintah") menandai `active` yang sudah lewat `ends_at` menjadi `expired`.
+
+`family_id` tetap tidak pernah dari body (aturan #3) — diisi dari family yang di-resolve `resolve.family` seperti resource lain. Endpoint `/admin/subscriptions*` **sengaja** di luar `resolve.family`: admin memutuskan permintaan family manapun, bukan cuma family miliknya sendiri, gated `users.is_platform_admin` (bukan `family_members.role`).
+
+Bukti transfer diunggah lewat endpoint upload umum yang sudah ada (`POST /uploads`, lihat bagian Uploads), **bukan** field `file` di `POST /subscriptions` itu sendiri — klien upload dulu untuk dapat `url`-nya, baru kirim `url` itu sebagai `payment_proof_url`. Pola yang sama seperti `transactions.receipt_url`.
+
+| Method | Path | Body | Role |
+| --- | --- | --- | --- |
+| GET | `/subscriptions` | `?status=` (`pending_payment`\|`active`\|`rejected`\|`expired`), `?per_page=` (default 20, maks 100) — riwayat family sendiri | `viewer` |
+| POST | `/subscriptions` | `plan_id*` (harus mengacu paket `is_active=true`), `payment_note` (bebas teks, mis. metode transfer & referensi), `payment_proof_url` (opsional, dari `POST /uploads`) | `member`; **409** jika family masih punya request `pending_payment`/`active` |
+| GET | `/subscriptions/{subscription}` | — | `viewer` |
+| GET | `/admin/subscriptions` | `?status=`, `?per_page=` — lintas family, bukan cuma family sendiri | `is_platform_admin` |
+| POST | `/admin/subscriptions/{subscription}/activate` | — | `is_platform_admin`; hanya dari `status=pending_payment`, selain itu **422** |
+| POST | `/admin/subscriptions/{subscription}/reject` | `review_note*` | `is_platform_admin`; hanya dari `status=pending_payment`, selain itu **422** |
+
+Response `data`: `id, family_id, plan_id, plan_code, plan_name, status, amount, payment_note, payment_proof_url, paid_at, starts_at, ends_at, requested_by, reviewed_by, reviewed_at, review_note, created_at, updated_at`.
+
+Submit `POST /subscriptions` langsung menandai `paid_at=now()` (memilih paket dan konfirmasi pembayaran digabung jadi satu langkah, sesuai kebutuhan saat ini) — `amount` adalah **snapshot** `subscription_plans.price` saat request dibuat, bukan referensi live yang ikut berubah kalau harga paket diubah belakangan. `activate` mengisi `starts_at=now()` dan `ends_at=starts_at + plan.duration_days` hari.
 
 ---
 
