@@ -124,8 +124,11 @@ test('summary includes income sources with zero realization this month', functio
 test('summary reports actual realization per income source', function () {
     [, $family] = $this->actingAsFamilyMember('member');
     $account = Account::factory()->for($family)->create();
-    $source = IncomeSource::factory()->for($family)->create(['expected_amount' => 8_000_000]);
-    $otherSource = IncomeSource::factory()->for($family)->create();
+    // IncomeSourceFactory draws name from a small fixed pool -- pin distinct
+    // names, income_sources_family_id_name_unique would occasionally collide
+    // otherwise (same class of flake as AccountTest's pagination test).
+    $source = IncomeSource::factory()->for($family)->create(['name' => 'Gaji Utama', 'expected_amount' => 8_000_000]);
+    $otherSource = IncomeSource::factory()->for($family)->create(['name' => 'Sumber Lain']);
 
     Transaction::factory()->for($family)->create([
         'type' => 'income', 'amount' => 3_000_000, 'account_id' => $account->id,

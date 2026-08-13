@@ -29,7 +29,9 @@ Response `register`/`login` (`201`/`200`):
 { "data": { "user": { "id": "...", "full_name": "...", "email": "...", "phone": null, "avatar_url": null, "created_at": "..." }, "token": "1|xxxxxxxx..." } }
 ```
 
-Response `login` gagal (`422`): error validasi standar dengan pesan generik ("Email/telepon atau kata sandi salah.") pada field `email`/`phone` yang dipakai — sengaja tidak membedakan "user tidak ada" vs "password salah" untuk mencegah user enumeration.
+Response `login` gagal:
+- `401` `{ "message": "Email/telepon atau kata sandi salah." }` — email/phone valid secara format tapi user tidak ada atau password salah. Pesan sengaja generik, tidak membedakan "user tidak ada" vs "password salah" untuk mencegah user enumeration.
+- `422` — bentuk input salah (mis. `email` maupun `phone` sama-sama kosong, atau `password` tidak dikirim) — format error validasi standar.
 
 Setelah register/login, klien memanggil `GET /families` untuk melihat family yang sudah dimiliki, atau `POST /families` untuk membuat family pertama (lihat bagian Families).
 
@@ -43,6 +45,14 @@ Sebagian besar resource beroperasi dalam konteks satu family. Family aktif diten
 4. Jika user tidak punya membership sama sekali → `403`.
 
 `family_id` **tidak pernah** diambil dari body request — hanya dari resolusi di atas. Endpoint `Family` (`/families`) sendiri adalah pengecualian karena dia adalah akar tenant (lihat bagian Families).
+
+**Ini juga mekanisme resmi untuk "pilih family aktif"** pada user dengan >1 family — tidak
+perlu endpoint terpisah. Alurnya: klien simpan `family_id` pilihan user (mis. di
+local storage) begitu dipilih dari hasil `GET /families`, lalu kirim sebagai
+`X-Family-Id` di **setiap** request berikutnya. Tidak ada preferensi tersimpan di
+server (mis. "family default terakhir dipakai") — kalau header tidak dikirim, fallback-nya
+cuma "membership pertama user" (urutan DB, bukan pilihan user), jadi klien yang harus
+selalu mengirim headernya begitu punya pilihan tersimpan.
 
 ## Bentuk respons
 
@@ -128,9 +138,9 @@ Response `data`: `id, name, currency, timezone, onboarding_done, created_at, upd
 
 Butuh `X-Family-Id` (di bawah `resolve.family`). Mengelola role/keanggotaan adalah aksi admin — bukan `member` — untuk mencegah eskalasi privilege.
 
-| Method | Path | Body | Role |
+| Method | Path | Body/Query | Role |
 | --- | --- | --- | --- |
-| GET | `/family-members` | — | `viewer` |
+| GET | `/family-members` | `?role=` (`admin`\|`member`\|`viewer`), `?per_page=` (default 20, maks 100) — opsional | `viewer` |
 | POST | `/family-members` | `user_id*` (uuid, harus user terdaftar), `role*` (`admin`\|`member`\|`viewer`), `nickname`, `monthly_quota` (int) | **`admin`** |
 | GET | `/family-members/{family_member}` | — | `viewer` |
 | PUT/PATCH | `/family-members/{family_member}` | `role`, `nickname`, `monthly_quota` | **`admin`** |
@@ -231,9 +241,9 @@ Response `data`: `id, family_id, name, owner_member_id, expected_amount, cadence
 
 ## Savings Goals
 
-| Method | Path | Body | Role |
+| Method | Path | Body/Query | Role |
 | --- | --- | --- | --- |
-| GET | `/savings-goals` | — | `viewer` |
+| GET | `/savings-goals` | `?status=` (`active`\|`achieved`\|`paused`\|`cancelled`), `?per_page=` (default 20, maks 100) — opsional | `viewer` |
 | POST | `/savings-goals` | `target_name*`, `target_amount*` (int > 0), `deadline`, `icon`, `color`, `account_id`, `status` (default `active`) | `member` |
 | GET | `/savings-goals/{savings_goal}` | — | `viewer` |
 | PUT/PATCH | `/savings-goals/{savings_goal}` | Sama seperti store minus `current_amount` (cache, tidak bisa diubah langsung) | `member` |
@@ -311,9 +321,9 @@ Response `data`: `id, family_id, type, amount, wallet_id, source_id, account_id,
 
 ## Chat Threads
 
-| Method | Path | Body | Role |
+| Method | Path | Body/Query | Role |
 | --- | --- | --- | --- |
-| GET | `/chat-threads` | — | `viewer` |
+| GET | `/chat-threads` | `?kind=` (`general`\|`onboarding`), `?per_page=` (default 20, maks 100) — opsional | `viewer` |
 | POST | `/chat-threads` | `title`, `kind` (`general`\|`onboarding`, default `general`) | `member` |
 | GET | `/chat-threads/{chat_thread}` | — | `viewer` |
 | PUT/PATCH | `/chat-threads/{chat_thread}` | `title`, `kind` | `member` |

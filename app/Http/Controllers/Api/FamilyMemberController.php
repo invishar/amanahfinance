@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Families\FamilyMemberActions;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\IndexFamilyMemberRequest;
 use App\Http\Requests\StoreFamilyMemberRequest;
 use App\Http\Requests\UpdateFamilyMemberRequest;
 use App\Http\Resources\FamilyMemberResource;
@@ -13,13 +14,11 @@ class FamilyMemberController extends Controller
 {
     public function __construct(private FamilyMemberActions $actions) {}
 
-    public function index()
+    public function index(IndexFamilyMemberRequest $request)
     {
         $this->authorize('viewAny', FamilyMember::class);
 
-        $members = FamilyMember::query()->with('user')->paginate(20);
-
-        return FamilyMemberResource::collection($members);
+        return FamilyMemberResource::collection($this->actions->index($request->validated()));
     }
 
     public function store(StoreFamilyMemberRequest $request)

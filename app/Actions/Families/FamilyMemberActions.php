@@ -3,9 +3,24 @@
 namespace App\Actions\Families;
 
 use App\Models\FamilyMember;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class FamilyMemberActions
 {
+    /**
+     * @param  array{role?: string, per_page?: int}  $filters
+     */
+    public function index(array $filters): LengthAwarePaginator
+    {
+        $query = FamilyMember::query()->with('user');
+
+        if (filled($filters['role'] ?? null)) {
+            $query->where('role', $filters['role']);
+        }
+
+        return $query->paginate((int) ($filters['per_page'] ?? 20));
+    }
+
     public function create(array $data): FamilyMember
     {
         return FamilyMember::create([...$data, 'joined_at' => now()]);

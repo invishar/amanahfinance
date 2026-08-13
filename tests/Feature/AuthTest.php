@@ -83,25 +83,25 @@ test('login with correct credentials returns token', function () {
     $this->assertNotEmpty($response->json('data.token'));
 });
 
-test('login with wrong password fails', function () {
+test('login with wrong password fails with 401', function () {
     User::factory()->create([
         'email' => 'login2@example.test',
         'password_hash' => Hash::make('secret123'),
     ]);
 
-    $this->postJson('/api/v1/auth/login', [
+    $response = $this->postJson('/api/v1/auth/login', [
         'email' => 'login2@example.test',
         'password' => 'wrong-password',
-    ])
-        ->assertStatus(422)
-        ->assertJsonValidationErrors(['email']);
+    ])->assertStatus(401);
+
+    expect($response->json('message'))->toBe('Email/telepon atau kata sandi salah.');
 });
 
-test('login with unknown email fails', function () {
+test('login with unknown email fails with 401', function () {
     $this->postJson('/api/v1/auth/login', [
         'email' => 'nobody@example.test',
         'password' => 'whatever123',
-    ])->assertStatus(422);
+    ])->assertStatus(401);
 });
 
 test('me requires authentication', function () {

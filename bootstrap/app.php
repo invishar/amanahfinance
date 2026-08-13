@@ -1,6 +1,7 @@
 <?php
 
 use App\Exceptions\ConflictException;
+use App\Exceptions\InvalidCredentialsException;
 use App\Http\Middleware\ResolveFamily;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -35,4 +36,8 @@ return Application::configure(basePath: dirname(__DIR__))
         $exceptions->render(fn (ConflictException $e) => response()->json([
             'message' => $e->getMessage(),
         ], 409));
+
+        $exceptions->render(fn (InvalidCredentialsException $e) => response()->json([
+            'message' => $e->getMessage(),
+        ], 401));
     })->create();

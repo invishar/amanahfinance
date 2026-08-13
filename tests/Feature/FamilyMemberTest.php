@@ -41,6 +41,24 @@ test('destroy soft removes instead of deleting row', function () {
     $this->assertNotNull($target->fresh()->removed_at);
 });
 
+test('index filters by role', function () {
+    [, $family] = $this->actingAsFamilyMember('admin');
+    $viewer = FamilyMember::factory()->for($family)->create(['role' => 'viewer']);
+    FamilyMember::factory()->for($family)->create(['role' => 'member']);
+
+    $ids = $this->getJson('/api/v1/family-members?role=viewer')->assertOk()->json('data.*.id');
+
+    expect($ids)->toBe([$viewer->id]);
+});
+
+test('index rejects an invalid role filter', function () {
+    $this->actingAsFamilyMember('admin');
+
+    $this->getJson('/api/v1/family-members?role=owner')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['role']);
+});
+
 test('tenant leak family a cannot see family b member', function () {
     $this->actingAsFamilyMember('admin');
     $otherFamily = Family::factory()->create();

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\SavingsGoals\SavingsGoalActions;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\IndexSavingsGoalRequest;
 use App\Http\Requests\StoreSavingsGoalRequest;
 use App\Http\Requests\UpdateSavingsGoalRequest;
 use App\Http\Resources\SavingsGoalResource;
@@ -13,11 +14,11 @@ class SavingsGoalController extends Controller
 {
     public function __construct(private SavingsGoalActions $actions) {}
 
-    public function index()
+    public function index(IndexSavingsGoalRequest $request)
     {
         $this->authorize('viewAny', SavingsGoal::class);
 
-        return SavingsGoalResource::collection(SavingsGoal::query()->paginate(20));
+        return SavingsGoalResource::collection($this->actions->index($request->validated()));
     }
 
     public function store(StoreSavingsGoalRequest $request)

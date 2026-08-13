@@ -4,9 +4,24 @@ namespace App\Actions\SavingsGoals;
 
 use App\Models\SavingsGoal;
 use App\Support\DeletesSafely;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
 
 class SavingsGoalActions
 {
+    /**
+     * @param  array{status?: string, per_page?: int}  $filters
+     */
+    public function index(array $filters): LengthAwarePaginator
+    {
+        $query = SavingsGoal::query();
+
+        if (filled($filters['status'] ?? null)) {
+            $query->where('status', $filters['status']);
+        }
+
+        return $query->paginate((int) ($filters['per_page'] ?? 20));
+    }
+
     public function create(array $data): SavingsGoal
     {
         // fresh(): current_amount/status/created_at have DB-level defaults

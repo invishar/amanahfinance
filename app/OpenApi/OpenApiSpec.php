@@ -576,7 +576,8 @@ class OpenApiSpec
                     ]]]],
                     'responses' => [
                         '200' => self::jsonResponse('Login berhasil.', self::envelope('AuthPayload')),
-                        '422' => self::jsonResponse('Kredensial salah (pesan generik, tidak membedakan user tidak ada vs password salah).', ['$ref' => '#/components/schemas/ValidationError']),
+                        '401' => self::jsonResponse('Kredensial salah (pesan generik, tidak membedakan user tidak ada vs password salah).', ['$ref' => '#/components/schemas/MessageError']),
+                        '422' => self::refResponse('ValidationError'),
                     ],
                 ],
             ],
@@ -700,6 +701,10 @@ class OpenApiSpec
             [
                 'tag' => 'Family Members', 'base' => '/family-members', 'param' => 'family_member', 'schema' => 'FamilyMember',
                 'create' => ['user_id', 'role'], 'createRole' => 'admin', 'updateRole' => 'admin', 'deleteRole' => 'admin',
+                'indexQuery' => [
+                    ['name' => 'role', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['admin', 'member', 'viewer']]],
+                    ['name' => 'per_page', 'in' => 'query', 'description' => 'Default 20, maks 100.', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+                ],
                 'storeBody' => ['type' => 'object', 'required' => ['user_id', 'role'], 'properties' => [
                     'user_id' => ['type' => 'string', 'format' => 'uuid'],
                     'role' => ['type' => 'string', 'enum' => ['admin', 'member', 'viewer']],
@@ -784,6 +789,10 @@ class OpenApiSpec
             [
                 'tag' => 'Savings Goals', 'base' => '/savings-goals', 'param' => 'savings_goal', 'schema' => 'SavingsGoal',
                 'createRole' => 'member', 'updateRole' => 'member', 'deleteRole' => 'admin', 'deleteConflict' => true,
+                'indexQuery' => [
+                    ['name' => 'status', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['active', 'achieved', 'paused', 'cancelled']]],
+                    ['name' => 'per_page', 'in' => 'query', 'description' => 'Default 20, maks 100.', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+                ],
                 'storeBody' => ['type' => 'object', 'required' => ['target_name', 'target_amount'], 'properties' => [
                     'target_name' => ['type' => 'string'],
                     'target_amount' => ['type' => 'integer', 'minimum' => 1],
@@ -860,6 +869,10 @@ class OpenApiSpec
             [
                 'tag' => 'Chat Threads', 'base' => '/chat-threads', 'param' => 'chat_thread', 'schema' => 'ChatThread',
                 'createRole' => 'member', 'updateRole' => 'member', 'deleteRole' => 'member',
+                'indexQuery' => [
+                    ['name' => 'kind', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['general', 'onboarding']]],
+                    ['name' => 'per_page', 'in' => 'query', 'description' => 'Default 20, maks 100.', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+                ],
                 'storeBody' => ['type' => 'object', 'description' => 'member_id selalu diisi dari member yang login, tidak bisa dikirim lewat body.', 'properties' => [
                     'title' => ['type' => 'string', 'nullable' => true],
                     'kind' => ['type' => 'string', 'enum' => ['general', 'onboarding'], 'default' => 'general'],

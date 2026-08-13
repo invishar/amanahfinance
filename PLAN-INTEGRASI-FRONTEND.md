@@ -142,19 +142,33 @@ confirm/reject di action card disambungkan — tidak perlu menunggu item lain di
 
 ## P2 — Konsistensi & kenyamanan (bisa dicicil, tidak menghalangi rilis)
 
-- [ ] Login gagal balas `422`, sebaiknya `401` untuk kredensial salah.
+- [x] ~~Login gagal balas `422`, sebaiknya `401`~~ *(selesai 13 Agustus 2026)*: kredensial
+  salah sekarang `401 { "message": "..." }` lewat
+  [InvalidCredentialsException.php](app/Exceptions/InvalidCredentialsException.php)
+  (pola sama seperti `ConflictException`/409). `422` sekarang murni untuk bentuk input
+  salah (mis. `email`/`phone` sama-sama kosong) — pemisahan yang diminta FE.
 - [x] ~~`meta.links[].label` juga kunci mentah~~ — **selesai bareng 3.1**:
   [lang/id/pagination.php](lang/id/pagination.php) ("Sebelumnya"/"Berikutnya").
-- [ ] Tidak ada filter di `/savings-goals`, `/chat-threads`, `/family-members` (hanya
-  `?page=`).
-- [ ] Mekanisme pilih family aktif untuk user dengan >1 family (endpoint "set active
-  family" atau `?family_id=`) — FE sementara pakai `data[0]` dari `GET /families`.
+- [x] ~~Tidak ada filter di `/savings-goals`, `/chat-threads`, `/family-members`~~
+  *(selesai 13 Agustus 2026)*: `?status=` (savings-goals), `?kind=` (chat-threads),
+  `?role=` (family-members), plus `?per_page=` (default 20, maks 100) di ketiganya —
+  pola sama seperti filter `/transactions` (3.2).
+- [x] ~~Mekanisme pilih family aktif untuk user dengan >1 family~~ — **ternyata sudah ada**,
+  bukan kerjaan kode: header `X-Family-Id` (lihat bagian "Header X-Family-Id" di
+  `API-v1.md`) sudah menjawab kebutuhan ini sejak awal — FE tinggal simpan `family_id`
+  pilihan user lalu kirim sebagai header di tiap request, tidak perlu endpoint baru.
+  Diklarifikasi eksplisit di `API-v1.md` supaya FE tahu tidak perlu terus pakai
+  `data[0]` dari `GET /families`.
 - [x] ~~Siapa yang menyalakan `Family.onboarding_done`~~ — **selesai bareng 2.4**: server
   (`OnboardingConversationActions::advance()`) yang menyalakannya otomatis begitu
   pertanyaan terakhir terjawab. `PUT /families/{family}` masih bisa override manual
   kalau admin perlu reset, tapi FE tidak perlu menyentuhnya sama sekali.
-- [ ] Kejelasan scope rilis untuk entitas tanpa layar: `recurring-rules`, `notifications`,
-  `audit-logs`, `llm-settings`.
+- [ ] **Kejelasan scope rilis untuk entitas tanpa layar** (`recurring-rules`,
+  `notifications`, `audit-logs`, `llm-settings`) — **butuh keputusan produk**, bukan
+  kerja teknis (sama seperti 3.5): apakah keempatnya masuk lingkup rilis ini atau
+  ditunda. API-nya sudah lengkap (CRUD penuh untuk yang butuh, read-only untuk audit
+  logs), jadi begitu ada keputusan scope, tidak ada kerja backend tambahan yang
+  menghalangi — murni menunggu desain/prioritas FE.
 
 ---
 

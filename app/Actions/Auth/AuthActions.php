@@ -2,9 +2,9 @@
 
 namespace App\Actions\Auth;
 
+use App\Exceptions\InvalidCredentialsException;
 use App\Models\User;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\ValidationException;
 
 class AuthActions
 {
@@ -32,10 +32,12 @@ class AuthActions
         $field = isset($data['email']) ? 'email' : 'phone';
         $user = User::query()->where($field, $data[$field])->first();
 
+        // 401, bukan 422 (PLAN-INTEGRASI-FRONTEND.md P2): kredensial salah
+        // bukan input yang salah bentuknya -- 422 dicadangkan untuk itu.
+        // Pesan tetap generik, sengaja tidak membedakan "user tidak ada" vs
+        // "password salah" untuk mencegah user enumeration.
         if (! $user || ! Hash::check($data['password'], $user->password_hash)) {
-            throw ValidationException::withMessages([
-                $field => ['Email/telepon atau kata sandi salah.'],
-            ]);
+            throw new InvalidCredentialsException('Email/telepon atau kata sandi salah.');
         }
 
         $user->update(['last_login_at' => now()]);

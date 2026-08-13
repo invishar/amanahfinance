@@ -80,6 +80,24 @@ test('eta projects linearly from the average monthly contribution', function () 
         ->assertJsonPath('data.eta', $expectedEta);
 });
 
+test('index filters by status', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $achieved = SavingsGoal::factory()->achieved()->for($family)->create();
+    SavingsGoal::factory()->for($family)->create(['status' => 'active']);
+
+    $ids = $this->getJson('/api/v1/savings-goals?status=achieved')->assertOk()->json('data.*.id');
+
+    expect($ids)->toBe([$achieved->id]);
+});
+
+test('index rejects an invalid status filter', function () {
+    $this->actingAsFamilyMember('member');
+
+    $this->getJson('/api/v1/savings-goals?status=whatever')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['status']);
+});
+
 test('tenant leak cannot view other familys goal', function () {
     $this->actingAsFamilyMember('admin');
     $other = SavingsGoal::factory()->for(Family::factory())->create();
