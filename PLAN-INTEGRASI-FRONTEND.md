@@ -169,18 +169,3 @@ confirm/reject di action card disambungkan — tidak perlu menunggu item lain di
   ditunda. API-nya sudah lengkap (CRUD penuh untuk yang butuh, read-only untuk audit
   logs), jadi begitu ada keputusan scope, tidak ada kerja backend tambahan yang
   menghalangi — murni menunggu desain/prioritas FE.
-
----
-
-## Urutan pengerjaan yang disarankan
-
-1. Kabari FE soal item yang **sudah selesai** + selisih kontrak (SSE events, `422` vs
-   `409` di confirm, endpoint `/uploads` baru, `onboarding` field di `ChatThread`,
-   pesan error sekarang Bahasa Indonesia, filter `/transactions`, `income_sources[]` &
-   `eta` baru, `password_confirmation` opsional) — mereka bisa langsung sambungkan
-   tanpa menunggu.
-2. ~~Kerjakan 2.3 (upload) dan 2.4 (onboarding server-driven)~~ — **selesai**.
-3. ~~Sapu P1 (3.1–3.4a, 3.6)~~ — **selesai**. 3.4b (insights) sengaja tidak ikut, lihat
-   catatan di bagian P1 — butuh scoping job harian + LLM terpisah, bukan quick fix.
-4. Tunggu keputusan produk untuk 3.5 (dan scoping 3.4b) sebelum mulai coding.
-5. P2 dicicil kapan saja (2 dari 6 item sudah kebetulan selesai lewat kerjaan di atas).
