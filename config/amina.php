@@ -33,4 +33,12 @@ TEXT,
         'poll_interval_ms' => env('AMINA_SSE_POLL_INTERVAL_MS', 500),
     ],
 
+    // Berkas mentah saja (foto struk, rekaman suara) -- OCR/STT belum
+    // dikerjakan di sini, itu keputusan produk terpisah.
+    'uploads' => [
+        'max_kb' => env('AMINA_UPLOAD_MAX_KB', 15360),
+        'image_mimes' => ['jpg', 'jpeg', 'png', 'webp', 'heic'],
+        'voice_mimes' => ['mp3', 'wav', 'm4a', 'ogg', 'webm', 'aac'],
+    ],
+
 ];

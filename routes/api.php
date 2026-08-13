@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\OpenApiController;
 use App\Http\Controllers\Api\RecurringRuleController;
 use App\Http\Controllers\Api\SavingsGoalController;
 use App\Http\Controllers\Api\TransactionController;
+use App\Http\Controllers\Api\UploadController;
 use App\Http\Controllers\Api\WalletBudgetController;
 use App\Http\Controllers\Api\WalletController;
 use Illuminate\Http\Request;
@@ -74,6 +75,7 @@ Route::prefix('v1')->group(function () {
                 ->only(['index', 'store', 'show']);
             Route::apiResource('onboarding-answers', OnboardingAnswerController::class);
             Route::apiResource('notifications', NotificationController::class);
+            Route::post('/uploads', [UploadController::class, 'store']);
 
             // No store/update/destroy: ai_actions rows are only ever created
             // by AssistantService and only ever mutated via confirm/reject

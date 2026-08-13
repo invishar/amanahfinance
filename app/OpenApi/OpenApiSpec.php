@@ -55,7 +55,7 @@ class OpenApiSpec
             [
                 'Auth', 'Families', 'Family Members', 'Family Invites', 'Accounts', 'Wallets',
                 'Wallet Budgets', 'Income Sources', 'Savings Goals', 'Transactions', 'Recurring Rules',
-                'Chat Threads', 'Chat Messages', 'Onboarding Answers', 'Notifications',
+                'Chat Threads', 'Chat Messages', 'Uploads', 'Onboarding Answers', 'Notifications',
                 'AI Actions', 'Audit Logs', 'Analytics', 'LLM Settings',
             ]
         );
@@ -341,6 +341,15 @@ class OpenApiSpec
                     'kind' => ['type' => 'string', 'enum' => ['general', 'onboarding']],
                     'last_message_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
                     'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                    'onboarding' => [
+                        'type' => 'object', 'nullable' => true,
+                        'description' => 'null kecuali kind=onboarding.',
+                        'properties' => [
+                            'step' => ['type' => 'integer', 'description' => 'Nomor pertanyaan yang sedang berjalan (1-based).'],
+                            'total' => ['type' => 'integer'],
+                            'done' => ['type' => 'boolean'],
+                        ],
+                    ],
                 ],
             ],
             'ChatMessage' => [
@@ -472,6 +481,7 @@ class OpenApiSpec
             self::walletBudgetPaths(),
             self::chatMessagePaths(),
             self::chatStreamPaths(),
+            self::uploadPaths(),
             self::readOnlyPaths(),
             self::aiActionMutationPaths(),
             self::analyticsPaths(),
@@ -1079,6 +1089,41 @@ class OpenApiSpec
                         '200' => ['description' => 'text/event-stream', 'content' => ['text/event-stream' => ['schema' => ['type' => 'string']]]],
                         '403' => self::refResponse('Forbidden'),
                         '404' => self::refResponse('NotFound'),
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private static function uploadPaths(): array
+    {
+        return [
+            '/uploads' => [
+                'post' => [
+                    'tags' => ['Uploads'],
+                    'summary' => 'Unggah berkas attachment chat (foto struk / rekaman suara)',
+                    'description' => 'Hanya menyimpan berkas dan mengembalikan URL-nya -- tidak melakukan OCR/speech-to-text. Kirim url hasilnya sebagai attachment_url saat POST chat-threads/{chat_thread}/messages.',
+                    'requestBody' => ['required' => true, 'content' => ['multipart/form-data' => ['schema' => [
+                        'type' => 'object',
+                        'required' => ['file'],
+                        'properties' => [
+                            'file' => ['type' => 'string', 'format' => 'binary'],
+                        ],
+                    ]]]],
+                    'responses' => [
+                        '201' => self::jsonResponse('Tersimpan.', [
+                            'type' => 'object',
+                            'properties' => ['data' => [
+                                'type' => 'object',
+                                'properties' => [
+                                    'url' => ['type' => 'string'],
+                                    'mime' => ['type' => 'string'],
+                                    'size' => ['type' => 'integer', 'description' => 'Byte'],
+                                ],
+                            ]],
+                        ]),
+                        '403' => self::refResponse('Forbidden'),
+                        '422' => self::refResponse('ValidationError'),
                     ],
                 ],
             ],

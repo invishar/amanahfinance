@@ -107,7 +107,7 @@ Akar tenant. Tidak berada di bawah `X-Family-Id` — `store` dipakai untuk membu
 | Method | Path | Body | Catatan |
 | --- | --- | --- | --- |
 | GET | `/families` | — | List family milik user yang login saja. |
-| POST | `/families` | `name*` (string), `currency` (3 huruf, default `IDR`), `timezone` (default `Asia/Jakarta`) | User pembuat otomatis jadi `family_members.role=admin`. |
+| POST | `/families` | `name*` (string), `currency` (3 huruf, default `IDR`), `timezone` (default `Asia/Jakarta`) | User pembuat otomatis jadi `family_members.role=admin`. Server juga langsung membuat `ChatThread kind=onboarding` berisi sapaan + pertanyaan pertama Amina (lihat bagian Onboarding Answers) — naskahnya tidak pernah dikirim dari klien. |
 | GET | `/families/{family}` | — | 403 jika user bukan member family ini. |
 | PUT/PATCH | `/families/{family}` | `name`, `currency`, `timezone`, `onboarding_done` (semua opsional) | Admin only. |
 | DELETE | `/families/{family}` | — | Admin only. Cascade ke seluruh data family (FK `cascadeOnDelete`). |
@@ -301,7 +301,11 @@ Response `data`: `id, family_id, type, amount, wallet_id, source_id, account_id,
 
 `member_id` selalu diisi dari member yang login, tidak bisa dikirim lewat body.
 
-Response `data`: `id, family_id, member_id, title, kind, last_message_at, created_at`.
+Response `data`: `id, family_id, member_id, title, kind, last_message_at, created_at, onboarding`.
+
+`onboarding` adalah `{ step, total, done }` (jumlah pertanyaan naskah onboarding &
+progres keluarga ini menjawabnya) untuk thread `kind=onboarding`, dan `null` untuk
+thread `kind=general`.
 
 ---
 
@@ -343,6 +347,25 @@ Klien **wajib dedupe berdasarkan `id`**: cursor resume di event `retry` adalah y
 
 ---
 
+## Uploads
+
+Menghasilkan URL untuk attachment chat (foto struk, rekaman suara). Endpoint ini **hanya
+menyimpan berkas** dan mengembalikan URL-nya — tidak melakukan OCR struk atau
+speech-to-text. Alurnya: `POST /uploads` dulu untuk dapat `url`, lalu kirim `url` itu
+sebagai `attachment_url` saat `POST /chat-threads/{chat_thread}/messages`.
+
+| Method | Path | Body | Role |
+| --- | --- | --- | --- |
+| POST | `/uploads` | `file*` (multipart, gambar atau audio) | `member` |
+
+Batas: `AMINA_UPLOAD_MAX_KB` (default 15360 KB / 15 MB), mime diizinkan gambar
+(`jpg`, `jpeg`, `png`, `webp`, `heic`) atau audio (`mp3`, `wav`, `m4a`, `ogg`, `webm`,
+`aac`).
+
+Response `data` (`201`): `url, mime, size` (byte).
+
+---
+
 ## Onboarding Answers
 
 | Method | Path | Body | Role |
@@ -354,6 +377,19 @@ Klien **wajib dedupe berdasarkan `id`**: cursor resume di event `retry` adalah y
 | DELETE | `/onboarding-answers/{onboarding_answer}` | — | `admin` |
 
 Response `data`: `id, family_id, question_key, answer, skipped, answered_at`.
+
+Naskah pertanyaan (`question_key` yang valid & urutannya) hidup di server
+(`config('amina.onboarding_questions')`), **bukan** di klien. Setiap `POST` yang
+berhasil (baik `skipped=true` maupun jawaban asli) memicu server:
+
+1. Cari `question_key` pertama di naskah yang belum ada di `onboarding_answers` family
+   ini.
+2. Kalau masih ada — tulis pesan `role=assistant` baru berisi pertanyaan itu ke
+   `ChatThread kind=onboarding` milik family (muncul di klien lewat SSE/polling
+   seperti balasan Amina lainnya).
+3. Kalau sudah tidak ada — tandai `families.onboarding_done = true`. Klien tidak
+   perlu (dan sebaiknya tidak) menyalakan `onboarding_done` sendiri lewat
+   `PUT /families/{family}`.
 
 ---
 

@@ -13,6 +13,7 @@ test('store sets member id from current member not body', function () {
 
     $response->assertJsonPath('data.member_id', $member->id);
     $response->assertJsonPath('data.kind', 'general');
+    $response->assertJsonPath('data.onboarding', null);
 });
 
 test('tenant leak cannot view other familys thread', function () {
