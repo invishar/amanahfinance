@@ -35,6 +35,29 @@ test('register with phone only is allowed', function () {
     ])->assertCreated();
 });
 
+test('register succeeds without password_confirmation', function () {
+    $this->postJson('/api/v1/auth/register', [
+        'full_name' => 'Budi Santoso',
+        'email' => 'budi.no-confirm@example.test',
+        'password' => 'password123',
+    ])->assertCreated();
+
+    $this->assertDatabaseHas('users', ['email' => 'budi.no-confirm@example.test']);
+});
+
+test('register still rejects a mismatched password_confirmation when sent', function () {
+    $this->postJson('/api/v1/auth/register', [
+        'full_name' => 'Budi Santoso',
+        'email' => 'budi.mismatch@example.test',
+        'password' => 'password123',
+        'password_confirmation' => 'not-the-same',
+    ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['password']);
+
+    $this->assertDatabaseMissing('users', ['email' => 'budi.mismatch@example.test']);
+});
+
 test('password returned is never exposed', function () {
     $response = $this->postJson('/api/v1/auth/register', [
         'full_name' => 'Budi Santoso',

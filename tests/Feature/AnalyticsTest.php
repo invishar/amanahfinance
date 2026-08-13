@@ -107,6 +107,59 @@ test('month query param selects a different month', function () {
         ->assertJsonPath('data.cashflow.total_income', 0);
 });
 
+test('summary includes income sources with zero realization this month', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $source = IncomeSource::factory()->for($family)->create(['name' => 'Gaji Bulanan', 'expected_amount' => 8_000_000]);
+
+    $this->getJson('/api/v1/analytics/summary')
+        ->assertOk()
+        ->assertJsonFragment([
+            'source_id' => $source->id,
+            'name' => 'Gaji Bulanan',
+            'expected' => 8_000_000,
+            'actual' => 0,
+        ]);
+});
+
+test('summary reports actual realization per income source', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $account = Account::factory()->for($family)->create();
+    $source = IncomeSource::factory()->for($family)->create(['expected_amount' => 8_000_000]);
+    $otherSource = IncomeSource::factory()->for($family)->create();
+
+    Transaction::factory()->for($family)->create([
+        'type' => 'income', 'amount' => 3_000_000, 'account_id' => $account->id,
+        'wallet_id' => null, 'source_id' => $source->id, 'transaction_date' => now(),
+    ]);
+    Transaction::factory()->for($family)->create([
+        'type' => 'income', 'amount' => 4_500_000, 'account_id' => $account->id,
+        'wallet_id' => null, 'source_id' => $source->id, 'transaction_date' => now(),
+    ]);
+
+    $response = $this->getJson('/api/v1/analytics/summary')->assertOk();
+
+    $response->assertJsonFragment(['source_id' => $source->id, 'actual' => 7_500_000]);
+    $response->assertJsonFragment(['source_id' => $otherSource->id, 'actual' => 0]);
+});
+
+test('income source with no expected_amount reports null, not zero', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $source = IncomeSource::factory()->for($family)->create(['expected_amount' => null]);
+
+    $this->getJson('/api/v1/analytics/summary')
+        ->assertOk()
+        ->assertJsonFragment(['source_id' => $source->id, 'expected' => null]);
+});
+
+test('summary income_sources does not leak other familys data', function () {
+    $this->actingAsFamilyMember('member');
+    $otherSource = IncomeSource::factory()->for(Family::factory())->create();
+
+    $response = $this->getJson('/api/v1/analytics/summary')->assertOk();
+
+    $response->assertJsonMissing(['source_id' => $otherSource->id]);
+});
+
 test('invalid month format is rejected', function () {
     $this->actingAsFamilyMember('member');
 

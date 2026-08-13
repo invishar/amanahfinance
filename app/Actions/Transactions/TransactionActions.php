@@ -6,6 +6,8 @@ use App\Models\Account;
 use App\Models\SavingsGoal;
 use App\Models\Transaction;
 use App\Support\CurrentFamily;
+use Illuminate\Contracts\Pagination\LengthAwarePaginator;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
 // transactions is the source of truth (aturan #4): accounts.current_balance
@@ -13,6 +15,39 @@ use Illuminate\Support\Facades\DB;
 // same DB transaction as the ledger row itself.
 class TransactionActions
 {
+    /**
+     * @param  array{month?: string, wallet_id?: string, account_id?: string, type?: string, per_page?: int}  $filters
+     */
+    public function index(array $filters): LengthAwarePaginator
+    {
+        $query = Transaction::query();
+
+        if (filled($filters['month'] ?? null)) {
+            $period = Carbon::createFromFormat('Y-m', $filters['month']);
+            $query->whereBetween('transaction_date', [
+                $period->copy()->startOfMonth()->toDateString(),
+                $period->copy()->endOfMonth()->toDateString(),
+            ]);
+        }
+
+        if (filled($filters['wallet_id'] ?? null)) {
+            $query->where('wallet_id', $filters['wallet_id']);
+        }
+
+        if (filled($filters['account_id'] ?? null)) {
+            $query->where('account_id', $filters['account_id']);
+        }
+
+        if (filled($filters['type'] ?? null)) {
+            $query->where('type', $filters['type']);
+        }
+
+        return $query
+            ->orderByDesc('transaction_date')
+            ->orderByDesc('created_at')
+            ->paginate((int) ($filters['per_page'] ?? 20));
+    }
+
     public function create(array $data): Transaction
     {
         return DB::transaction(function () use ($data) {

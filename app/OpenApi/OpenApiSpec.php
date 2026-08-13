@@ -285,6 +285,7 @@ class OpenApiSpec
                     'current_amount' => ['type' => 'integer'],
                     'percent' => ['type' => 'integer', 'minimum' => 0, 'maximum' => 100],
                     'deadline' => ['type' => 'string', 'format' => 'date', 'nullable' => true],
+                    'eta' => ['type' => 'string', 'format' => 'date', 'nullable' => true, 'description' => 'Estimasi tercapai (awal bulan), diproyeksikan server dari rata-rata kontribusi. null kalau status bukan active, sudah tercapai, atau belum ada histori setoran.'],
                     'icon' => ['type' => 'string', 'nullable' => true],
                     'color' => ['type' => 'string', 'nullable' => true],
                     'account_id' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
@@ -437,6 +438,15 @@ class OpenApiSpec
                     'status' => ['type' => 'string', 'enum' => ['no_budget', 'over', 'warning', 'ok']],
                 ],
             ],
+            'AnalyticsIncomeSource' => [
+                'type' => 'object',
+                'properties' => [
+                    'source_id' => ['type' => 'string', 'format' => 'uuid'],
+                    'name' => ['type' => 'string'],
+                    'expected' => ['type' => 'integer', 'nullable' => true, 'description' => 'income_sources.expected_amount, bisa null kalau belum diisi.'],
+                    'actual' => ['type' => 'integer', 'description' => 'Total transactions type=income untuk source ini di period ini.'],
+                ],
+            ],
             'AnalyticsSummary' => [
                 'type' => 'object',
                 'properties' => [
@@ -451,6 +461,7 @@ class OpenApiSpec
                         ],
                     ],
                     'wallets' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/AnalyticsWallet']],
+                    'income_sources' => ['type' => 'array', 'items' => ['$ref' => '#/components/schemas/AnalyticsIncomeSource']],
                 ],
             ],
             'LlmSetting' => [
@@ -534,13 +545,13 @@ class OpenApiSpec
                     'security' => [],
                     'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [
                         'type' => 'object',
-                        'required' => ['full_name', 'password', 'password_confirmation'],
+                        'required' => ['full_name', 'password'],
                         'properties' => [
                             'full_name' => ['type' => 'string'],
                             'email' => ['type' => 'string', 'format' => 'email', 'description' => 'Wajib jika phone kosong'],
                             'phone' => ['type' => 'string', 'description' => 'Wajib jika email kosong'],
                             'password' => ['type' => 'string', 'format' => 'password', 'minLength' => 8],
-                            'password_confirmation' => ['type' => 'string', 'format' => 'password'],
+                            'password_confirmation' => ['type' => 'string', 'format' => 'password', 'description' => 'Opsional -- kalau dikirim harus cocok dengan password.'],
                         ],
                     ]]]],
                     'responses' => [
@@ -796,6 +807,13 @@ class OpenApiSpec
             [
                 'tag' => 'Transactions', 'base' => '/transactions', 'param' => 'transaction', 'schema' => 'Transaction',
                 'createRole' => 'member', 'updateRole' => 'member', 'deleteRole' => 'member',
+                'indexQuery' => [
+                    ['name' => 'month', 'in' => 'query', 'description' => 'YYYY-MM, filter transaction_date.', 'schema' => ['type' => 'string', 'example' => '2026-08']],
+                    ['name' => 'wallet_id', 'in' => 'query', 'schema' => ['type' => 'string', 'format' => 'uuid']],
+                    ['name' => 'account_id', 'in' => 'query', 'description' => 'Hanya mencocokkan account_id (sisi asal), bukan to_account_id.', 'schema' => ['type' => 'string', 'format' => 'uuid']],
+                    ['name' => 'type', 'in' => 'query', 'schema' => ['type' => 'string', 'enum' => ['income', 'expense', 'transfer', 'savings']]],
+                    ['name' => 'per_page', 'in' => 'query', 'description' => 'Default 20, maks 100.', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+                ],
                 'storeBody' => ['type' => 'object', 'required' => ['type', 'amount', 'transaction_date', 'account_id'], 'description' => 'Field wajib tambahan per type: expense->wallet_id, income->source_id, transfer->to_account_id (!=account_id), savings->goal_id.', 'properties' => [
                     'type' => ['type' => 'string', 'enum' => ['income', 'expense', 'transfer', 'savings']],
                     'amount' => ['type' => 'integer', 'minimum' => 1],
@@ -895,7 +913,10 @@ class OpenApiSpec
             $collectionItem['get'] = [
                 'tags' => [$r['tag']],
                 'summary' => "List {$r['tag']}",
-                'parameters' => [['name' => 'page', 'in' => 'query', 'schema' => ['type' => 'integer']]],
+                'parameters' => [
+                    ['name' => 'page', 'in' => 'query', 'schema' => ['type' => 'integer']],
+                    ...($r['indexQuery'] ?? []),
+                ],
                 'responses' => [
                     '200' => self::jsonResponse('OK', self::paginatedEnvelope($r['schema'])),
                     '403' => self::refResponse('Forbidden'),

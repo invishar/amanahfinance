@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\Transactions\TransactionActions;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\IndexTransactionRequest;
 use App\Http\Requests\StoreTransactionRequest;
 use App\Http\Requests\UpdateTransactionRequest;
 use App\Http\Resources\TransactionResource;
@@ -13,13 +14,11 @@ class TransactionController extends Controller
 {
     public function __construct(private TransactionActions $actions) {}
 
-    public function index()
+    public function index(IndexTransactionRequest $request)
     {
         $this->authorize('viewAny', Transaction::class);
 
-        return TransactionResource::collection(
-            Transaction::query()->orderByDesc('transaction_date')->paginate(20)
-        );
+        return TransactionResource::collection($this->actions->index($request->validated()));
     }
 
     public function store(StoreTransactionRequest $request)

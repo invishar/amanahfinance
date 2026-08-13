@@ -54,3 +54,29 @@ test('tenant leak cannot view other familys account', function () {
 
     $this->getJson('/api/v1/accounts/'.$otherAccount->id)->assertStatus(404);
 });
+
+test('validation errors are localized indonesian sentences, not raw keys', function () {
+    $this->actingAsFamilyMember('member');
+
+    $response = $this->postJson('/api/v1/accounts', ['account_type' => 'bank'])
+        ->assertStatus(422);
+
+    $message = $response->json('errors.name.0');
+    expect($message)->toBe('Nama wajib diisi.');
+    expect($response->json('message'))->toBe('Nama wajib diisi.');
+    expect($message)->not->toContain('validation.');
+});
+
+test('pagination link labels are localized', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    // AccountFactory draws names from a small fixed pool per account_type
+    // (accounts_family_id_name_unique would collide well before 25) --
+    // force distinct names since this test only cares about pagination.
+    Account::factory()->for($family)->count(25)->sequence(fn ($seq) => ['name' => 'Akun '.$seq->index])->create();
+
+    $response = $this->getJson('/api/v1/accounts')->assertOk();
+
+    $labels = collect($response->json('meta.links'))->pluck('label');
+    expect($labels)->toContain('Berikutnya');
+    expect($labels->contains(fn ($label) => str_contains((string) $label, 'pagination.')))->toBeFalse();
+});

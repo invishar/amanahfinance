@@ -187,6 +187,73 @@ test('viewer cannot create transaction', function () {
     ])->assertStatus(403);
 });
 
+test('index defaults to transaction_date desc then created_at desc', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $older = Transaction::factory()->for($family)->create(['transaction_date' => '2026-08-01', 'created_at' => now()->subHour()]);
+    $sameDayLater = Transaction::factory()->for($family)->create(['transaction_date' => '2026-08-05', 'created_at' => now()]);
+    $sameDayEarlier = Transaction::factory()->for($family)->create(['transaction_date' => '2026-08-05', 'created_at' => now()->subMinutes(10)]);
+
+    $ids = $this->getJson('/api/v1/transactions')->assertOk()->json('data.*.id');
+
+    expect($ids)->toBe([$sameDayLater->id, $sameDayEarlier->id, $older->id]);
+});
+
+test('index filters by month', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $inMonth = Transaction::factory()->for($family)->create(['transaction_date' => '2026-08-15']);
+    Transaction::factory()->for($family)->create(['transaction_date' => '2026-07-15']);
+
+    $ids = $this->getJson('/api/v1/transactions?month=2026-08')->assertOk()->json('data.*.id');
+
+    expect($ids)->toBe([$inMonth->id]);
+});
+
+test('index rejects a malformed month', function () {
+    $this->actingAsFamilyMember('member');
+
+    $this->getJson('/api/v1/transactions?month=not-a-month')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['month']);
+});
+
+test('index filters by wallet, account, and type', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $wallet = Wallet::factory()->for($family)->create();
+    $account = Account::factory()->for($family)->create();
+    $matching = Transaction::factory()->for($family)->create(['wallet_id' => $wallet->id, 'account_id' => $account->id, 'type' => 'expense']);
+    Transaction::factory()->for($family)->create();
+    Transaction::factory()->for($family)->income()->create(['account_id' => $account->id]);
+
+    $ids = $this->getJson("/api/v1/transactions?wallet_id={$wallet->id}")->assertOk()->json('data.*.id');
+    expect($ids)->toBe([$matching->id]);
+
+    $ids = $this->getJson('/api/v1/transactions?type=income')->assertOk()->json('data.*.id');
+    expect($ids)->toHaveCount(1);
+
+    $ids = $this->getJson("/api/v1/transactions?account_id={$account->id}&type=expense")->assertOk()->json('data.*.id');
+    expect($ids)->toBe([$matching->id]);
+});
+
+test('index account_id filter does not match to_account_id on transfers', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $account = Account::factory()->for($family)->create();
+    Transaction::factory()->for($family)->transfer()->create(['to_account_id' => $account->id]);
+
+    $ids = $this->getJson("/api/v1/transactions?account_id={$account->id}")->assertOk()->json('data.*.id');
+
+    expect($ids)->toBeEmpty();
+});
+
+test('index respects per_page up to the 100 cap', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    Transaction::factory()->for($family)->count(5)->create();
+
+    $this->getJson('/api/v1/transactions?per_page=2')->assertOk()->assertJsonCount(2, 'data');
+    $this->getJson('/api/v1/transactions?per_page=500')
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['per_page']);
+});
+
 test('tenant leak cannot view other familys transaction', function () {
     $this->actingAsFamilyMember('admin');
     $other = Transaction::factory()->for(Family::factory())->create();

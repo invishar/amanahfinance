@@ -18,7 +18,7 @@ Authorization: Bearer <token>
 
 | Method | Path | Body | Auth |
 | --- | --- | --- | --- |
-| POST | `/auth/register` | `full_name*`, `email` atau `phone` (salah satu wajib), `password*` (min 8, wajib `password_confirmation`) | Publik, throttle 10/menit |
+| POST | `/auth/register` | `full_name*`, `email` atau `phone` (salah satu wajib), `password*` (min 8), `password_confirmation` (opsional — kalau dikirim harus cocok dengan `password`, kalau tidak dikirim tidak diwajibkan) | Publik, throttle 10/menit |
 | POST | `/auth/login` | `email` atau `phone` (salah satu wajib), `password*` | Publik, throttle 10/menit |
 | GET | `/auth/me` | — | Bearer token |
 | POST | `/auth/logout` | — | Bearer token — mencabut token yang dipakai di request ini saja (device lain tetap login) |
@@ -65,12 +65,20 @@ Sukses (list, dengan pagination):
 Error validasi (422) & error umum:
 
 ```json
-{ "message": "The given data was invalid.", "errors": { "field": ["..."] } }
+{ "message": "Nama wajib diisi.", "errors": { "name": ["Nama wajib diisi."] } }
 ```
 
 ```json
 { "message": "Human readable message." }
 ```
+
+Semua pesan (`message` maupun isi `errors`) sudah kalimat Bahasa Indonesia siap tampil
+(`lang/id/validation.php`, `lang/id/pagination.php` untuk `meta.links[].label`), bukan
+kunci mentah seperti `"validation.required"` — `message` di atas **adalah** pesan error
+field pertama (perilaku bawaan Laravel: `ValidationException::summarize()`), bukan string
+generik. Satu sudut kasar yang belum ditangani: kalau lebih dari satu field gagal
+sekaligus, `message` menambahkan akhiran `"(and N more errors)"` dalam Bahasa Inggris
+(quirk `ValidationException` sendiri) — `errors` per field tetap sepenuhnya Indonesia.
 
 Kode status yang dipakai secara konsisten:
 
@@ -233,7 +241,13 @@ Response `data`: `id, family_id, name, owner_member_id, expected_amount, cadence
 
 Mengubah `status` menjadi `achieved` otomatis mengisi `achieved_at`; mengubahnya ke status lain mengosongkan `achieved_at`.
 
-Response `data`: `id, family_id, target_name, target_amount, current_amount, percent (0-100, dihitung server), deadline, icon, color, account_id, status, created_at, achieved_at`.
+Response `data`: `id, family_id, target_name, target_amount, current_amount, percent (0-100, dihitung server), deadline, eta, icon, color, account_id, status, created_at, achieved_at`.
+
+`eta` (`YYYY-MM-DD`, awal bulan — estimasi, bukan tanggal presisi) diproyeksikan server dari
+rata-rata kontribusi bulanan sejak setoran (`transactions.type=savings`) pertama ke goal ini,
+linear terhadap sisa `target_amount - current_amount`. `null` kalau: `status` bukan `active`,
+`current_amount` sudah `>= target_amount`, atau belum ada histori setoran sama sekali untuk
+diproyeksikan (server sengaja tidak menebak-nebak tanpa data).
 
 ---
 
@@ -250,9 +264,9 @@ Response `data`: `id, family_id, target_name, target_amount, current_amount, per
 
 `account_id` selalu wajib untuk semua tipe. `amount` harus `> 0`.
 
-| Method | Path | Body | Role |
+| Method | Path | Body/Query | Role |
 | --- | --- | --- | --- |
-| GET | `/transactions` | — | `viewer` |
+| GET | `/transactions` | `?month=YYYY-MM`, `?wallet_id=`, `?account_id=`, `?type=`, `?per_page=` (default 20, maks 100) — semua opsional, bisa digabung | `viewer` |
 | POST | `/transactions` | `type*`, `amount*` (int), `transaction_date*` (date), `account_id*`, + field wajib per tipe di atas, `note`, `receipt_url` | `member` |
 | GET | `/transactions/{transaction}` | — | `viewer` |
 | PUT/PATCH | `/transactions/{transaction}` | Field yang sama, semua opsional (partial update); jika `type` diganti, foreign key yang tidak relevan otomatis dikosongkan | `member` |
@@ -270,6 +284,12 @@ Efek saldo (dalam satu DB transaction dengan penulisan baris):
 Update membalik efek lama lalu menerapkan efek baru; delete (soft delete) membalik efek sepenuhnya.
 
 Response `data`: `id, family_id, type, amount, transaction_date, account_id, to_account_id, wallet_id, source_id, goal_id, note, created_by, origin, receipt_url, created_at, updated_at`.
+
+Urutan baku (tidak dipengaruhi filter): `transaction_date desc, created_at desc` — cukup stabil
+untuk diandalkan halaman pertama sebagai "transaksi terbaru" di dashboard. `?month=` memfilter
+`transaction_date` dalam rentang bulan kalender itu (bukan `created_at`). `?account_id=` hanya
+mencocokkan `transactions.account_id` (sisi asal) — transaksi `transfer` yang **masuk** ke akun
+itu lewat `to_account_id` tidak ikut terfilter oleh parameter ini.
 
 ---
 
@@ -500,6 +520,14 @@ Response `data`:
       "percent": 80,
       "status": "warning"
     }
+  ],
+  "income_sources": [
+    {
+      "source_id": "...",
+      "name": "Gaji Bulanan",
+      "expected": 8000000,
+      "actual": 8000000
+    }
   ]
 }
 ```
@@ -509,6 +537,7 @@ Response `data`:
 - `percent` = `min(spent, budget) / budget * 100`, dibulatkan; `0` jika `budget<=0`.
 - `status`: `no_budget` (budget ≤ 0), `over` (≥100%), `warning` (≥80%), `ok` (selain itu).
 - `net` = `total_income - total_expense`.
+- `income_sources` mencakup **semua sumber pemasukan aktif** (`is_archived=false`) family, termasuk yang belum ada transaksi bulan ini (`actual=0`). `expected` = `income_sources.expected_amount` apa adanya (bisa `null` kalau belum diisi — beda dari `0`, yang berarti "diperkirakan tidak ada pemasukan"). `actual` = total `transactions.amount` bertipe `income` dengan `source_id` ini di bulan `period` (dari view `v_income_source_month`, mengikuti pola `v_wallet_month`/`v_cashflow_month`; tidak ada quirk `curdate()` seperti `wallets` karena `expected_amount` bukan nilai per-bulan).
 
 ---
 

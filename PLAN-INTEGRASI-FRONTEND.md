@@ -69,30 +69,64 @@ confirm/reject di action card disambungkan — tidak perlu menunggu item lain di
 
 ## P1 — Menghambat fitur yang sudah didesain
 
-- [ ] **3.1 — Pesan validasi Bahasa Indonesia**
-  Tidak ada folder `lang/id` di repo. `422` masih balas kunci mentah
-  (`"validation.required"`). Perlu file terjemahan Laravel + pastikan `Accept-Language`
-  ditangani. FE akan hapus `translateValidation()` di `lib/api/client.ts` begitu ini beres.
+- [x] **3.1 — Pesan validasi Bahasa Indonesia** *(selesai 13 Agustus 2026)*
+  Ditambahkan [lang/id/validation.php](lang/id/validation.php) (semua rule Laravel +
+  peta `attributes` untuk semua field yang dipakai FormRequest di app ini, huruf awal
+  kapital karena hampir semua template pesan menaruh `:attribute` di kata pertama —
+  cocok dengan contoh persis FE: `"Nama wajib diisi."`) dan
+  [lang/id/pagination.php](lang/id/pagination.php) (sekalian menjawab item P2
+  `meta.links[].label`). **Tidak** ditambahkan penanganan `Accept-Language` — app ini
+  satu-locale (`config('app.locale')` sudah `id` by default), jadi tidak perlu content
+  negotiation. Sudut kasar yang belum ditangani: kalau >1 field gagal sekaligus,
+  `message` di level atas menambahkan akhiran `"(and N more errors)"` dalam Bahasa
+  Inggris (quirk internal `ValidationException::summarize()`) — `errors` per field tetap
+  100% Indonesia. FE bisa hapus `translateValidation()` di `lib/api/client.ts` sekarang.
 
-- [ ] **3.2 — Filter & urutan stabil `GET /transactions`**
-  `TransactionController::index()` cuma `orderByDesc('transaction_date')->paginate(20)`,
-  tanpa filter dan tanpa tie-breaker. Perlu: `?month=YYYY-MM`, `?wallet_id=`,
-  `?account_id=`, `?type=`, `?per_page=`, dan urutan baku
+- [x] **3.2 — Filter & urutan stabil `GET /transactions`** *(selesai 13 Agustus 2026)*
+  Ditambahkan `?month=YYYY-MM`, `?wallet_id=`, `?account_id=`, `?type=`, `?per_page=`
+  (default 20, maks 100, semua opsional & bisa digabung) lewat
+  [IndexTransactionRequest.php](app/Http/Requests/IndexTransactionRequest.php) +
+  `TransactionActions::index()`. Urutan baku sekarang
   `transaction_date desc, created_at desc` (menjawab §5.2 catatan asli sekaligus).
+  Catatan: `?account_id=` hanya mencocokkan `account_id` (sisi asal) — transaksi
+  `transfer` yang masuk ke akun itu lewat `to_account_id` tidak ikut terfilter;
+  didokumentasikan eksplisit di `API-v1.md` supaya FE tidak kaget.
 
-- [ ] **3.3 — Realisasi per sumber pemasukan**
-  Belum ada di `AnalyticsActions::summary()`. Tambahkan `income_sources[]` dengan
-  `{ source_id, name, expected, actual }`, mengikuti pola `wallets[]` yang sudah ada.
+- [x] **3.3 — Realisasi per sumber pemasukan** *(selesai 13 Agustus 2026)*
+  Ditambahkan `income_sources[]` di `GET /analytics/summary` dengan
+  `{ source_id, name, expected, actual }`, mengikuti pola `wallets[]` yang sudah ada —
+  termasuk view baru `v_income_source_month`
+  ([migration](database/migrations/2026_08_13_170000_create_income_source_month_view.php))
+  supaya konsisten dengan aturan "dashboard/analitik pakai view, bukan query ad-hoc"
+  (CLAUDE.md). `expected` sengaja `null` (bukan `0`) kalau `expected_amount` belum diisi
+  — beda makna dari "diperkirakan tidak ada pemasukan".
 
-- [ ] **3.4 — ETA savings goal & insights**
-  Belum ada `eta`/`projected_completion` di `SavingsGoal` (perlu dihitung server dari
-  rata-rata kontribusi). Belum ada `insights[]` di `analytics/summary` atau endpoint
-  sendiri untuk kartu "Wawasan dari Amina".
+- [x] **3.4a — ETA savings goal** *(selesai 13 Agustus 2026)*
+  Ditambahkan `eta` (`YYYY-MM-DD`, awal bulan) di `SavingsGoalResource`, diproyeksikan
+  server secara linear dari rata-rata kontribusi bulanan sejak setoran pertama ke goal
+  itu. `null` kalau `status` bukan `active`, sudah tercapai, atau belum ada histori
+  setoran. Lihat [SavingsGoalResource.php](app/Http/Resources/SavingsGoalResource.php).
+  (Bug kecil ketemu & diperbaiki di jalan: `Carbon::diffInMonths()` di versi ini
+  mengembalikan float, bukan int, jadi harus di-cast eksplisit atau elapsed-months
+  membengkak +1 bulan.)
 
-- [ ] **3.6 — `password_confirmation` di register**
-  `RegisterRequest` masih mewajibkan `'confirmed'`, padahal desain FE cuma punya satu
-  field sandi. Putuskan: field dibuat opsional, atau desain FE tambah field "Ulangi
-  kata sandi".
+- [ ] **3.4b — Insights (kartu "Wawasan dari Amina")** *(sengaja belum dikerjakan)*
+  **Beda kategori dari item P1 lain di atas** — bukan cuma nulis field baru di response,
+  tapi butuh infrastruktur baru: job harian terjadwal + pemanggilan LLM +
+  tempat nyimpan hasilnya (CLAUDE.md sendiri sudah mencatat ini di "Belum
+  diimplementasikan": *"Job harian yang mengisi insight naratif untuk
+  GET /analytics/summary"*, dan aturan #6 tegas: **jangan** panggil LLM saat request
+  `analytics/summary` — harus di-cache job terpisah). Mengerjakan ini asal-asalan (mis.
+  panggil LLM sinkron di request) melanggar aturan itu. Perlu keputusan/scoping terpisah
+  sebelum dikerjakan: jadwal job (harian? per keluarga?), skema penyimpanan hasil (tabel
+  baru?), dan berapa insight per request. Tidak dihitung selesai di batch P1 ini.
+
+- [x] **3.6 — `password_confirmation` di register** *(selesai 13 Agustus 2026)*
+  Dibuat opsional (`Rule::when($this->filled('password_confirmation'), ['confirmed'])`
+  di [RegisterRequest.php](app/Http/Requests/RegisterRequest.php)) — kalau tidak
+  dikirim, tidak diwajibkan; kalau dikirim, tetap harus cocok dengan `password`. Cocok
+  dengan desain FE yang cuma punya satu field sandi, tanpa perlu FE menambah field
+  "Ulangi kata sandi".
 
 ---
 
@@ -109,8 +143,8 @@ confirm/reject di action card disambungkan — tidak perlu menunggu item lain di
 ## P2 — Konsistensi & kenyamanan (bisa dicicil, tidak menghalangi rilis)
 
 - [ ] Login gagal balas `422`, sebaiknya `401` untuk kredensial salah.
-- [ ] `meta.links[].label` juga kunci mentah (`pagination.previous/next`) — akar masalah
-  sama dengan 3.1, kemungkinan selesai otomatis begitu lang file ditambahkan.
+- [x] ~~`meta.links[].label` juga kunci mentah~~ — **selesai bareng 3.1**:
+  [lang/id/pagination.php](lang/id/pagination.php) ("Sebelumnya"/"Berikutnya").
 - [ ] Tidak ada filter di `/savings-goals`, `/chat-threads`, `/family-members` (hanya
   `?page=`).
 - [ ] Mekanisme pilih family aktif untuk user dengan >1 family (endpoint "set active
@@ -127,9 +161,12 @@ confirm/reject di action card disambungkan — tidak perlu menunggu item lain di
 ## Urutan pengerjaan yang disarankan
 
 1. Kabari FE soal item yang **sudah selesai** + selisih kontrak (SSE events, `422` vs
-   `409` di confirm, endpoint `/uploads` baru, `onboarding` field di `ChatThread`) —
-   mereka bisa langsung sambungkan tanpa menunggu.
+   `409` di confirm, endpoint `/uploads` baru, `onboarding` field di `ChatThread`,
+   pesan error sekarang Bahasa Indonesia, filter `/transactions`, `income_sources[]` &
+   `eta` baru, `password_confirmation` opsional) — mereka bisa langsung sambungkan
+   tanpa menunggu.
 2. ~~Kerjakan 2.3 (upload) dan 2.4 (onboarding server-driven)~~ — **selesai**.
-3. Sapu P1 (3.1–3.4, 3.6) — kebanyakan perubahan kecil per file, tidak saling bergantung.
-4. Tunggu keputusan produk untuk 3.5 sebelum mulai coding.
-5. P2 dicicil kapan saja.
+3. ~~Sapu P1 (3.1–3.4a, 3.6)~~ — **selesai**. 3.4b (insights) sengaja tidak ikut, lihat
+   catatan di bagian P1 — butuh scoping job harian + LLM terpisah, bukan quick fix.
+4. Tunggu keputusan produk untuk 3.5 (dan scoping 3.4b) sebelum mulai coding.
+5. P2 dicicil kapan saja (2 dari 6 item sudah kebetulan selesai lewat kerjaan di atas).

@@ -2,14 +2,16 @@
 
 namespace App\Actions\Analytics;
 
+use App\Models\IncomeSource;
 use App\Models\Wallet;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 
-// Dashboard & analytics read from v_wallet_month / v_cashflow_month (aturan
-// CLAUDE.md: "bukan query ad-hoc") -- this class only supplements those rows
-// with wallets that have zero activity for the period, which the views
-// naturally omit since they only ever aggregate matched transaction rows.
+// Dashboard & analytics read from v_wallet_month / v_cashflow_month /
+// v_income_source_month (aturan CLAUDE.md: "bukan query ad-hoc") -- this
+// class only supplements those rows with wallets/sources that have zero
+// activity for the period, which the views naturally omit since they only
+// ever aggregate matched transaction rows.
 class AnalyticsActions
 {
     public function summary(string $familyId, Carbon $period): array
@@ -18,6 +20,7 @@ class AnalyticsActions
             'period' => $period->toDateString(),
             'cashflow' => $this->cashflow($familyId, $period),
             'wallets' => $this->wallets($familyId, $period),
+            'income_sources' => $this->incomeSources($familyId, $period),
         ];
     }
 
@@ -82,6 +85,28 @@ class AnalyticsActions
                     'status' => $this->status($spent, $budget),
                 ];
             })
+            ->values()
+            ->all();
+    }
+
+    private function incomeSources(string $familyId, Carbon $period): array
+    {
+        $rows = DB::table('v_income_source_month')
+            ->where('family_id', $familyId)
+            ->where('period', $period->toDateString())
+            ->get()
+            ->keyBy('source_id');
+
+        return IncomeSource::query()
+            ->where('is_archived', false)
+            ->orderBy('name')
+            ->get()
+            ->map(fn (IncomeSource $source) => [
+                'source_id' => $source->id,
+                'name' => $source->name,
+                'expected' => $source->expected_amount,
+                'actual' => (int) ($rows->get($source->id)->actual ?? 0),
+            ])
             ->values()
             ->all();
     }

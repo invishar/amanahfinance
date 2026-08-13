@@ -34,6 +34,52 @@ test('delete blocked with 409 when referenced by transaction', function () {
     $this->deleteJson('/api/v1/savings-goals/'.$goal->id)->assertStatus(409);
 });
 
+test('eta is null without any contribution history', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $goal = SavingsGoal::factory()->for($family)->create(['current_amount' => 0, 'target_amount' => 5_000_000]);
+
+    $this->getJson('/api/v1/savings-goals/'.$goal->id)
+        ->assertOk()
+        ->assertJsonPath('data.eta', null);
+});
+
+test('eta is null once the goal is already funded', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $goal = SavingsGoal::factory()->for($family)->create(['current_amount' => 5_000_000, 'target_amount' => 5_000_000]);
+
+    $this->getJson('/api/v1/savings-goals/'.$goal->id)
+        ->assertOk()
+        ->assertJsonPath('data.eta', null);
+});
+
+test('eta is null for a paused goal even with contribution history', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $goal = SavingsGoal::factory()->for($family)->create(['status' => 'paused', 'current_amount' => 1_000_000, 'target_amount' => 5_000_000]);
+    Transaction::factory()->savings()->for($family)->create(['goal_id' => $goal->id, 'transaction_date' => now()->subMonth()]);
+
+    $this->getJson('/api/v1/savings-goals/'.$goal->id)
+        ->assertOk()
+        ->assertJsonPath('data.eta', null);
+});
+
+test('eta projects linearly from the average monthly contribution', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $now = now();
+    $goal = SavingsGoal::factory()->for($family)->create(['current_amount' => 3_000_000, 'target_amount' => 6_000_000]);
+    Transaction::factory()->savings()->for($family)->create([
+        'goal_id' => $goal->id,
+        'transaction_date' => $now->copy()->subMonths(2),
+    ]);
+
+    // 3 bulan berjalan (subMonths(2) + bulan berjalan ini), rata-rata 1jt/bulan,
+    // sisa 3jt -> 3 bulan lagi.
+    $expectedEta = $now->copy()->addMonthsNoOverflow(3)->startOfMonth()->toDateString();
+
+    $this->getJson('/api/v1/savings-goals/'.$goal->id)
+        ->assertOk()
+        ->assertJsonPath('data.eta', $expectedEta);
+});
+
 test('tenant leak cannot view other familys goal', function () {
     $this->actingAsFamilyMember('admin');
     $other = SavingsGoal::factory()->for(Family::factory())->create();
