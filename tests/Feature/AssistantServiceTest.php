@@ -86,6 +86,19 @@ test('unresolvable account name is left blank instead of guessed', function () {
     expect($aiAction->payload['wallet_id'])->toBeNull();
 });
 
+test('fail writes a system message and bumps last_message_at', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create(['last_message_at' => null]);
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user', 'content' => 'abis jajan 20rb']);
+
+    $errorMessage = app(AssistantService::class)->fail($userMessage);
+
+    expect($errorMessage->role)->toBe('system');
+    expect($errorMessage->thread_id)->toBe($thread->id);
+    expect($thread->fresh()->last_message_at)->not->toBeNull();
+});
+
 test('respond with no tool calls just persists the assistant reply', function () {
     $family = Family::factory()->create();
     $member = FamilyMember::factory()->for($family)->create();

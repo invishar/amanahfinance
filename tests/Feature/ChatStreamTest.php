@@ -59,6 +59,46 @@ test('confirmed and rejected actions never appear as action cards', function () 
     expect($response->streamedContent())->not->toContain('event: action_card');
 });
 
+test('stream emits thinking when the newest message is an unanswered user message', function () {
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    $response = $this->get("/api/v1/chat-threads/{$thread->id}/stream");
+
+    $content = $response->streamedContent();
+    expect($content)->toContain('event: thinking');
+    expect($content)->toContain($userMessage->id);
+});
+
+test('stream does not emit thinking once the newest message is already answered', function () {
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+    ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'assistant', 'content' => 'Beres!']);
+
+    $response = $this->get("/api/v1/chat-threads/{$thread->id}/stream");
+
+    expect($response->streamedContent())->not->toContain('event: thinking');
+});
+
+test('stream surfaces role=system messages as error events', function () {
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $errorMessage = ChatMessage::factory()->for($thread, 'thread')->create([
+        'role' => 'system',
+        'content' => 'Amina lagi ada gangguan teknis. Coba kirim pesan itu lagi beberapa saat lagi ya.',
+    ]);
+
+    $cursor = urlencode(now()->subMinute()->toIso8601String());
+    $response = $this->get("/api/v1/chat-threads/{$thread->id}/stream?after={$cursor}");
+
+    $content = $response->streamedContent();
+    expect($content)->toContain('event: error');
+    expect($content)->toContain($errorMessage->id);
+    expect($content)->not->toContain('event: message');
+});
+
 test('cannot stream another familys thread', function () {
     $this->actingAsFamilyMember('admin');
     $otherFamily = Family::factory()->create();

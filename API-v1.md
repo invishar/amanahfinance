@@ -337,9 +337,18 @@ Event yang dikirim (`Content-Type: text/event-stream`):
 
 | Event | `data` | Kapan |
 | --- | --- | --- |
+| `thinking` | `message_id` | Sekali di awal koneksi/reconnect, kalau pesan terbaru di thread ini masih `role=user` yang belum dibalas |
 | `message` | `id, content, created_at` | Ada balasan baru `role=assistant` di thread ini sejak cursor |
 | `action_card` | `id, action, payload, created_at` | Ada `ai_actions` baru berstatus `pending` dari pesan di thread ini sejak cursor |
+| `error` | `id, content, created_at` | Ada pesan baru `role=system` di thread ini sejak cursor — ditulis `ProcessAssistantMessage::failed()` saat job LLM gagal total (habis retry) |
 | `retry` | `after` | Selalu dikirim tepat sebelum stream ditutup — pakai nilai ini sebagai `?after=` saat reconnect |
+
+Tidak ada event `token` (balasan LLM ditulis sekali jadi, bukan streaming token-by-token —
+`ProcessAssistantMessage` memanggil LLM satu kali dalam job, bukan di request web) maupun
+`done` terpisah — `message` dan `error` **adalah** sinyal selesainya satu giliran; hentikan
+indikator "sedang mengetik" begitu salah satunya (atau `retry` tanpa keduanya) diterima.
+`error` juga tetap muncul di riwayat biasa (`GET .../messages`) kalau klien melewatkan
+event live-nya (mis. reconnect terlambat).
 
 Klien **wajib dedupe berdasarkan `id`**: cursor resume di event `retry` adalah yang **paling lama** di antara kedua cursor internal (`message` dan `action_card`), jadi reconnect bisa mengirim ulang satu event yang sudah pernah diterima di stream sebelumnya.
 

@@ -31,4 +31,16 @@ class ProcessAssistantMessage implements ShouldQueue
 
         $assistant->respond($message);
     }
+
+    // Dipanggil Laravel otomatis setelah $tries habis. Menulis balasan
+    // role=system lewat AssistantService::fail() supaya SSE (event `error`)
+    // dan GET .../messages tetap memberi tahu user, bukan diam saja.
+    public function failed(\Throwable $exception): void
+    {
+        $message = ChatMessage::query()->find($this->chatMessageId);
+
+        if ($message && $message->role === 'user') {
+            app(AssistantService::class)->fail($message);
+        }
+    }
 }

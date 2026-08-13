@@ -4,6 +4,7 @@ namespace App\Services\Ai;
 
 use Anthropic\Lib\Tools\BetaRunnableTool;
 use App\Actions\Analytics\AnalyticsActions;
+use App\Actions\LlmSettings\LlmSettingActions;
 use App\Models\Account;
 use App\Models\AiAction;
 use App\Models\ChatMessage;
@@ -56,6 +57,25 @@ class AssistantService
                 ? $finalText
                 : 'Maaf, aku belum paham maksudnya. Bisa dijelaskan lagi?',
         ]);
+    }
+
+    // Dipanggil dari ProcessAssistantMessage::failed() begitu job kehabisan
+    // percobaan (LLM error, timeout, dst). role=system supaya klien bisa
+    // membedakannya dari balasan Amina sungguhan -- SSE meneruskannya lewat
+    // event `error` (lihat ChatStreamController), dan tetap kelihatan di
+    // riwayat biasa (GET .../messages) kalau klien melewatkan event live-nya.
+    public function fail(ChatMessage $userMessage): ChatMessage
+    {
+        $thread = $userMessage->thread()->withoutGlobalScope('family')->firstOrFail();
+
+        $errorMessage = $thread->messages()->create([
+            'role' => 'system',
+            'content' => 'Amina lagi ada gangguan teknis. Coba kirim pesan itu lagi beberapa saat lagi ya.',
+        ])->fresh();
+
+        $thread->update(['last_message_at' => $errorMessage->created_at]);
+
+        return $errorMessage;
     }
 
     /**
@@ -212,6 +232,6 @@ class AssistantService
 
     private function llmSettingsModel(): string
     {
-        return app(\App\Actions\LlmSettings\LlmSettingActions::class)->current()->model;
+        return app(LlmSettingActions::class)->current()->model;
     }
 }

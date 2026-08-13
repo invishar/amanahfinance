@@ -51,6 +51,7 @@ Pesan masuk → `AssistantService` → LLM tool calling → **payload disimpan s
 - Resolusi nama → id ("gopay" → `accounts.id`) di server, fuzzy match pada data family. Ragu → kosongkan field agar user melengkapi lewat "Edit".
 - Konteks prompt: nama family, daftar wallet/akun/sumber pemasukan, ringkasan bulan berjalan, `onboarding_answers`. **Jangan** kirim seluruh riwayat transaksi.
 - Naskah pertanyaan onboarding dan sapaan Amina disimpan di server, bukan klien.
+- Job yang gagal total (habis `$tries`) menulis `ChatMessage role=system` lewat `AssistantService::fail()` (`ProcessAssistantMessage::failed()`), diteruskan ke klien sebagai event SSE `error` — bukan diam saja.
 
 ## Perintah
 

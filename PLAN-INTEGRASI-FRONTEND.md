@@ -15,7 +15,7 @@ keputusan tetap terlacak.
 
 | # | Item | Bukti di kode | Catatan selisih dari usulan FE |
 | --- | --- | --- | --- |
-| 2.1 | Balasan Amina — dipilih **opsi C (SSE)** | [ChatStreamController.php](app/Http/Controllers/Api/ChatStreamController.php), [ProcessAssistantMessage.php](app/Jobs/ProcessAssistantMessage.php), didokumentasikan `OpenApiSpec.php:1067-1079` | Event yang ada cuma `message`, `action_card`, `retry` — **tidak ada** `thinking`/`done`/`error` seperti asumsi desain FE. Perlu selaraskan pemicu indikator "sedang mengetik". |
+| 2.1 | Balasan Amina — dipilih **opsi C (SSE)** | [ChatStreamController.php](app/Http/Controllers/Api/ChatStreamController.php), [ProcessAssistantMessage.php](app/Jobs/ProcessAssistantMessage.php), didokumentasikan `OpenApiSpec.php` | Event: `thinking`, `message`, `action_card`, `error`, `retry`. **Tidak ada** `token`/`done` terpisah (LLM tidak streaming token-by-token; `message`/`error` = sinyal selesai) — lihat detail di "Selaraskan kontrak SSE" di bawah. |
 | 2.2 | `POST /ai-actions/{id}/confirm` & `/reject` | [AiActionController.php](app/Http/Controllers/Api/AiActionController.php), [ConfirmAiAction.php](app/Actions/AiActions/ConfirmAiAction.php) | Aksi yang statusnya sudah bukan `pending` membalas **`422`**, bukan `409` seperti usulan FE. Kabari perbedaan ini. |
 | 5.1 | `DELETE` pada entitas yang masih dipakai → `409` | [DeletesSafely.php](app/Support/DeletesSafely.php), `ConflictException` | Terverifikasi: pesan sudah Bahasa Indonesia siap tampil, mis. "Wallet ini masih dipakai oleh transaksi yang ada. Arsipkan alih-alih menghapus." |
 
@@ -53,9 +53,17 @@ confirm/reject di action card disambungkan — tidak perlu menunggu item lain di
   [config/amina.php](config/amina.php) — bagian ini murni soal *wiring*-nya ke
   `ChatThread`/`ChatMessage`, bukan menulis naskah baru.
 
-- [ ] **Selaraskan kontrak SSE**
-  Tambahkan (atau eksplisit putuskan untuk tidak menambahkan) event `thinking`/`done`/
-  `error` di `ChatStreamController`, lalu update dokumentasi di `OpenApiSpec.php`.
+- [x] **Selaraskan kontrak SSE** *(selesai 13 Agustus 2026)*
+  Ditambahkan `thinking` (sekali di awal koneksi/reconnect kalau pesan terakhir masih
+  `role=user` yang belum dibalas) dan `error` (`role=system`, ditulis
+  `AssistantService::fail()` via `ProcessAssistantMessage::failed()` saat job LLM habis
+  retry). **Tidak** ditambahkan `token`/`done` terpisah — LLM dipanggil sekali per job
+  (bukan streaming token-by-token), jadi tidak ada teks parsial untuk direlay, dan
+  `message`/`error` sendiri sudah jadi sinyal selesainya giliran. Kabari FE soal
+  penyesuaian ini dari desain awal mereka (`thinking → token* → action_card → done|error`).
+  Lihat [ChatStreamController.php](app/Http/Controllers/Api/ChatStreamController.php),
+  [AssistantService.php](app/Services/Ai/AssistantService.php) (`fail()`),
+  [ProcessAssistantMessage.php](app/Jobs/ProcessAssistantMessage.php) (`failed()`).
 
 ---
 

@@ -1078,8 +1078,8 @@ class OpenApiSpec
                 'parameters' => [['name' => 'chat_thread', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']]],
                 'get' => [
                     'tags' => ['Chat Threads'],
-                    'summary' => 'SSE action_card & balasan Amina (berumur pendek, klien wajib reconnect)',
-                    'description' => 'Server menutup stream sendiri sebelum ±20-25 detik (aman dari max_execution_time shared hosting, tidak ada Redis/pub-sub). Event: message, action_card, retry (berisi cursor untuk ?after= saat reconnect). Bukan JSON biasa -- Content-Type: text/event-stream.',
+                    'summary' => 'SSE thinking/action_card/balasan Amina/error (berumur pendek, klien wajib reconnect)',
+                    'description' => 'Server menutup stream sendiri sebelum ±20-25 detik (aman dari max_execution_time shared hosting, tidak ada Redis/pub-sub). Event: thinking (sekali di awal kalau pesan terakhir masih role=user belum dibalas), message, action_card, error (role=system, job LLM gagal total), retry (berisi cursor untuk ?after= saat reconnect). Tidak ada token/done terpisah -- LLM dipanggil sekali per job (bukan streaming), dan message/error sendiri adalah sinyal selesainya giliran. Bukan JSON biasa -- Content-Type: text/event-stream.',
                     'parameters' => [[
                         'name' => 'after', 'in' => 'query', 'required' => false,
                         'description' => 'Cursor ISO-8601; ambil dari event retry terakhir. Default: waktu koneksi dibuka.',
