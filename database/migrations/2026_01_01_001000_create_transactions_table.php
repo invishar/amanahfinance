@@ -28,7 +28,7 @@ return new class extends Migration
             $table->foreignUuid('goal_id')->nullable()->constrained('savings_goals')->restrictOnDelete();
             $table->text('note')->nullable();
             $table->foreignUuid('created_by')->nullable()
-                  ->constrained('family_members')->nullOnDelete();
+                ->constrained('family_members')->nullOnDelete();
             $table->string('origin')->default('manual');
             $table->text('receipt_url')->nullable();
             $table->timestampsTz();

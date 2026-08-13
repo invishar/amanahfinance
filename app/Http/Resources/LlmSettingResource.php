@@ -2,12 +2,13 @@
 
 namespace App\Http\Resources;
 
+use App\Models\LlmSetting;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
 // The raw key is NEVER included here (aturan #7) -- only whether one is set
 // and a non-sensitive last-4-chars preview for the admin to recognize it.
-/** @mixin \App\Models\LlmSetting */
+/** @mixin LlmSetting */
 class LlmSettingResource extends JsonResource
 {
     public function toArray(Request $request): array

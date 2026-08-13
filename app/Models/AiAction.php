@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToFamily;
+use Database\Factories\AiActionFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'message_id', 'family_id', 'action', 'payload', 'status', 'result_table',
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 class AiAction extends Model
 {
-    /** @use HasFactory<\Database\Factories\AiActionFactory> */
+    /** @use HasFactory<AiActionFactory> */
     use BelongsToFamily, HasFactory, HasUuids;
 
     public $timestamps = false;

@@ -21,7 +21,7 @@ return new class extends Migration
             $table->string('model');
             $table->text('base_url')->nullable();
             $table->foreignUuid('updated_by')->nullable()
-                  ->constrained('users')->nullOnDelete();
+                ->constrained('users')->nullOnDelete();
             $table->timestampsTz();
         });
     }

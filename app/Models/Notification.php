@@ -3,16 +3,17 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToFamily;
+use Database\Factories\NotificationFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['family_id', 'member_id', 'kind', 'title', 'body', 'deeplink', 'read_at'])]
 class Notification extends Model
 {
-    /** @use HasFactory<\Database\Factories\NotificationFactory> */
+    /** @use HasFactory<NotificationFactory> */
     use BelongsToFamily, HasFactory, HasUuids;
 
     public $timestamps = false;

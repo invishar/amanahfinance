@@ -19,7 +19,7 @@ return new class extends Migration
             $table->text('icon')->nullable();
             $table->text('color')->nullable();
             $table->foreignUuid('account_id')->nullable()
-                  ->constrained('accounts')->nullOnDelete();  // rekening penampung
+                ->constrained('accounts')->nullOnDelete();  // rekening penampung
             $table->string('status')->default('active');
             $table->timestampTz('created_at')->useCurrent();
             $table->timestampTz('achieved_at')->nullable();

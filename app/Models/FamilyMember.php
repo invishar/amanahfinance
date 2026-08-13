@@ -3,17 +3,18 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToFamily;
+use Database\Factories\FamilyMemberFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Model;
 
 #[Fillable(['family_id', 'user_id', 'role', 'nickname', 'monthly_quota', 'joined_at', 'removed_at'])]
 class FamilyMember extends Model
 {
-    /** @use HasFactory<\Database\Factories\FamilyMemberFactory> */
+    /** @use HasFactory<FamilyMemberFactory> */
     use BelongsToFamily, HasFactory, HasUuids;
 
     public $timestamps = false;

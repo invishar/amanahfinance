@@ -23,7 +23,7 @@ class LlmSettingActions
 
     public function update(User $user, array $data): LlmSetting
     {
-        $setting = LlmSetting::query()->first() ?? new LlmSetting();
+        $setting = LlmSetting::query()->first() ?? new LlmSetting;
 
         $setting->model = $data['model'];
         $setting->base_url = $data['base_url'] ?? null;

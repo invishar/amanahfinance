@@ -3,12 +3,13 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToFamily;
+use Database\Factories\WalletFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
-use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
     'family_id', 'name', 'icon', 'color', 'monthly_budget',
@@ -16,7 +17,7 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 class Wallet extends Model
 {
-    /** @use HasFactory<\Database\Factories\WalletFactory> */
+    /** @use HasFactory<WalletFactory> */
     use BelongsToFamily, HasFactory, HasUuids;
 
     public $timestamps = false;

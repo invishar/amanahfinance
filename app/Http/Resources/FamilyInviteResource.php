@@ -2,10 +2,11 @@
 
 namespace App\Http\Resources;
 
+use App\Models\FamilyInvite;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** @mixin \App\Models\FamilyInvite */
+/** @mixin FamilyInvite */
 class FamilyInviteResource extends JsonResource
 {
     public function toArray(Request $request): array

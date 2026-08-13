@@ -20,7 +20,7 @@ return new class extends Migration
             $table->bigInteger('opening_balance')->default(0);
             $table->bigInteger('current_balance')->default(0); // cache; sumber kebenaran = transactions
             $table->foreignUuid('owner_member_id')->nullable()
-                  ->constrained('family_members')->nullOnDelete();
+                ->constrained('family_members')->nullOnDelete();
             $table->boolean('is_shared')->default(true);
             $table->boolean('is_archived')->default(false);
             $table->integer('sort_order')->default(0);

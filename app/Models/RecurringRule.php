@@ -3,11 +3,12 @@
 namespace App\Models;
 
 use App\Models\Concerns\BelongsToFamily;
+use Database\Factories\RecurringRuleFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable([
     'family_id', 'type', 'amount', 'wallet_id', 'source_id', 'account_id',
@@ -15,7 +16,7 @@ use Illuminate\Database\Eloquent\Model;
 ])]
 class RecurringRule extends Model
 {
-    /** @use HasFactory<\Database\Factories\RecurringRuleFactory> */
+    /** @use HasFactory<RecurringRuleFactory> */
     use BelongsToFamily, HasFactory, HasUuids;
 
     public $timestamps = false;

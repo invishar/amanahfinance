@@ -2,16 +2,17 @@
 
 namespace App\Models;
 
+use Database\Factories\WalletBudgetFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
-use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 #[Fillable(['wallet_id', 'period', 'amount'])]
 class WalletBudget extends Model
 {
-    /** @use HasFactory<\Database\Factories\WalletBudgetFactory> */
+    /** @use HasFactory<WalletBudgetFactory> */
     use HasFactory, HasUuids;
 
     public $timestamps = false;

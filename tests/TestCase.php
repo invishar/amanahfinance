@@ -24,6 +24,6 @@ abstract class TestCase extends BaseTestCase
         // happens without ever touching the real LLM (CLAUDE.md: "LLM
         // selalu di-mock di test") -- tests exercising AssistantService
         // itself rebind this with a scripted plan.
-        $this->app->bind(ConversationRunner::class, fn () => new FakeConversationRunner());
+        $this->app->bind(ConversationRunner::class, fn () => new FakeConversationRunner);
     }
 }

@@ -10,7 +10,6 @@ use App\Http\Requests\UpdateFamilyInviteRequest;
 use App\Http\Resources\FamilyInviteResource;
 use App\Http\Resources\FamilyMemberResource;
 use App\Models\FamilyInvite;
-use Illuminate\Http\Request;
 
 class FamilyInviteController extends Controller
 {

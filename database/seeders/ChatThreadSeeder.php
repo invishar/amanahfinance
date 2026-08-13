@@ -2,8 +2,8 @@
 
 namespace Database\Seeders;
 
-use App\Models\Family;
 use App\Models\ChatThread;
+use App\Models\Family;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 

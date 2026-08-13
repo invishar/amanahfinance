@@ -14,7 +14,7 @@ return new class extends Migration
             $table->foreignUuid('family_id')->constrained('families')->cascadeOnDelete();
             $table->string('name');                          // "Gaji Bulanan", "Freelance Desain"
             $table->foreignUuid('owner_member_id')->nullable()
-                  ->constrained('family_members')->nullOnDelete();
+                ->constrained('family_members')->nullOnDelete();
             $table->bigInteger('expected_amount')->nullable();
             $table->text('cadence')->nullable();
             $table->boolean('is_archived')->default(false);

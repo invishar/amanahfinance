@@ -2,10 +2,11 @@
 
 namespace App\Http\Resources;
 
+use App\Models\IncomeSource;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** @mixin \App\Models\IncomeSource */
+/** @mixin IncomeSource */
 class IncomeSourceResource extends JsonResource
 {
     public function toArray(Request $request): array

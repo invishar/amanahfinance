@@ -23,7 +23,7 @@ return new class extends Migration
             $table->decimal('confidence', 3, 2)->nullable();
             $table->timestampTz('resolved_at')->nullable();
             $table->foreignUuid('resolved_by')->nullable()
-                  ->constrained('family_members')->nullOnDelete();
+                ->constrained('family_members')->nullOnDelete();
             $table->timestampTz('created_at')->useCurrent();
             $table->index(['family_id', 'status']);
         });

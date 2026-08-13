@@ -13,7 +13,7 @@ return new class extends Migration
             $table->uuid('id')->primary();
             $table->foreignUuid('family_id')->constrained('families')->cascadeOnDelete();
             $table->foreignUuid('actor_id')->nullable()
-                  ->constrained('family_members')->nullOnDelete();
+                ->constrained('family_members')->nullOnDelete();
             $table->string('entity');
             $table->uuid('entity_id')->nullable();
             $table->text('action');

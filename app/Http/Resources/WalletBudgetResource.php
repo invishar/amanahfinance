@@ -2,10 +2,11 @@
 
 namespace App\Http\Resources;
 
+use App\Models\WalletBudget;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
-/** @mixin \App\Models\WalletBudget */
+/** @mixin WalletBudget */
 class WalletBudgetResource extends JsonResource
 {
     public function toArray(Request $request): array
