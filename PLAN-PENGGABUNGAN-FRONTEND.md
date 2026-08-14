@@ -121,6 +121,11 @@ open question. Item keempat (siapa yang eksekusi) menyusul saat mulai langkah 1.
   (lihat langkah 4) — dilakukan di runner CI yang efemeral sebelum rsync ke hPanel,
   **tidak pernah dikomit ke git** (mirip `/public/build` punya Vite yang sudah
   di-gitignore). Uji manual serve-nya sendiri ada di langkah 7.
+- [!] **Koreksi dari uji manual di langkah 7**: klaim "tidak perlu catch-all route
+  SPA — file diserve apa adanya oleh web server" di item pertama **ternyata salah**
+  untuk clean URL tanpa ekstensi (`/`, `/login`, dst.) di nginx/Herd — lihat catatan
+  lengkap di langkah 7. `routes/web.php` sekarang punya `Route::fallback(...)` untuk
+  menutup celah ini secara portable, tidak bergantung konfigurasi web server.
 
 ### 4. CI/CD — SEBAGIAN SELESAI (14 Agustus 2026)
 
@@ -159,7 +164,7 @@ open question. Item keempat (siapa yang eksekusi) menyusul saat mulai langkah 1.
 - [x] Root `README.md`: ditambah bagian "Struktur proyek" yang menyebut `frontend/`
   dan `git subtree`, dengan pointer ke `CLAUDE.md` masing-masing sisi.
 
-### 6. Beres-beres integrasi yang tertunda (dari `PLAN-INTEGRASI-FRONTEND.md`)
+### 6. Beres-beres integrasi yang tertunda (dari `PLAN-INTEGRASI-FRONTEND.md`) — DITUNDA, PERLU SESI TERPISAH (14 Agustus 2026)
 
 - [ ] Matikan flag `NEXT_PUBLIC_MOCK_AMINA` dan hapus `frontend/lib/mock/assistant.ts`
   — backend sudah menuntaskan SSE `action_card` + `POST /ai-actions/{id}/confirm|reject`
@@ -169,14 +174,63 @@ open question. Item keempat (siapa yang eksekusi) menyusul saat mulai langkah 1.
   `lib/api/client.ts` bisa dihapus — backend sudah kirim pesan Indonesia jadi,
   bukan kunci mentah; event SSE final `thinking → message|error → action_card`,
   bukan `thinking → token* → done|error`).
+  **Ternyata setara fitur baru, bukan cuma matikan flag** — temuan dari investigasi
+  14 Agustus 2026 (belum dieksekusi, ditunda atas keputusan user):
+  - `EventSource` browser bawaan **tidak bisa** kirim header `Authorization: Bearer`,
+    padahal `GET /chat-threads/{id}/stream` diautentikasi Sanctum lewat header itu.
+    FE perlu SSE client manual (baca `ReadableStream` dari `fetch`, parse frame
+    `event:`/`data:` sendiri) — bukan `new EventSource(url)` langsung.
+  - `action_card` **cuma** datang lewat event SSE (`GET /ai-actions` tidak difilter
+    per-thread di `AiActionController::index`) — FE perlu akumulasi state sendiri
+    dari stream, bukan sekadar refetch query TanStack biasa.
+  - Alur onboarding backend beda dari `DEMO_ONBOARD_QUESTIONS` hardcoded yang
+    dipakai `chat/page.tsx` sekarang: naskah pertanyaan **tidak** dikirim ke klien
+    duluan. Klien harus `POST /onboarding-answers` (`question_key*`, `answer`
+    object/array — **bukan** teks bebas) per jawaban supaya server menulis
+    pertanyaan berikutnya sebagai pesan `assistant` baru ke `ChatThread
+    kind=onboarding`. Belum dicek `config('amina.onboarding_questions')` untuk tahu
+    daftar `question_key` yang valid dan bentuk `answer` yang diharapkan per
+    pertanyaan — itu prasyarat sebelum UI onboarding sungguhan bisa dibangun.
+    `OnboardingAnswerController::store` juga **tidak** ikut menulis `ChatMessage
+    role=user` — FE kemungkinan perlu dua panggilan terpisah (chat message untuk
+    tampilan riwayat + onboarding-answer untuk memajukan skrip) per jawaban user.
+  - Perkiraan cakupan kalau dikerjakan: SSE client baru, hook
+    `useConfirmAiAction`/`useRejectAiAction`, rombak `chat/page.tsx` (~250 baris
+    logika demo dibuang), rewire `action-card.tsx` ke status `ai_actions` sungguhan
+    (`pending|confirmed|edited|rejected|expired`, bukan `confirmed|cancelled`),
+    komponen/alur baru untuk onboarding, hapus `lib/mock/assistant.ts` +
+    `translateValidation()`.
+  - **Keputusan user 14 Agustus 2026: ditunda, dikerjakan di sesi terpisah**
+    (mirip pola keputusan deploy step di langkah 4) — bukan dilewati permanen.
+    `NEXT_PUBLIC_MOCK_AMINA` tetap menyala, chat FE tetap pakai balasan demo untuk
+    saat ini.
 
-### 7. Testing
+### 7. Testing — SEBAGIAN SELESAI (14 Agustus 2026)
 
-- [ ] Pest tetap jalan seperti biasa untuk BE.
-- [ ] FE: pastikan `tsc --noEmit` dan `npm run lint` bersih pasca-`output: 'export'`.
-- [ ] Uji manual end-to-end sekali di lingkungan mirip produksi (build static +
-  Laravel serve) sebelum cutover — pastikan routing, auth Bearer token, dan
-  upload/chat SSE tetap jalan same-origin.
+- [x] Pest tetap jalan seperti biasa untuk BE. `ExampleTest` (langkah 3) dan test
+  baru `tests/Feature/FrontendFallbackTest.php` (4 skenario: file HTML datar,
+  `dir/index.html`, `/api/*` tidak ikut ke-intercept fallback, 404 murni saat
+  tidak ada file yang cocok) semuanya lolos.
+- [x] FE: `npm run lint` dan `npx tsc --noEmit` bersih pasca-`output: 'export'`
+  (dicek ulang, masih bersih setelah semua perubahan sesi ini).
+- [x] Uji manual end-to-end di lingkungan mirip produksi — dilakukan user di **Herd**
+  (bukan `php artisan serve`, disesuaikan dari rencana awal karena dev lokal user
+  pakai Herd) dengan `frontend/out/*` disalin ke `public/`. **Ditemukan bug nyata**:
+  clean URL tanpa ekstensi (`/`, `/login`, dst. tanpa trailing slash) 404 di
+  nginx/Herd — nginx tidak otomatis me-resolve ke `path.html` atau
+  `path/index.html`. `/login/` (dengan trailing slash) dan `/docs`, `/api/v1/...`
+  aman. **Diperbaiki** dengan `Route::fallback()` baru di `routes/web.php` (lihat
+  koreksi di langkah 3) — dikonfirmasi user setelah perbaikan: `/` dan `/login`
+  sekarang resolve dengan benar (redirect ke `/login` untuk pengunjung belum
+  login, itu perilaku app yang memang diharapkan, bukan 404 lagi).
+  Artefak build hasil copy ke `public/` sudah dibersihkan (`git clean -fd public/`
+  + `git checkout -- public/favicon.ico`) — tidak ikut komit, sesuai keputusan di
+  langkah 3.
+- [ ] **Belum diuji**: auth Bearer token dan upload/chat SSE same-origin — bagian
+  ini bergantung pada chat SSE sungguhan yang **ditunda** di langkah 6 (masih
+  demo/mock). Login dasar (redirect ke `/login`) sudah kelihatan jalan dari uji di
+  atas, tapi alur login penuh + token + halaman yang butuh auth belum dicoba
+  end-to-end. Susulan begitu langkah 6 dikerjakan.
 
 ---
 
