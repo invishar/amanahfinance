@@ -1,0 +1,861 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="stylesheet" href="styles/soft.css">
+<style>
+  body { margin: 0; }
+  @keyframes amanaBlink { 0%, 80%, 100% { opacity: .25; } 40% { opacity: 1; } }
+  @keyframes amanaPulse { 0%, 100% { transform: scale(1); opacity: .55; } 50% { transform: scale(1.15); opacity: 1; } }
+</style>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+</helmet>
+
+<sc-if value="{{ libReady }}" hint-placeholder-val="{{ false }}">
+<div style="min-height:100vh;background:var(--color-bg);color:var(--color-text);font-family:var(--font-body);">
+
+<!-- ===== AUTH: LOGIN ===== -->
+<sc-if value="{{ isLogin }}">
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-6);">
+  <form onSubmit="{{ submitLogin }}" style="width:100%;max-width:380px;display:flex;flex-direction:column;gap:var(--space-4);">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2);">
+      <div style="width:56px;height:56px;border-radius:50%;border:1.5px solid var(--color-accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:22px;color:var(--color-accent);">AF</div>
+      <h1 style="font-size:26px;margin:0;text-align:center;">AmanaFinance</h1>
+      <p style="margin:0;font-size:13px;text-align:center;" class="text-muted">Asisten keuangan keluarga yang ngerti obrolan sehari-hari</p>
+    </div>
+    <div class="field"><label>Email</label><input class="input" type="email" required value="{{ authEmail }}" onChange="{{ onAuthEmail }}" placeholder="nama@email.com"/></div>
+    <div class="field"><label>Kata sandi</label><input class="input" type="password" required value="{{ authPassword }}" onChange="{{ onAuthPassword }}" placeholder="••••••••"/></div>
+    <button type="submit" class="btn btn-primary btn-block" style="height:44px;font-size:15px;">Masuk</button>
+    <p style="text-align:center;font-size:13px;margin:0;">Belum punya akun? <a href="#" onClick="{{ goRegister }}">Daftar</a></p>
+  </form>
+</div>
+</sc-if>
+
+<!-- ===== AUTH: REGISTER ===== -->
+<sc-if value="{{ isRegister }}">
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-6);">
+  <form onSubmit="{{ submitRegister }}" style="width:100%;max-width:380px;display:flex;flex-direction:column;gap:var(--space-4);">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:var(--space-2);margin-bottom:var(--space-2);">
+      <div style="width:56px;height:56px;border-radius:50%;border:1.5px solid var(--color-accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:22px;color:var(--color-accent);">AF</div>
+      <h1 style="font-size:26px;margin:0;text-align:center;">Buat akun baru</h1>
+      <p style="margin:0;font-size:13px;text-align:center;" class="text-muted">Mulai catat keuangan keluarga bareng-bareng</p>
+    </div>
+    <div class="field"><label>Nama lengkap</label><input class="input" required value="{{ authName }}" onChange="{{ onAuthName }}" placeholder="Rizki Pratama"/></div>
+    <div class="field"><label>Email</label><input class="input" type="email" required value="{{ authEmail }}" onChange="{{ onAuthEmail }}" placeholder="nama@email.com"/></div>
+    <div class="field"><label>Kata sandi</label><input class="input" type="password" required value="{{ authPassword }}" onChange="{{ onAuthPassword }}" placeholder="••••••••"/></div>
+    <button type="submit" class="btn btn-primary btn-block" style="height:44px;font-size:15px;">Daftar</button>
+    <p style="text-align:center;font-size:13px;margin:0;">Sudah punya akun? <a href="#" onClick="{{ goLogin }}">Masuk</a></p>
+  </form>
+</div>
+</sc-if>
+
+<!-- ===== ONBOARDING ===== -->
+<sc-if value="{{ isOnboarding }}">
+<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:var(--space-6);">
+  <div style="width:100%;max-width:420px;display:flex;flex-direction:column;gap:var(--space-4);">
+    <h1 style="font-size:24px;margin:0;">Siapkan keluargamu</h1>
+    <p style="margin:0;font-size:14px;" class="text-muted">Satu langkah lagi — buat family baru atau gabung ke yang sudah ada.</p>
+    <div class="seg" style="width:100%;">
+      <label class="seg-opt" style="flex:1;justify-content:center;"><input type="radio" name="obmode" checked="{{ isOnboardCreate }}" onChange="{{ setOnboardCreate }}"/>Buat baru</label>
+      <label class="seg-opt" style="flex:1;justify-content:center;"><input type="radio" name="obmode" checked="{{ isOnboardJoin }}" onChange="{{ setOnboardJoin }}"/>Gabung keluarga</label>
+    </div>
+    <sc-if value="{{ isOnboardCreate }}">
+      <div class="field"><label>Nama keluarga</label><input class="input" value="{{ familyNameDraft }}" onChange="{{ onFamilyNameChange }}" placeholder="Keluarga Pratama"/></div>
+    </sc-if>
+    <sc-if value="{{ isOnboardJoin }}">
+      <div class="field"><label>Kode undangan</label><input class="input" value="{{ joinCodeDraft }}" onChange="{{ onJoinCodeChange }}" placeholder="AMANA-XXXXX"/></div>
+    </sc-if>
+    <button class="btn btn-primary btn-block" style="height:44px;font-size:15px;" onClick="{{ finishOnboarding }}">Lanjut ke AmanaFinance</button>
+  </div>
+</div>
+</sc-if>
+
+<!-- ===== MAIN APP ===== -->
+<sc-if value="{{ isApp }}">
+<div style="display:flex;min-height:100vh;">
+
+  <!-- Desktop sidebar -->
+  <sc-if value="{{ isDesktop }}">
+    <div style="position:fixed;left:0;top:0;bottom:0;width:240px;background:var(--color-surface);border-right:1px solid var(--color-divider);display:flex;flex-direction:column;padding:var(--space-4);gap:var(--space-4);">
+      <div style="display:flex;align-items:center;gap:10px;">
+        <div style="width:34px;height:34px;border-radius:50%;border:1.5px solid var(--color-accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:14px;color:var(--color-accent);">AF</div>
+        <div style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:16px;">AmanaFinance</div>
+      </div>
+      <nav style="display:flex;flex-direction:column;gap:4px;flex:1;">
+        <a href="#" onClick="{{ chatNavItem.onSelect }}" style="display:flex;align-items:center;gap:10px;padding:12px 16px;border-radius:999px;text-decoration:none;font-size:15px;font-weight:700;font-family:var(--font-heading);color:#fff;background:{{ chatNavItem.bg }};box-shadow:var(--shadow-sm);margin-bottom:8px;" style-hover="background:var(--color-accent-600);">
+          <i data-lucide="message-circle" style="width:20px;height:20px;flex:none;"></i>Chat dengan Amina
+        </a>
+        <sc-for list="{{ navItems }}" as="item" hint-placeholder-count="7">
+          <a href="#" onClick="{{ item.onSelect }}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--radius-md);text-decoration:none;font-size:14px;color:{{ item.textColor }};background:{{ item.bg }};" style-hover="background:var(--color-accent-100);">
+            <i data-lucide="{{ item.icon }}" style="width:18px;height:18px;flex:none;"></i>{{ item.label }}
+          </a>
+        </sc-for>
+      </nav>
+      <a href="#" onClick="{{ logout }}" style="display:flex;align-items:center;gap:10px;padding:9px 10px;font-size:13px;color:inherit;text-decoration:none;" class="text-muted">
+        <i data-lucide="log-out" style="width:16px;height:16px;"></i>Keluar
+      </a>
+    </div>
+  </sc-if>
+
+  <!-- Content pane -->
+  <div style="flex:1;margin-left:{{ contentMarginLeft }};padding-bottom:{{ contentPaddingBottom }};display:flex;flex-direction:column;min-height:100vh;">
+
+    <!-- CHAT -->
+    <sc-if value="{{ isChat }}">
+      <div style="display:flex;flex-direction:column;height:{{ chatPaneHeight }};max-width:720px;width:100%;margin:0 auto;">
+        <div style="display:flex;align-items:center;gap:10px;padding:var(--space-3) var(--space-4);border-bottom:1px solid var(--color-divider);">
+          <div style="width:38px;height:38px;border-radius:50%;border:1.5px solid var(--color-accent);display:flex;align-items:center;justify-content:center;font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:15px;color:var(--color-accent);">A</div>
+          <div>
+            <div style="font-family:var(--font-heading);font-weight:var(--font-heading-weight);font-size:16px;">Amina</div>
+            <div style="font-size:12px;" class="text-muted">Asisten keuangan Keluarga Pratama</div>
+          </div>
+        </div>
+
+        <div style="flex:1;overflow-y:auto;padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-3);">
+          <sc-for list="{{ messages }}" as="m" hint-placeholder-count="3">
+            <div style="display:flex;justify-content:{{ m.justify }};">
+              <div style="max-width:82%;display:flex;flex-direction:column;gap:8px;">
+                <sc-if value="{{ m.hasText }}">
+                  <div style="padding:10px 14px;border-radius:var(--radius-lg);font-size:14px;line-height:1.5;background:{{ m.bubbleBg }};border:1px solid var(--color-divider);">{{ m.content }}</div>
+                </sc-if>
+                <sc-if value="{{ m.hasCard }}">
+                  <div class="elev-sm" style="border:1px solid var(--color-divider);border-radius:var(--radius-md);padding:var(--space-3);background:var(--color-bg);display:flex;flex-direction:column;gap:8px;">
+                    <div style="display:flex;align-items:center;gap:8px;">
+                      <i data-lucide="{{ m.cardIcon }}" style="width:16px;height:16px;color:var(--color-accent);"></i>
+                      <div class="card-title" style="font-size:14px;">{{ m.actionCard.title }}</div>
+                    </div>
+                    <sc-for list="{{ m.actionCard.fields }}" as="f" hint-placeholder-count="3">
+                      <div style="display:flex;justify-content:space-between;font-size:13px;">
+                        <span class="text-muted">{{ f.label }}</span><span>{{ f.value }}</span>
+                      </div>
+                    </sc-for>
+                    <sc-if value="{{ m.cardPending }}">
+                      <div style="display:flex;gap:8px;margin-top:4px;">
+                        <button class="btn btn-primary" style="flex:1;font-size:13px;" onClick="{{ m.onConfirm }}"><i data-lucide="check" style="width:14px;height:14px;"></i>Ya, lanjutkan</button>
+                        <button class="btn btn-secondary" style="font-size:13px;">Edit</button>
+                        <button class="btn btn-ghost" style="font-size:13px;" onClick="{{ m.onCancel }}"><i data-lucide="x" style="width:14px;height:14px;"></i>Batal</button>
+                      </div>
+                    </sc-if>
+                    <sc-if value="{{ m.cardConfirmed }}">
+                      <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--color-accent-700);"><i data-lucide="check" style="width:13px;height:13px;"></i>Sudah disimpan</div>
+                    </sc-if>
+                    <sc-if value="{{ m.cardCancelled }}">
+                      <div style="font-size:12px;" class="text-muted">Dibatalkan</div>
+                    </sc-if>
+                  </div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+
+          <sc-if value="{{ isTyping }}">
+            <div style="display:flex;justify-content:flex-start;">
+              <div style="padding:12px 16px;border-radius:var(--radius-lg);background:var(--color-surface);border:1px solid var(--color-divider);display:flex;gap:4px;">
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);display:inline-block;animation:amanaBlink 1.2s infinite;"></span>
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);display:inline-block;animation:amanaBlink 1.2s infinite .15s;"></span>
+                <span style="width:6px;height:6px;border-radius:50%;background:var(--color-accent);display:inline-block;animation:amanaBlink 1.2s infinite .3s;"></span>
+              </div>
+            </div>
+          </sc-if>
+        </div>
+
+        <sc-if value="{{ isOnboardChatActive }}">
+          <div style="padding:0 var(--space-4);font-size:11px;" class="text-muted">Pertanyaan {{ onboardStepLabel }} dari {{ onboardTotalLabel }} — boleh dilewati kapan saja</div>
+        </sc-if>
+        <div style="padding:var(--space-2) var(--space-4);display:flex;gap:8px;overflow-x:auto;">
+          <sc-for list="{{ chips }}" as="c" hint-placeholder-count="4">
+            <button class="btn btn-secondary" style="font-size:12px;white-space:nowrap;flex:none;" onClick="{{ c.onClick }}">{{ c.label }}</button>
+          </sc-for>
+        </div>
+
+        <div style="padding:var(--space-3) var(--space-4);border-top:1px solid var(--color-divider);display:flex;gap:8px;align-items:center;">
+          <button class="btn btn-icon btn-secondary" onClick="{{ triggerReceipt }}" title="Kirim foto struk"><i data-lucide="camera" style="width:18px;height:18px;"></i></button>
+          <button class="btn btn-icon" style="border:1px solid {{ micBorder }};color:{{ micColor }};" onClick="{{ toggleRecording }}" title="Rekam suara">
+            <i data-lucide="mic" style="width:18px;height:18px;{{ micAnim }}"></i>
+          </button>
+          <input class="input" style="flex:1;" placeholder="Tulis pesan ke Amina..." value="{{ chatInput }}" onChange="{{ onChatInputChange }}" onKeyDown="{{ onChatKeyDown }}"/>
+          <button class="btn btn-icon btn-primary" onClick="{{ sendChatClick }}" title="Kirim"><i data-lucide="send" style="width:18px;height:18px;"></i></button>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- DASHBOARD -->
+    <sc-if value="{{ isDashboard }}">
+      <div style="max-width:720px;width:100%;margin:0 auto;padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-5);">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <div>
+            <div style="font-size:13px;" class="text-muted">{{ todayLabel }}</div>
+            <h1 style="font-size:26px;margin:2px 0 0;">Halo, Rizki</h1>
+          </div>
+          <div style="width:44px;height:44px;border-radius:50%;background:var(--color-accent);display:flex;align-items:center;justify-content:center;color:#fff;font-family:var(--font-heading);font-weight:700;font-size:16px;flex:none;">R</div>
+        </div>
+
+        <div style="border-radius:var(--radius-lg);padding:var(--space-5);background:linear-gradient(135deg, var(--color-accent-500), var(--color-accent-2-500));color:#fff;display:flex;flex-direction:column;gap:16px;box-shadow:var(--shadow-md);overflow:hidden;box-sizing:border-box;">
+          <div style="font-size:11px;letter-spacing:0.1em;text-transform:uppercase;opacity:0.85;">Total Saldo</div>
+          <div style="font-family:var(--font-heading);font-weight:600;font-size:32px;letter-spacing:-0.01em;word-break:break-word;">{{ totalBalanceLabel }}</div>
+          <div style="display:flex;flex-wrap:wrap;gap:10px;">
+            <sc-for list="{{ accountsView }}" as="a" hint-placeholder-count="3">
+              <div style="flex:1 1 120px;min-width:0;background:rgba(255,255,255,0.18);border-radius:var(--radius-md);padding:10px 12px;display:flex;flex-direction:column;gap:4px;box-sizing:border-box;">
+                <div style="display:flex;align-items:center;gap:6px;font-size:12px;opacity:0.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;"><i data-lucide="{{ a.typeIcon }}" style="width:13px;height:13px;flex:none;"></i><span style="overflow:hidden;text-overflow:ellipsis;">{{ a.name }}</span></div>
+                <div style="font-family:var(--font-heading);font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ a.balanceLabel }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div>
+          <div class="card-title" style="margin-bottom:10px;">Pengeluaran per Wallet</div>
+          <div style="display:grid;grid-template-columns:repeat(2,1fr);gap:10px;">
+            <sc-for list="{{ walletBars }}" as="w" hint-placeholder-count="4">
+              <div class="card elev-sm" style="gap:8px;padding:var(--space-3);">
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <div style="width:30px;height:30px;border-radius:50%;background:var(--color-accent-100);display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="{{ w.icon }}" style="width:15px;height:15px;color:var(--color-accent-700);"></i></div>
+                  <div style="font-size:13px;font-weight:600;">{{ w.name }}</div>
+                </div>
+                <div style="height:6px;border-radius:4px;background:var(--color-neutral-200);overflow:hidden;"><div style="height:100%;width:{{ w.barPct }}%;background:var(--color-accent-500);"></div></div>
+                <div style="font-size:12px;" class="text-muted">{{ w.spentLabel }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="card elev-sm">
+          <div class="card-title">Target Tabungan</div>
+          <div style="display:flex;flex-direction:column;gap:14px;margin-top:8px;">
+            <sc-for list="{{ goalsView }}" as="g" hint-placeholder-count="3">
+              <div style="display:flex;align-items:center;gap:12px;">
+                <div style="width:44px;height:44px;border-radius:50%;background:conic-gradient(var(--color-accent-500) {{ g.pct }}%, var(--color-neutral-200) 0);display:flex;align-items:center;justify-content:center;flex:none;">
+                  <div style="width:34px;height:34px;border-radius:50%;background:var(--color-surface);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:700;">{{ g.pct }}%</div>
+                </div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;font-weight:600;">{{ g.target_name }}</div>
+                  <div style="font-size:12px;" class="text-muted">{{ g.currentLabel }} / {{ g.targetLabel }}</div>
+                </div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <div class="card elev-sm">
+          <div class="card-title">Transaksi Terbaru</div>
+          <div style="display:flex;flex-direction:column;margin-top:6px;">
+            <sc-for list="{{ recentTx }}" as="t" hint-placeholder-count="6">
+              <div style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--color-divider);">
+                <div style="width:34px;height:34px;border-radius:50%;background:{{ t.iconBg }};display:flex;align-items:center;justify-content:center;flex:none;"><i data-lucide="{{ t.icon }}" style="width:16px;height:16px;color:{{ t.iconColor }};"></i></div>
+                <div style="flex:1;min-width:0;">
+                  <div style="font-size:13px;">{{ t.note }}</div>
+                  <div style="font-size:11px;" class="text-muted">{{ t.walletName }} \u00b7 {{ t.dateLabel }}</div>
+                </div>
+                <div style="font-size:13px;font-family:var(--font-heading);color:{{ t.iconColor }};">{{ t.amountLabel }}</div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- WALLETS -->
+    <sc-if value="{{ isWallets }}">
+      <div style="max-width:720px;width:100%;margin:0 auto;padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-4);">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h1 style="font-size:22px;margin:0;">Wallets</h1>
+          <button class="btn btn-primary" onClick="{{ addWallet }}"><i data-lucide="plus" style="width:14px;height:14px;"></i>Tambah</button>
+        </div>
+        <sc-for list="{{ walletsView }}" as="w" hint-placeholder-count="4">
+          <div class="card elev-sm">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div style="display:flex;align-items:center;gap:10px;">
+                <i data-lucide="{{ w.icon }}" style="width:20px;height:20px;color:var(--color-accent);"></i>
+                <div class="card-title">{{ w.name }}</div>
+              </div>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-icon btn-secondary" style="width:30px;height:30px;" onClick="{{ w.onEdit }}"><i data-lucide="pencil" style="width:14px;height:14px;"></i></button>
+                <button class="btn btn-icon btn-secondary" style="width:30px;height:30px;" onClick="{{ w.onDelete }}"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;"><span class="text-muted">{{ w.spentLabel }} dari {{ w.budgetLabel }}</span><span style="color:{{ w.statusColor }};">{{ w.statusLabel }}</span></div>
+            <div style="height:8px;border-radius:4px;background:var(--color-neutral-200);overflow:hidden;"><div style="height:100%;width:{{ w.pct }}%;background:{{ w.barColor }};"></div></div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- ACCOUNTS -->
+    <sc-if value="{{ isAccounts }}">
+      <div style="max-width:720px;width:100%;margin:0 auto;padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-4);">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h1 style="font-size:22px;margin:0;">Akun Bank &amp; E-Wallet</h1>
+          <button class="btn btn-primary" onClick="{{ addAccount }}"><i data-lucide="plus" style="width:14px;height:14px;"></i>Tambah</button>
+        </div>
+        <sc-for list="{{ accountsView }}" as="a" hint-placeholder-count="3">
+          <div class="card elev-sm" style="flex-direction:row;align-items:center;justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:12px;">
+              <i data-lucide="{{ a.typeIcon }}" style="width:22px;height:22px;color:var(--color-accent);"></i>
+              <div>
+                <div class="card-title" style="font-size:15px;">{{ a.name }}</div>
+                <span class="tag tag-neutral">{{ a.typeLabel }}</span>
+              </div>
+            </div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div style="font-family:var(--font-heading);font-size:15px;">{{ a.balanceLabel }}</div>
+              <button class="btn btn-icon btn-secondary" style="width:30px;height:30px;" onClick="{{ a.onEdit }}"><i data-lucide="pencil" style="width:14px;height:14px;"></i></button>
+              <button class="btn btn-icon btn-secondary" style="width:30px;height:30px;" onClick="{{ a.onDelete }}"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- INCOME -->
+    <sc-if value="{{ isIncome }}">
+      <div style="max-width:720px;width:100%;margin:0 auto;padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-4);">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h1 style="font-size:22px;margin:0;">Sumber Pemasukan</h1>
+          <button class="btn btn-primary" onClick="{{ addIncome }}"><i data-lucide="plus" style="width:14px;height:14px;"></i>Tambah</button>
+        </div>
+        <sc-for list="{{ incomeView }}" as="src" hint-placeholder-count="2">
+          <div class="card elev-sm" style="flex-direction:row;align-items:center;justify-content:space-between;">
+            <div class="card-title" style="font-size:15px;">{{ src.name }}</div>
+            <div style="display:flex;align-items:center;gap:10px;">
+              <div class="text-muted" style="font-size:13px;">Bulan ini: {{ src.totalLabel }}</div>
+              <button class="btn btn-icon btn-secondary" style="width:30px;height:30px;" onClick="{{ src.onEdit }}"><i data-lucide="pencil" style="width:14px;height:14px;"></i></button>
+              <button class="btn btn-icon btn-secondary" style="width:30px;height:30px;" onClick="{{ src.onDelete }}"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+            </div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- GOALS -->
+    <sc-if value="{{ isGoals }}">
+      <div style="max-width:720px;width:100%;margin:0 auto;padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-4);">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+          <h1 style="font-size:22px;margin:0;">Target Tabungan</h1>
+          <button class="btn btn-primary" onClick="{{ addGoal }}"><i data-lucide="plus" style="width:14px;height:14px;"></i>Tambah</button>
+        </div>
+        <sc-for list="{{ goalsView }}" as="g" hint-placeholder-count="3">
+          <div class="card elev-sm">
+            <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+              <div style="display:flex;align-items:center;gap:10px;"><i data-lucide="target" style="width:20px;height:20px;color:var(--color-accent);"></i><div class="card-title">{{ g.target_name }}</div></div>
+              <div style="display:flex;gap:6px;">
+                <button class="btn btn-icon btn-secondary" style="width:30px;height:30px;" onClick="{{ g.onEdit }}"><i data-lucide="pencil" style="width:14px;height:14px;"></i></button>
+                <button class="btn btn-icon btn-secondary" style="width:30px;height:30px;" onClick="{{ g.onDelete }}"><i data-lucide="trash-2" style="width:14px;height:14px;"></i></button>
+              </div>
+            </div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;"><span class="text-muted">{{ g.currentLabel }} dari {{ g.targetLabel }}</span><span>{{ g.pct }}%</span></div>
+            <div style="height:8px;border-radius:4px;background:var(--color-neutral-200);overflow:hidden;"><div style="height:100%;width:{{ g.pct }}%;background:var(--color-accent-500);"></div></div>
+            <div style="display:flex;justify-content:space-between;font-size:12px;" class="text-muted"><span>Target: {{ g.deadlineLabel }}</span><span>Estimasi tercapai: {{ g.etaLabel }}</span></div>
+          </div>
+        </sc-for>
+      </div>
+    </sc-if>
+
+    <!-- ANALYSIS -->
+    <sc-if value="{{ isAnalysis }}">
+      <div style="max-width:720px;width:100%;margin:0 auto;padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-4);">
+        <h1 style="font-size:22px;margin:0;">Analisa Keuangan</h1>
+        <div style="display:flex;gap:var(--space-3);">
+          <div class="card elev-sm" style="flex:1;gap:4px;"><div class="card-kicker">Pemasukan</div><div style="font-family:var(--font-heading);font-size:20px;">{{ totalIncomeLabel }}</div></div>
+          <div class="card elev-sm" style="flex:1;gap:4px;"><div class="card-kicker">Pengeluaran</div><div style="font-family:var(--font-heading);font-size:20px;">{{ totalExpenseLabel }}</div></div>
+          <div class="card elev-sm" style="flex:1;gap:4px;"><div class="card-kicker">Selisih</div><div style="font-family:var(--font-heading);font-size:20px;">{{ netLabel }}</div></div>
+        </div>
+        <div class="card elev-sm">
+          <div class="card-title">Breakdown per Wallet</div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px;">
+            <sc-for list="{{ walletBars }}" as="w" hint-placeholder-count="4">
+              <div>
+                <div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;"><span>{{ w.name }}</span><span class="text-muted">{{ w.spentLabel }}</span></div>
+                <div style="height:8px;border-radius:4px;background:var(--color-neutral-200);overflow:hidden;"><div style="height:100%;width:{{ w.barPct }}%;background:var(--color-accent-500);"></div></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div class="card elev-sm">
+          <div style="display:flex;align-items:center;gap:8px;"><i data-lucide="sparkles" style="width:16px;height:16px;color:var(--color-accent);"></i><div class="card-title">Wawasan dari Amina</div></div>
+          <div style="display:flex;flex-direction:column;gap:10px;margin-top:6px;">
+            <sc-for list="{{ insights }}" as="ins" hint-placeholder-count="3">
+              <p style="margin:0;font-size:13px;line-height:1.6;">{{ ins.text }}</p>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+    </sc-if>
+
+    <!-- SETTINGS -->
+    <sc-if value="{{ isSettings }}">
+      <div style="max-width:720px;width:100%;margin:0 auto;padding:var(--space-4);display:flex;flex-direction:column;gap:var(--space-4);">
+        <h1 style="font-size:22px;margin:0;">Pengaturan Keluarga</h1>
+        <div class="card elev-sm">
+          <div class="card-kicker">Keluarga</div>
+          <div class="card-title">{{ familyName }}</div>
+        </div>
+        <div class="card elev-sm">
+          <div class="card-title">Anggota</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--color-divider);">
+            <div style="display:flex;align-items:center;gap:10px;"><i data-lucide="user" style="width:18px;height:18px;color:var(--color-accent);"></i><span style="font-size:14px;">{{ currentUserName }}</span></div>
+            <span class="tag tag-accent">Admin</span>
+          </div>
+          <button class="btn btn-secondary" style="margin-top:10px;" onClick="{{ generateInvite }}"><i data-lucide="user-plus" style="width:14px;height:14px;"></i>Undang Anggota Keluarga</button>
+          <sc-if value="{{ inviteCode }}">
+            <div style="display:flex;align-items:center;justify-content:space-between;background:var(--color-surface);border-radius:var(--radius-md);padding:10px 12px;margin-top:6px;">
+              <span style="font-family:var(--font-heading);font-size:15px;letter-spacing:0.04em;">{{ inviteCode }}</span>
+              <i data-lucide="copy" style="width:15px;height:15px;color:var(--color-accent);"></i>
+            </div>
+          </sc-if>
+        </div>
+        <button class="btn btn-secondary" onClick="{{ logout }}"><i data-lucide="log-out" style="width:14px;height:14px;"></i>Keluar</button>
+      </div>
+    </sc-if>
+
+    <div style="height:var(--space-6);"></div>
+  </div>
+
+  <!-- Mobile bottom tab bar -->
+  <sc-if value="{{ showMobileTabs }}">
+    <div style="position:fixed;bottom:0;left:0;right:0;height:78px;display:flex;align-items:flex-end;justify-content:space-around;padding:0 4px 12px;filter:drop-shadow(0 -3px 12px color-mix(in srgb, var(--color-neutral-900) 9%, transparent));">
+      <svg viewBox="{{ tabBarViewBox }}" style="position:absolute;inset:0;width:100%;height:100%;pointer-events:none;">
+        <path d="{{ tabBarPath }}" fill="var(--color-bg)"></path>
+      </svg>
+      <button onClick="{{ chatNavItem.onSelect }}" style="position:absolute;left:50%;top:-16px;transform:translateX(-50%);background:{{ chatNavItem.bg }};border:none;width:56px;height:56px;border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow-md);cursor:pointer;" style-hover="filter:brightness(1.08);">
+        <i data-lucide="message-circle" style="width:24px;height:24px;color:#fff;"></i>
+      </button>
+      <sc-for list="{{ mobileTabsLeft }}" as="t" hint-placeholder-count="2">
+        <button onClick="{{ t.onSelect }}" style="background:{{ t.bg }};border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 14px;border-radius:var(--radius-md);color:{{ t.textColor }};cursor:pointer;" style-hover="background:var(--color-accent-100);">
+          <i data-lucide="{{ t.icon }}" style="width:20px;height:20px;"></i>
+          <span style="font-size:10px;font-weight:600;">{{ t.label }}</span>
+        </button>
+      </sc-for>
+      <div style="width:64px;flex:none;"></div>
+      <sc-for list="{{ mobileTabsRight }}" as="t" hint-placeholder-count="1">
+        <button onClick="{{ t.onSelect }}" style="background:{{ t.bg }};border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 14px;border-radius:var(--radius-md);color:{{ t.textColor }};cursor:pointer;" style-hover="background:var(--color-accent-100);">
+          <i data-lucide="{{ t.icon }}" style="width:20px;height:20px;"></i>
+          <span style="font-size:10px;font-weight:600;">{{ t.label }}</span>
+        </button>
+      </sc-for>
+      <button onClick="{{ toggleMore }}" style="background:{{ moreBg }};border:none;display:flex;flex-direction:column;align-items:center;gap:2px;padding:7px 14px;border-radius:var(--radius-md);color:{{ moreTextColor }};cursor:pointer;" style-hover="background:var(--color-accent-100);">
+        <i data-lucide="grid-2x2" style="width:20px;height:20px;"></i>
+        <span style="font-size:10px;font-weight:600;">Lainnya</span>
+      </button>
+    </div>
+  </sc-if>
+
+  <!-- More sheet -->
+  <sc-if value="{{ moreSheetOpen }}">
+    <div style="position:fixed;inset:0;background:color-mix(in srgb, var(--color-neutral-900) 50%, transparent);display:flex;align-items:flex-end;z-index:20;" onClick="{{ toggleMore }}">
+      <div style="width:100%;background:var(--color-surface);border-radius:var(--radius-lg) var(--radius-lg) 0 0;padding:var(--space-4);display:flex;flex-direction:column;gap:4px;box-shadow:var(--shadow-lg);" onClick="{{ stopProp }}">
+        <sc-for list="{{ moreItems }}" as="mi" hint-placeholder-count="4">
+          <button onClick="{{ mi.onSelect }}" style="display:flex;align-items:center;gap:12px;padding:12px 6px;background:none;border:none;text-align:left;font-size:15px;color:var(--color-text);cursor:pointer;border-bottom:1px solid var(--color-divider);">
+            <i data-lucide="{{ mi.icon }}" style="width:18px;height:18px;color:var(--color-accent);"></i>{{ mi.label }}
+          </button>
+        </sc-for>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- CRUD Modal -->
+  <sc-if value="{{ modalOpen }}">
+    <div class="dialog-backdrop" style="z-index:30;" onClick="{{ closeModal }}">
+      <div class="dialog" onClick="{{ stopProp }}">
+        <div class="dialog-title">{{ modalTitle }}</div>
+        <sc-if value="{{ modalIsWallet }}">
+          <div class="field"><label>Nama wallet</label><input class="input" value="{{ modalItem.name }}" onChange="{{ modalHandlers.name }}"/></div>
+          <div class="field"><label>Budget bulanan (Rp)</label><input class="input" type="number" value="{{ modalItem.monthly_budget }}" onChange="{{ modalHandlers.monthly_budget }}"/></div>
+        </sc-if>
+        <sc-if value="{{ modalIsAccount }}">
+          <div class="field"><label>Nama akun</label><input class="input" value="{{ modalItem.name }}" onChange="{{ modalHandlers.name }}"/></div>
+          <div class="field"><label>Jenis</label>
+            <select class="input" value="{{ modalItem.account_type }}" onChange="{{ modalHandlers.account_type }}">
+              <option value="bank">Bank</option><option value="ewallet">E-Wallet</option><option value="cash">Tunai</option>
+            </select>
+          </div>
+          <div class="field"><label>Saldo (Rp)</label><input class="input" type="number" value="{{ modalItem.current_balance }}" onChange="{{ modalHandlers.current_balance }}"/></div>
+        </sc-if>
+        <sc-if value="{{ modalIsIncome }}">
+          <div class="field"><label>Nama sumber pemasukan</label><input class="input" value="{{ modalItem.name }}" onChange="{{ modalHandlers.name }}"/></div>
+        </sc-if>
+        <sc-if value="{{ modalIsGoal }}">
+          <div class="field"><label>Nama target</label><input class="input" value="{{ modalItem.target_name }}" onChange="{{ modalHandlers.target_name }}"/></div>
+          <div class="field"><label>Target nominal (Rp)</label><input class="input" type="number" value="{{ modalItem.target_amount }}" onChange="{{ modalHandlers.target_amount }}"/></div>
+          <div class="field"><label>Sudah terkumpul (Rp)</label><input class="input" type="number" value="{{ modalItem.current_amount }}" onChange="{{ modalHandlers.current_amount }}"/></div>
+          <div class="field"><label>Target tanggal</label><input class="input" type="date" value="{{ modalItem.deadline }}" onChange="{{ modalHandlers.deadline }}"/></div>
+        </sc-if>
+        <div class="dialog-actions">
+          <button class="btn btn-secondary" onClick="{{ closeModal }}">Batal</button>
+          <button class="btn btn-primary" onClick="{{ saveModal }}">Simpan</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</sc-if>
+
+</div>
+</sc-if>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    libReady: false,
+    screen: 'login',
+    appTab: 'chat',
+    isDesktop: (typeof window !== 'undefined' && window.innerWidth >= 900),
+    winW: (typeof window !== 'undefined' ? window.innerWidth : 390),
+    moreSheetOpen: false,
+    messages: [],
+    chatInput: '',
+    isRecording: false,
+    isTyping: false,
+    wallets: [], bankAccounts: [], incomeSources: [], savingsGoals: [], transactions: [],
+    modal: null,
+    onboardingMode: 'create',
+    familyNameDraft: 'Keluarga Pratama',
+    joinCodeDraft: '',
+    inviteCode: null,
+    authName: '', authEmail: '', authPassword: '',
+    onboardStep: null,
+    onboardAnswers: {},
+  };
+
+  onboardQuestions = [
+    { key: 'members', question: 'Sebelum mulai, boleh kenalan dulu sama kondisi keuangan keluarga? Ada berapa anggota keluarga yang bakal ikut mencatat di sini?' },
+    { key: 'income', question: 'Penghasilan bulanan biasanya dari mana saja? Boleh sebutin semuanya, misalnya gaji, freelance, atau usaha.' },
+    { key: 'expenses', question: 'Pengeluaran rutin bulanan yang paling besar biasanya buat apa?' },
+    { key: 'goals', question: 'Terakhir, ada target tabungan yang sedang dikejar? Misalnya dana darurat, liburan, atau renovasi rumah.' },
+  ];
+
+  componentDidMount() {
+    this._onResize = () => this.setState({ isDesktop: window.innerWidth >= 900, winW: window.innerWidth });
+    window.addEventListener('resize', this._onResize);
+    import('./lib/amana-lib.js').then((mod) => {
+      this.lib = mod;
+      this.setState({
+        libReady: true,
+        wallets: [...mod.wallets],
+        bankAccounts: [...mod.bankAccounts],
+        incomeSources: [...mod.incomeSources],
+        savingsGoals: [...mod.savingsGoals],
+        transactions: [...mod.transactions],
+        messages: [
+          { id: 'm1', role: 'assistant', content: 'Halo Rizki! Aku Amina, asisten keuangan buat Keluarga Pratama. Cerita aja kalau ada transaksi baru, mau bikin dompet, atau butuh saran keuangan.' },
+          { id: 'm2', role: 'user', content: 'kemarin abis makan siang 25rb pake gopay' },
+          { id: 'm3', role: 'assistant', content: 'Sudah aku catat ya \u2014 pengeluaran Rp 25.000 dari GoPay untuk Belanja Harian.', actionCard: { type: 'action_confirm', action: 'create_transaction', title: 'Transaksi Tersimpan', status: 'confirmed', fields: [ { label: 'Nominal', value: 'Rp 25.000' }, { label: 'Wallet', value: 'Belanja Harian' }, { label: 'Sumber Dana', value: 'GoPay' } ] } },
+        ],
+      });
+      this.updateIcons();
+    });
+    this.updateIcons();
+  }
+  componentWillUnmount() { window.removeEventListener('resize', this._onResize); }
+  componentDidUpdate() { this.updateIcons(); }
+  updateIcons() { requestAnimationFrame(() => { if (window.lucide) window.lucide.createIcons(); }); }
+
+  go = (screen) => this.setState({ screen });
+  goLogin = (e) => { e.preventDefault(); this.setState({ screen: 'login' }); };
+  goRegister = (e) => { e.preventDefault(); this.setState({ screen: 'register' }); };
+  setTab = (tab) => this.setState({ appTab: tab, moreSheetOpen: false });
+  toggleMore = () => this.setState((s) => ({ moreSheetOpen: !s.moreSheetOpen }));
+  stopProp = (e) => e.stopPropagation();
+  submitLogin = (e) => { e.preventDefault(); this.setState({ screen: 'onboarding' }); };
+  submitRegister = (e) => { e.preventDefault(); this.setState({ screen: 'onboarding' }); };
+  finishOnboarding = () => {
+    const fname = this.state.onboardingMode === 'join' ? 'keluargamu' : (this.state.familyNameDraft || 'keluargamu');
+    this.setState({
+      screen: 'app', appTab: 'chat', onboardStep: 0, onboardAnswers: {},
+      messages: [
+        { id: 'm_ob_intro', role: 'assistant', content: 'Halo! Aku Amina, asisten keuangan buat ' + fname + '. Sebelum mulai, boleh aku tanya beberapa hal dasar biar bantuanku makin pas? Santai aja, kalau belum tahu jawabannya bisa dilewati dulu.' },
+        { id: 'm_ob_q0', role: 'assistant', content: this.onboardQuestions[0].question },
+      ],
+    });
+  };
+
+  advanceOnboarding = (skipped) => {
+    setTimeout(() => {
+      const step = this.state.onboardStep;
+      const next = step + 1;
+      this.setState({ isTyping: false });
+      if (skipped) this.pushMessage({ role: 'assistant', content: 'Oke, nggak masalah — bisa diisi belakangan.' });
+      if (next < this.onboardQuestions.length) {
+        this.setState({ onboardStep: next });
+        setTimeout(() => this.pushMessage({ role: 'assistant', content: this.onboardQuestions[next].question }), skipped ? 500 : 0);
+      } else {
+        this.setState({ onboardStep: null });
+        this.pushMessage({ role: 'assistant', content: 'Makasih banyak infonya! Ini udah cukup buat aku bantu kamu. Sekarang kamu bisa langsung cerita transaksi, kirim foto struk, atau minta saran kapan aja.' });
+      }
+    }, 700);
+  };
+
+  skipOnboardStep = () => { this.setState({ isTyping: true }); this.advanceOnboarding(true); };
+  logout = () => this.setState({ screen: 'login', appTab: 'chat' });
+  onAuthName = (e) => this.setState({ authName: e.target.value });
+  onAuthEmail = (e) => this.setState({ authEmail: e.target.value });
+  onAuthPassword = (e) => this.setState({ authPassword: e.target.value });
+  setOnboardCreate = () => this.setState({ onboardingMode: 'create' });
+  setOnboardJoin = () => this.setState({ onboardingMode: 'join' });
+  onFamilyNameChange = (e) => this.setState({ familyNameDraft: e.target.value });
+  onJoinCodeChange = (e) => this.setState({ joinCodeDraft: e.target.value });
+
+  pushMessage(msg) { this.setState((s) => ({ messages: [...s.messages, { ...msg, id: this.lib.newId('m') }] })); }
+
+  sendChat = (text, scenario) => {
+    const finalText = (text !== undefined ? text : this.state.chatInput).trim();
+    if (!finalText) return;
+    if (this.state.onboardStep !== null && scenario === undefined) {
+      const q = this.onboardQuestions[this.state.onboardStep];
+      this.pushMessage({ role: 'user', content: finalText });
+      this.setState((s) => ({ onboardAnswers: { ...s.onboardAnswers, [q.key]: finalText }, chatInput: '', isTyping: true }));
+      this.advanceOnboarding(false);
+      return;
+    }
+    this.pushMessage({ role: 'user', content: finalText });
+    this.setState({ chatInput: '', isTyping: true });
+    setTimeout(() => {
+      const reply = this.lib.mockAssistantReply(finalText, scenario);
+      this.setState({ isTyping: false });
+      this.pushMessage(reply);
+    }, 750);
+  };
+  onChatInputChange = (e) => this.setState({ chatInput: e.target.value });
+  onChatKeyDown = (e) => { if (e.key === 'Enter') { e.preventDefault(); this.sendChat(); } };
+  sendChatClick = () => this.sendChat();
+  toggleRecording = () => {
+    if (this.state.isRecording) return;
+    this.setState({ isRecording: true });
+    setTimeout(() => {
+      this.setState({ isRecording: false });
+      this.sendChat('Tadi abis makan siang di warteg 25rb dari GoPay', 'transaction_voice');
+    }, 1500);
+  };
+  triggerReceipt = () => this.sendChat('[Foto struk diunggah]', 'transaction_receipt');
+
+  resolveAction = (msgId, status) => {
+    const msg = this.state.messages.find((m) => m.id === msgId);
+    this.setState((s) => ({
+      messages: s.messages.map((m) => (m.id === msgId ? { ...m, actionCard: { ...m.actionCard, status } } : m)),
+    }));
+    if (status === 'confirmed' && msg && msg.actionCard) {
+      const { action, payload } = msg.actionCard;
+      if (action === 'create_transaction' && payload) {
+        this.setState((s) => ({ transactions: [...s.transactions, { id: this.lib.newId('t'), transaction_date: '2026-08-08', ...payload }] }));
+      } else if (action === 'create_wallet' && payload) {
+        this.setState((s) => ({ wallets: [...s.wallets, { id: this.lib.newId('w'), ...payload }] }));
+      } else if (action === 'create_account' && payload) {
+        this.setState((s) => ({ bankAccounts: [...s.bankAccounts, { id: this.lib.newId('a'), ...payload }] }));
+      }
+      setTimeout(() => this.pushMessage({ role: 'assistant', content: 'Sudah aku simpan. Ada lagi yang mau dicatat?' }), 400);
+    }
+  };
+
+  defaultDraft(kind) {
+    if (kind === 'wallet') return { name: '', monthly_budget: 0, icon: 'shopping-cart' };
+    if (kind === 'account') return { name: '', account_type: 'bank', current_balance: 0 };
+    if (kind === 'income') return { name: '' };
+    if (kind === 'goal') return { target_name: '', target_amount: 0, current_amount: 0, deadline: '2026-12-31', avg_monthly_contribution: 500000 };
+    return {};
+  }
+  openModal = (kind, item) => this.setState({ modal: { kind, item: item ? { ...item } : this.defaultDraft(kind) } });
+  closeModal = () => this.setState({ modal: null });
+  updateModalField(key) {
+    return (e) => {
+      const val = e.target.type === 'number' ? Number(e.target.value) : e.target.value;
+      this.setState((s) => ({ modal: { ...s.modal, item: { ...s.modal.item, [key]: val } } }));
+    };
+  }
+  saveModal = () => {
+    const { kind, item } = this.state.modal;
+    const listKey = { wallet: 'wallets', account: 'bankAccounts', income: 'incomeSources', goal: 'savingsGoals' }[kind];
+    this.setState((s) => {
+      const exists = item.id && s[listKey].some((x) => x.id === item.id);
+      const list = exists ? s[listKey].map((x) => (x.id === item.id ? item : x)) : [...s[listKey], { ...item, id: this.lib.newId(kind[0]) }];
+      return { [listKey]: list, modal: null };
+    });
+  };
+  deleteItem(kind, id) {
+    const listKey = { wallet: 'wallets', account: 'bankAccounts', income: 'incomeSources', goal: 'savingsGoals' }[kind];
+    this.setState((s) => ({ [listKey]: s[listKey].filter((x) => x.id !== id) }));
+  }
+  generateInvite = () => this.setState({ inviteCode: 'AMANA-' + Math.random().toString(36).slice(2, 7).toUpperCase() });
+
+  renderVals() {
+    const lib = this.lib;
+    const s = this.state;
+    if (!s.libReady || !lib) return { libReady: false };
+
+    const accent = 'var(--color-accent)';
+    const muted = 'var(--color-text)';
+
+    const walletsView = s.wallets.map((w) => {
+      const spent = lib.walletSpent(w.id, s.transactions);
+      const pct = w.monthly_budget ? Math.min(100, Math.round((spent / w.monthly_budget) * 100)) : 0;
+      const over = spent > w.monthly_budget;
+      const near = !over && pct >= 80;
+      return {
+        ...w,
+        spentLabel: lib.formatRupiah(spent), budgetLabel: lib.formatRupiah(w.monthly_budget), pct,
+        statusLabel: over ? 'Lewat budget' : near ? 'Hampir habis' : 'Aman',
+        statusColor: over ? 'var(--color-accent-800)' : near ? 'var(--color-accent-600)' : 'var(--color-text)',
+        barColor: over ? 'var(--color-accent-800)' : near ? 'var(--color-accent-600)' : 'var(--color-accent-400)',
+        onEdit: () => this.openModal('wallet', w), onDelete: () => this.deleteItem('wallet', w.id),
+      };
+    });
+    const maxSpent = Math.max(1, ...s.wallets.map((w) => lib.walletSpent(w.id, s.transactions)));
+    const walletBars = walletsView.map((w) => ({ ...w, barPct: Math.round((lib.walletSpent(w.id, s.transactions) / maxSpent) * 100) })).sort((a, b) => b.barPct - a.barPct);
+
+    const totalBalance = s.bankAccounts.reduce((sum, a) => sum + a.current_balance, 0);
+    const accountsView = s.bankAccounts.map((a) => ({
+      ...a, balanceLabel: lib.formatRupiah(a.current_balance), typeLabel: lib.accountTypeLabel[a.account_type], typeIcon: lib.accountTypeIcon[a.account_type],
+      onEdit: () => this.openModal('account', a), onDelete: () => this.deleteItem('account', a.id),
+    }));
+
+    const recentTx = [...s.transactions].sort((a, b) => new Date(b.transaction_date) - new Date(a.transaction_date)).slice(0, 8).map((t) => ({
+      ...t,
+      amountLabel: (t.type === 'income' ? '+ ' : '\u2212 ') + lib.formatRupiah(t.amount),
+      dateLabel: lib.formatDateID(t.transaction_date),
+      walletName: (s.wallets.find((w) => w.id === t.wallet_id) || {}).name || (t.type === 'income' ? ((s.incomeSources.find((i) => i.id === t.source_id) || {}).name || 'Pemasukan') : '\u2014'),
+      icon: t.type === 'income' ? 'arrow-down-left' : 'arrow-up-right',
+      iconBg: t.type === 'income' ? 'oklch(90% 0.06 150)' : 'var(--color-accent-100)',
+      iconColor: t.type === 'income' ? 'oklch(45% 0.13 150)' : 'var(--color-accent-700)',
+    }));
+
+    const goalsView = s.savingsGoals.map((g) => ({
+      ...g,
+      pct: Math.round(Math.min(100, (g.current_amount / g.target_amount) * 100)),
+      currentLabel: lib.formatRupiah(g.current_amount), targetLabel: lib.formatRupiah(g.target_amount),
+      etaLabel: lib.estimateGoalCompletion(g), deadlineLabel: lib.formatDateID(g.deadline),
+      onEdit: () => this.openModal('goal', g), onDelete: () => this.deleteItem('goal', g.id),
+    }));
+
+    const totalIncome = s.transactions.filter((t) => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+    const totalExpense = s.transactions.filter((t) => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0);
+    const incomeView = s.incomeSources.map((src) => ({
+      ...src, totalLabel: lib.formatRupiah(s.transactions.filter((t) => t.source_id === src.id).reduce((sum, t) => sum + t.amount, 0)),
+      onEdit: () => this.openModal('income', src), onDelete: () => this.deleteItem('income', src.id),
+    }));
+
+    const insights = [
+      { text: 'Wallet Hiburan sudah kepakai lebih dari separuh budget padahal baru tanggal 8 \u2014 mungkin perlu direm sedikit sisa bulan ini.' },
+      { text: 'Pemasukan bulan ini lebih besar dari pengeluaran, jadi ada ruang buat nambah kontribusi ke Dana Darurat kalau mau.' },
+      { text: 'Belanja Harian polanya konsisten tiap minggu \u2014 coba pertimbangkan belanja bulanan sekali biar lebih hemat ongkos kirim/transport.' },
+    ];
+
+    const tabColor = (id) => (s.appTab === id ? accent : muted);
+    const tabBg = (id) => (s.appTab === id ? 'var(--color-accent-100)' : 'transparent');
+    const rawNav = [
+      { id: 'chat', label: 'Chat', icon: 'message-circle' },
+      { id: 'dashboard', label: 'Dashboard', icon: 'home' },
+      { id: 'wallets', label: 'Wallets', icon: 'wallet' },
+      { id: 'accounts', label: 'Akun', icon: 'landmark' },
+      { id: 'income', label: 'Pemasukan', icon: 'banknote' },
+      { id: 'goals', label: 'Target', icon: 'target' },
+      { id: 'analysis', label: 'Analisa', icon: 'bar-chart-2' },
+      { id: 'settings', label: 'Keluarga', icon: 'users' },
+    ];
+    const allNavItems = rawNav.map((n) => ({ ...n, textColor: tabColor(n.id), bg: tabBg(n.id), onSelect: () => this.setTab(n.id) }));
+    const chatNavItem = { ...allNavItems[0], bg: s.appTab === 'chat' ? 'var(--color-accent-600)' : 'var(--color-accent)' };
+    const navItems = allNavItems.slice(1);
+    const mobileTabsLeft = [allNavItems[1], allNavItems[2]];
+    const mobileTabsRight = [allNavItems[5]];
+    const moreItems = [allNavItems[3], allNavItems[4], allNavItems[6], allNavItems[7]];
+    const moreBg = s.moreSheetOpen ? 'var(--color-accent-100)' : 'transparent';
+
+    const rawChips = [
+      { label: 'Catat pengeluaran', scenario: 'transaction_text', demoText: 'Tadi beli kopi sama snack 45rb pakai GoPay' },
+      { label: 'Buat wallet baru', scenario: 'create_wallet', demoText: 'Aku mau bikin wallet baru buat Kesehatan' },
+      { label: 'Tambah akun baru', scenario: 'create_account', demoText: 'Tolong tambahin akun Dana sebagai e-wallet' },
+      { label: 'Minta saran keuangan', scenario: 'advice', demoText: 'Gimana kondisi keuangan bulan ini?' },
+    ];
+    const chips = rawChips.map((c) => ({ ...c, onClick: () => this.sendChat(c.demoText, c.scenario) }));
+    const isOnboardChatActive = s.onboardStep !== null;
+    const onboardChips = [{ label: 'Lewati pertanyaan ini', onClick: this.skipOnboardStep }];
+
+    const messagesView = s.messages.map((m) => ({
+      ...m,
+      justify: m.role === 'user' ? 'flex-end' : 'flex-start',
+      bubbleBg: m.role === 'user' ? 'var(--color-accent-100)' : 'var(--color-surface)',
+      hasText: !!m.content,
+      hasCard: !!m.actionCard,
+      cardIcon: m.actionCard && m.actionCard.action === 'create_wallet' ? 'wallet' : m.actionCard && m.actionCard.action === 'create_account' ? 'landmark' : 'receipt',
+      cardPending: m.actionCard && !m.actionCard.status,
+      cardConfirmed: m.actionCard && m.actionCard.status === 'confirmed',
+      cardCancelled: m.actionCard && m.actionCard.status === 'cancelled',
+      onConfirm: () => this.resolveAction(m.id, 'confirmed'),
+      onCancel: () => this.resolveAction(m.id, 'cancelled'),
+    }));
+
+    const modal = s.modal;
+    const modalTitles = { wallet: 'Wallet', account: 'Akun', income: 'Sumber Pemasukan', goal: 'Target Tabungan' };
+
+    return {
+      libReady: true,
+      isLogin: s.screen === 'login', isRegister: s.screen === 'register', isOnboarding: s.screen === 'onboarding', isApp: s.screen === 'app',
+      submitLogin: this.submitLogin, submitRegister: this.submitRegister, finishOnboarding: this.finishOnboarding, logout: this.logout,
+      goLogin: this.goLogin, goRegister: this.goRegister,
+      authName: s.authName, authEmail: s.authEmail, authPassword: s.authPassword,
+      onAuthName: this.onAuthName, onAuthEmail: this.onAuthEmail, onAuthPassword: this.onAuthPassword,
+      isOnboardCreate: s.onboardingMode === 'create', isOnboardJoin: s.onboardingMode === 'join',
+      setOnboardCreate: this.setOnboardCreate, setOnboardJoin: this.setOnboardJoin,
+      familyNameDraft: s.familyNameDraft, onFamilyNameChange: this.onFamilyNameChange,
+      joinCodeDraft: s.joinCodeDraft, onJoinCodeChange: this.onJoinCodeChange,
+
+      isDesktop: s.isDesktop, showMobileTabs: !s.isDesktop, moreSheetOpen: s.moreSheetOpen,
+      contentMarginLeft: s.isDesktop ? '240px' : '0px', contentPaddingBottom: s.isDesktop ? '0px' : '82px',
+      chatPaneHeight: s.isDesktop ? '100vh' : 'calc(100vh - 82px)',
+      navItems, chatNavItem, mobileTabsLeft, mobileTabsRight, moreItems, moreBg, toggleMore: this.toggleMore, stopProp: this.stopProp,
+      tabBarViewBox: `0 0 ${s.winW} 78`,
+      tabBarPath: (() => { const w = s.winW, cx = w / 2, r = 36, f = 14;
+        return `M0,0 H${cx - r - f} q${f},0 ${f},${f} a${r},${r} 0 0 0 ${2 * r},0 q0,${-f} ${f},${-f} H${w} V78 H0 Z`;
+      })(),
+      moreTextColor: s.moreSheetOpen ? accent : muted,
+      todayLabel: new Date('2026-08-08').toLocaleDateString('id-ID', { weekday: 'long', day: 'numeric', month: 'long' }),
+
+      isChat: s.appTab === 'chat', isDashboard: s.appTab === 'dashboard', isWallets: s.appTab === 'wallets',
+      isAccounts: s.appTab === 'accounts', isIncome: s.appTab === 'income', isGoals: s.appTab === 'goals',
+      isAnalysis: s.appTab === 'analysis', isSettings: s.appTab === 'settings',
+
+      messages: messagesView, isTyping: s.isTyping, isRecording: s.isRecording, chatInput: s.chatInput,
+      onChatInputChange: this.onChatInputChange, onChatKeyDown: this.onChatKeyDown, sendChatClick: this.sendChatClick,
+      toggleRecording: this.toggleRecording, triggerReceipt: this.triggerReceipt,
+      chips: isOnboardChatActive ? onboardChips : chips,
+      isOnboardChatActive, onboardStepLabel: (s.onboardStep ?? 0) + 1, onboardTotalLabel: this.onboardQuestions.length,
+      micBorder: s.isRecording ? 'var(--color-accent)' : 'var(--color-divider)',
+      micColor: s.isRecording ? 'var(--color-accent)' : 'var(--color-text)',
+      micAnim: s.isRecording ? 'animation:amanaPulse 1s infinite;' : '',
+
+      currentUserName: lib.currentUser.name, familyName: lib.family.name,
+      totalBalanceLabel: lib.formatRupiah(totalBalance), accountsView, walletBars, walletsView,
+      recentTx, goalsView, incomeView,
+      totalIncomeLabel: lib.formatRupiah(totalIncome), totalExpenseLabel: lib.formatRupiah(totalExpense), netLabel: lib.formatRupiah(totalIncome - totalExpense),
+      insights,
+
+      addWallet: () => this.openModal('wallet'), addAccount: () => this.openModal('account'),
+      addIncome: () => this.openModal('income'), addGoal: () => this.openModal('goal'),
+
+      inviteCode: s.inviteCode, generateInvite: this.generateInvite,
+
+      modalOpen: !!modal, modalKind: modal && modal.kind, modalItem: modal ? modal.item : {},
+      modalIsWallet: modal && modal.kind === 'wallet', modalIsAccount: modal && modal.kind === 'account',
+      modalIsIncome: modal && modal.kind === 'income', modalIsGoal: modal && modal.kind === 'goal',
+      modalTitle: modal ? modalTitles[modal.kind] : '',
+      modalHandlers: modal ? {
+        name: this.updateModalField('name'), monthly_budget: this.updateModalField('monthly_budget'), icon: this.updateModalField('icon'),
+        account_type: this.updateModalField('account_type'), current_balance: this.updateModalField('current_balance'),
+        target_name: this.updateModalField('target_name'), target_amount: this.updateModalField('target_amount'),
+        current_amount: this.updateModalField('current_amount'), deadline: this.updateModalField('deadline'),
+        avg_monthly_contribution: this.updateModalField('avg_monthly_contribution'),
+      } : {},
+      closeModal: this.closeModal, saveModal: this.saveModal,
+    };
+  }
+}
+
+</script>
+</body>
+</html>
