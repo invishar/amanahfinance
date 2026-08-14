@@ -7,6 +7,18 @@
 <a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
 </p>
 
+## Struktur proyek
+
+Monorepo backend + frontend AmanaFinance:
+
+- `app/`, `routes/`, `database/`, dst. — API Laravel (lihat [`CLAUDE.md`](CLAUDE.md) dan
+  [`API-v1.md`](API-v1.md)).
+- `frontend/` — klien Next.js (App Router, static export), riwayat commit dipertahankan
+  dari repo `amanahfinance_front` lewat `git subtree`. Aturan sisi klien ada di
+  [`frontend/CLAUDE.md`](frontend/CLAUDE.md). `npm run build` di `frontend/`
+  menghasilkan `frontend/out/` yang di-deploy ke `public/` supaya diserve same-origin
+  oleh Laravel — tidak ada Node server terpisah saat runtime produksi.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

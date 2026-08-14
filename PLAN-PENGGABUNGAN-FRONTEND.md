@@ -141,19 +141,23 @@ open question. Item keempat (siapa yang eksekusi) menyusul saat mulai langkah 1.
   Secrets yang relevan) tersedia dari user. Jangan menebak kredensial/mekanisme
   ini.
 
-### 5. Dokumentasi
+### 5. Dokumentasi — SELESAI (14 Agustus 2026)
 
-- [ ] Root `CLAUDE.md`: revisi baris pembuka "Tidak ada UI di sini" (sudah tidak
-  berlaku), tambahkan pointer ke `frontend/CLAUDE.md` untuk aturan sisi klien.
-- [ ] `frontend/CLAUDE.md` (bawa dari repo FE, sesuaikan bagian yang berubah):
-  - Base URL dev tetap `http://127.0.0.1:8000/api/v1`, base URL produksi jadi
-    relatif `/api/v1`.
-  - Hapus referensi "Deploy on Vercel" dari `frontend/README.md` — deploy sekarang
-    ikut proses hPanel repo gabungan, bukan Vercel.
-  - Pertahankan aturan yang sudah bagus apa adanya: satu pintu `fetch` lewat
-    `lib/api/client.ts`, tidak ada logika bisnis di klien, semua turunan (spent
-    per wallet, status budget, percent, ETA) dihitung server.
-- [ ] `README.md` root: tambahkan bagian struktur folder yang menyebut `frontend/`.
+- [x] Root `CLAUDE.md`: baris pembuka direvisi (repo sekarang dokumentasi + klien
+  Next.js dalam satu tempat), sudah menunjuk ke `frontend/CLAUDE.md` untuk aturan
+  sisi klien.
+- [x] `frontend/CLAUDE.md`: bagian "Backend" ditambah dua kalimat — base URL dev
+  tetap `http://127.0.0.1:8000/api/v1` dari `lib/api/client.ts` (dipakai `npm run
+  dev`), base URL produksi `/api/v1` relatif lewat `.env.production` (dipakai
+  otomatis `next build`), plus catatan same-origin sekarang jadi bukan lintas
+  domain lagi, dan deploy tidak lagi lewat Vercel.
+  - `frontend/README.md`: bagian "Deploy on Vercel" diganti "Deploy" yang
+    menjelaskan alur baru (static export → `public/` repo ini → hPanel).
+  - Aturan lain di `frontend/CLAUDE.md` (satu pintu `fetch` lewat
+    `lib/api/client.ts`, tidak ada logika bisnis di klien, semua turunan dihitung
+    server) **tidak disentuh** — sudah bagus apa adanya, sesuai instruksi plan.
+- [x] Root `README.md`: ditambah bagian "Struktur proyek" yang menyebut `frontend/`
+  dan `git subtree`, dengan pointer ke `CLAUDE.md` masing-masing sisi.
 
 ### 6. Beres-beres integrasi yang tertunda (dari `PLAN-INTEGRASI-FRONTEND.md`)
 

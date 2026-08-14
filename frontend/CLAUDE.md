@@ -31,7 +31,9 @@ Ikon: `lucide-react`, selalu lewat `components/icon.tsx`.
 
 ## Backend
 
-Base URL dev: `http://127.0.0.1:8000/api/v1` (tanpa trailing slash) — taruh di `NEXT_PUBLIC_API_URL`, jangan hard-code di komponen.
+Base URL dev: `http://127.0.0.1:8000/api/v1` (tanpa trailing slash) — taruh di `NEXT_PUBLIC_API_URL`, jangan hard-code di komponen. Ini default dari `lib/api/client.ts`, dipakai `npm run dev`.
+
+Base URL produksi: `/api/v1` (relatif, same-origin) — diset lewat `frontend/.env.production`, dipakai otomatis oleh `next build`. Sejak digabung ke `amanafinance-api`, hasil static export (`output: 'export'`) diserve dari domain Laravel yang sama, jadi tidak ada lagi CORS lintas domain seperti sebelumnya (`localhost:3000` → `localhost:8000`). Deploy tidak lagi lewat Vercel — hasil build masuk `public/` repo `amanafinance-api` lalu ikut deploy hPanel repo itu.
 
 - **Auth**: Laravel Sanctum, header `Authorization: Bearer <token>`. `POST /auth/login` (email **atau** phone + password) → `{ user, token }`; `POST /auth/register`, `GET /auth/me`, `POST /auth/logout`.
 - **Tidak ada header `X-Family-Id`.** Scope family ikut token — jangan menambah header karangan sendiri.

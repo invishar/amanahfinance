@@ -1,6 +1,9 @@
 # CLAUDE.md — amanafinance-api
 
-Backend AmanaFinance (Laravel 11 + PHP 8.4 + MySQL/MariaDB). Repo ini memegang database, aturan bisnis, dan **seluruh** integrasi AI. Tidak ada UI di sini.
+Backend AmanaFinance (Laravel 11 + PHP 8.4 + MySQL/MariaDB) **dan** klien (`frontend/`,
+Next.js static export, lihat [`frontend/CLAUDE.md`](frontend/CLAUDE.md)) dalam satu repo.
+Repo ini memegang database, aturan bisnis, dan **seluruh** integrasi AI — sisi klien
+murni render, tidak ada logika bisnis atau kunci API LLM di `frontend/`.
 
 **Target deploy: hPanel (shared hosting).** Tidak ada proses persisten, tidak ada `pcntl`/`posix`, kemungkinan besar tidak ada Redis. Jangan desain fitur yang butuh worker daemon, Horizon, atau koneksi long-lived tanpa batas waktu — lihat "Perintah" dan "Alur AI" di bawah untuk pola yang sudah disesuaikan (cron + burst worker, SSE berumur pendek dengan reconnect).
 
