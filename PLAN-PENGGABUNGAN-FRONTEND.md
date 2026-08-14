@@ -122,14 +122,24 @@ open question. Item keempat (siapa yang eksekusi) menyusul saat mulai langkah 1.
   **tidak pernah dikomit ke git** (mirip `/public/build` punya Vite yang sudah
   di-gitignore). Uji manual serve-nya sendiri ada di langkah 7.
 
-### 4. CI/CD
+### 4. CI/CD — SEBAGIAN SELESAI (14 Agustus 2026)
 
-- [ ] Tambah job FE di pipeline CI: `npm ci`, `npm run lint`, `tsc --noEmit`,
-  `npm run build` (dengan `NEXT_PUBLIC_API_URL=/api/v1`) — terpisah dari job PHP
-  (Pest/Pint) supaya kegagalan salah satu tidak saling menutupi.
-- [ ] Tambah step deploy: copy `frontend/out/*` ke `public/` sebelum push/rsync ke
-  hPanel. Build **tidak** terjadi di server hPanel (Node runtime di shared hosting
-  tidak bisa diandalkan) — hasil build yang dikirim, bukan source Node-nya.
+- [x] Job FE ditambahkan di `.github/workflows/tests.yml` sebagai job terpisah
+  (`frontend-checks`, paralel dengan `full-test-suite` yang sudah ada — bukan job
+  PHP+Pint gabungan seperti disebut di draft awal, karena CI yang ada saat ini
+  cuma menjalankan Pest, belum ada job Pint terpisah untuk ditiru polanya):
+  `npm ci` → `npm run lint` → `npx tsc --noEmit` → `npm run build`. Env
+  `NEXT_PUBLIC_API_URL=/api/v1` tidak diset eksplisit di workflow — sudah otomatis
+  lewat `frontend/.env.production` yang dikomit di langkah 2. Sudah diverifikasi
+  lolos di lokal (`npm run lint`, `npx tsc --noEmit` bersih).
+- [ ] **Belum bisa dikerjakan** — step deploy (copy `frontend/out/*` → `public/`
+  lalu push/rsync ke hPanel) mengasumsikan pipeline CD ke hPanel sudah ada untuk
+  ditambahi step, tapi ternyata **belum ada pipeline deploy sama sekali** di repo
+  ini (cuma `tests.yml`, tidak ada job rsync/SSH/FTP). Ditanyakan ke user 14
+  Agustus 2026 — diputuskan **dilewati dulu**, dikerjakan terpisah begitu detail
+  mekanisme deploy hPanel (SSH+rsync / FTP / git pull di server, nama GitHub
+  Secrets yang relevan) tersedia dari user. Jangan menebak kredensial/mekanisme
+  ini.
 
 ### 5. Dokumentasi
 
