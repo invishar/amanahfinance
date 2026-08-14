@@ -64,28 +64,35 @@ open question. Item keempat (siapa yang eksekusi) menyusul saat mulai langkah 1.
 
 ## Langkah eksekusi
 
-### 1. Gabungkan source code
+### 1. Gabungkan source code — SELESAI (14 Agustus 2026)
 
-- [ ] `git subtree add --prefix=frontend https://github.com/invishar/amanahfinance_front main`
-  (atau strategi lain sesuai hasil keputusan di atas) di repo ini.
-- [ ] Pastikan `.gitignore` root mencakup `frontend/node_modules`, `frontend/.next`,
-  `frontend/out`.
-- [ ] Root `package.json`/`composer.json` tidak berubah — FE punya `package.json`
-  sendiri di `frontend/`, dua toolchain tetap terpisah.
+- [x] `git subtree add --prefix=frontend https://github.com/invishar/amanahfinance_front main`
+  dijalankan, riwayat commit FE ikut masuk (commit merge `c9291af`). Catatan: hanya
+  6 commit yang ikut (5 `priana13`, 1 `invishar`), bukan 17 seperti disebut di bagian
+  "Keputusan" di atas — kemungkinan riwayat `main` FE sudah di-rewrite/rebase sejak
+  survei itu ditulis, atau ada commit di branch lain yang tidak ikut `main`. Riwayat
+  yang masuk tetap utuh sesuai yang ada di `main` saat fetch dilakukan.
+- [x] `.gitignore` root **tidak perlu diubah** — `frontend/.gitignore` ikut terbawa dari
+  repo FE dan sudah mengecualikan `/node_modules`, `/.next/`, `/out/` relatif terhadap
+  foldernya sendiri (Git menghormati `.gitignore` bersarang).
+- [x] Root `package.json`/`composer.json` tidak berubah — dikonfirmasi, subtree cuma
+  menyentuh `frontend/`.
 
-### 2. Konfigurasi Next.js untuk static export
+### 2. Konfigurasi Next.js untuk static export — SELESAI (14 Agustus 2026)
 
-- [ ] `frontend/next.config.ts`: tambah `output: 'export'`. Tambah
-  `images: { unoptimized: true }` kalau nanti ada yang mulai pakai `next/image`
-  (saat ini belum kepakai — cek ulang sebelum apply supaya tidak nambah opsi yang
-  tidak perlu).
-- [ ] Set `NEXT_PUBLIC_API_URL=/api/v1` (relatif, same-origin) untuk build produksi
-  — sebelumnya default ke `http://127.0.0.1:8000/api/v1` untuk dev lokal, tetap
-  dipertahankan sebagai default dev (`npm run dev` FE tetap jalan di port sendiri
-  saat development, cuma build produksinya yang same-origin).
-- [ ] Coba `npm run build` lokal, pastikan `frontend/out/` ke-generate lengkap
-  tanpa error (halaman butuh SSR/dynamic akan gagal di static export — belum
-  ditemukan indikasi itu di kode saat ini, tapi perlu diverifikasi langsung).
+- [x] `frontend/next.config.ts`: tambah `output: 'export'`. `images: { unoptimized: true }`
+  **tidak** ditambahkan — dicek dulu, tidak ada import `next/image` di kode
+  (`app/`, `components/`) saat ini, jadi opsi itu belum perlu.
+- [x] `NEXT_PUBLIC_API_URL=/api/v1` diset lewat `frontend/.env.production` (Next.js
+  memuat file ini otomatis hanya untuk `next build`/`next start`, `.env.development`
+  untuk `next dev` — jadi default dev `http://127.0.0.1:8000/api/v1` di `lib/api/client.ts`
+  tetap dipakai saat `npm run dev`, tidak perlu diubah). Ditambahkan pengecualian di
+  `frontend/.gitignore` (`!.env.production`) supaya file ini ikut ter-commit — isinya
+  bukan rahasia (prefix `NEXT_PUBLIC_*` toh sudah publik di bundle klien).
+- [x] `npm ci` + `npm run build` dijalankan lokal — sukses, semua 13 route
+  ter-prerender sebagai static content (`○ (Static)`), tidak ada halaman yang butuh
+  SSR/dynamic. `frontend/out/` lengkap: `index.html`, `login.html`, `chat.html`,
+  `dashboard.html`, dst. per-route sesuai ekspektasi static export.
 
 ### 3. Serve hasil build dari Laravel
 

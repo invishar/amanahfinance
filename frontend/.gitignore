@@ -32,6 +32,9 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+# NEXT_PUBLIC_API_URL=/api/v1 — no secret, needed so `npm run build` is
+# reproducible for the static export without relying on CI to set it.
+!.env.production
 
 # vercel
 .vercel
