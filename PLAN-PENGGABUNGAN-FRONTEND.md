@@ -94,17 +94,33 @@ open question. Item keempat (siapa yang eksekusi) menyusul saat mulai langkah 1.
   SSR/dynamic. `frontend/out/` lengkap: `index.html`, `login.html`, `chat.html`,
   `dashboard.html`, dst. per-route sesuai ekspektasi static export.
 
-### 3. Serve hasil build dari Laravel
+### 3. Serve hasil build dari Laravel — SELESAI (14 Agustus 2026)
 
-- [ ] Tentukan target salin: `frontend/out/*` → `public/` (atau subpath) repo ini.
-  Static export Next menghasilkan file per-route (`dashboard/index.html`, dst.),
-  jadi **tidak perlu** catch-all route SPA di `routes/web.php` — file diserve apa
-  adanya oleh web server.
-- [ ] Audit tabrakan path di `public/`: pastikan output Next tidak menimpa
-  `public/storage` (symlink upload, lihat aturan upload di `CLAUDE.md`),
-  `public/build` (aset Vite untuk `docs.blade.php`), atau prefix `/api`.
-- [ ] Pastikan `routes/api.php` tetap satu-satunya pemilik prefix `/api/*` — tidak
-  ada file statis FE yang kebetulan menempati path itu.
+- [x] Target salin: `frontend/out/*` → `public/` (root, bukan subpath). **Temuan baru
+  di luar daftar semula**: root `/` sebelumnya dipakai `routes/web.php` untuk Swagger
+  UI (`view('docs')`, lihat catatan lama "Serve interactive API docs at /" di
+  `CLAUDE.md`). Karena `.htaccess` bawaan Laravel meloloskan file statis yang ada di
+  `public/` langsung lewat Apache (`RewriteCond %{REQUEST_FILENAME} !-f`, tidak lewat
+  `index.php`), `out/index.html` akan berebut jalur `/` dengan route docs — hasilnya
+  tergantung `DirectoryIndex` Apache di hPanel, tidak bisa diasumsikan aman.
+  **Keputusan (dikonfirmasi user 14 Agustus 2026): FE memegang `/`, docs Swagger UI
+  pindah ke `/docs`.** `routes/web.php` diubah dari `Route::get('/', ...)` jadi
+  `Route::get('/docs', ...)`. Konsekuensi ikutan: `tests/Feature/ExampleTest.php`
+  yang tadinya assert `GET /` → 200 diperbaiki jadi assert `GET /docs` → 200 (test
+  lama akan gagal begitu `/` tidak lagi jadi route Laravel) — sudah dijalankan,
+  lolos (`php artisan test --filter=ExampleTest`).
+- [x] Audit tabrakan path di `public/`: **tidak ada** tabrakan dengan `public/storage`
+  atau `public/build` (nama-nama itu tidak muncul di `frontend/out/`). Satu-satunya
+  tumpang-tindih nama: `favicon.ico` — punya Laravel yang lama 0 byte (placeholder
+  scaffold), punya Next 25 KB (ikon asli). Ini overwrite yang **diinginkan**, bukan
+  masalah, karena FE sekarang jadi produk yang tampil di `/`.
+- [x] `routes/api.php` tetap satu-satunya pemilik prefix `/api/*` — dikonfirmasi,
+  tidak ada folder/file di `frontend/out/` bernama `api`.
+- [ ] **Belum dieksekusi di langkah ini** (sengaja, sesuai pembagian scope):
+  copy `frontend/out/*` → `public/` yang sesungguhnya adalah operasi CI/deploy-time
+  (lihat langkah 4) — dilakukan di runner CI yang efemeral sebelum rsync ke hPanel,
+  **tidak pernah dikomit ke git** (mirip `/public/build` punya Vite yang sudah
+  di-gitignore). Uji manual serve-nya sendiri ada di langkah 7.
 
 ### 4. CI/CD
 
