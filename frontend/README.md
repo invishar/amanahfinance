@@ -33,5 +33,5 @@ You can check out [the Next.js GitHub repository](https://github.com/vercel/next
 
 This app is not deployed standalone. `npm run build` produces a static export
 (`output: 'export'` in `next.config.ts`) that gets copied into `public/` of the
-`amanafinance-api` repo and served same-origin by Laravel on hPanel — see the
+`amanahfinance` repo and served same-origin by Laravel on hPanel — see the
 root [`CLAUDE.md`](../CLAUDE.md) and [`CLAUDE.md`](CLAUDE.md) in this folder.

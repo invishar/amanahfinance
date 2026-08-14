@@ -1,6 +1,6 @@
 # API v1 — AmanaFinance
 
-Kontrak endpoint REST untuk `amanafinance-api`. Dokumen ini adalah **sumber kebenaran tunggal**: setiap endpoint baru wajib didaftarkan di sini pada PR yang sama.
+Kontrak endpoint REST untuk `amanahfinance`. Dokumen ini adalah **sumber kebenaran tunggal**: setiap endpoint baru wajib didaftarkan di sini pada PR yang sama.
 
 Base path: `/api/v1`
 

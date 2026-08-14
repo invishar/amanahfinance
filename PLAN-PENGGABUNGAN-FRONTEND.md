@@ -1,7 +1,7 @@
 # Plan — Penggabungan `amanahfinance_front` ke Repo Ini
 
 Dibuat 14 Agustus 2026. Keputusan tim: repo FE (`amanahfinance_front`, Next.js 16
-App Router) dan repo BE (`amanafinance-api`, repo ini) **disatukan jadi satu repo**.
+App Router) dan repo BE (`amanahfinance`, repo ini) **disatukan jadi satu repo**.
 FE tetap murni klien — komunikasi ke backend tetap lewat `fetch()`, sekarang
 **same-origin** (bukan lintas domain seperti `localhost:3000` → `localhost:8000`).
 
@@ -48,14 +48,19 @@ open question. Item keempat (siapa yang eksekusi) menyusul saat mulai langkah 1.
   lama disebut "amanafinance-web" di `PLAN-INTEGRASI-FRONTEND.md`, tapi nama repo
   asli `amanahfinance_front` ("amanah" vs "amana"). Seragamkan sekalian saat update
   dokumentasi di langkah 5, supaya tidak membingungkan pembaca riwayat nanti.
-- [x] **Nama repo/branch pasca-gabung** — **rekomendasi: tetap `amanafinance-api`
-  ini** yang jadi rumah final, `amanahfinance_front` diarsipkan. Repo ini sudah
+- [x] **Nama repo/branch pasca-gabung** — **rekomendasi: tetap repo ini**
+  yang jadi rumah final, `amanahfinance_front` diarsipkan. Repo ini sudah
   punya disiplin lebih matang (CLAUDE.md, test suite Pest, migrasi berurutan) dan
   riwayat kerja BE yang panjang — bikin repo baru cuma nambah overhead administratif
   (setup CI ulang, secrets, branch protection, deploy key) tanpa manfaat teknis.
-  Kalau nama `amanafinance-api` terasa janggal setelah tidak lagi API-only, **rename**
+  Kalau nama `amanahfinance_api` terasa janggal setelah tidak lagi API-only, **rename**
   repo (bukan bikin baru) adalah opsi terpisah yang bisa menyusul kapan saja — GitHub
   redirect otomatis dari nama lama, jadi tidak mendesak.
+  **Update 14 Agustus 2026**: opsi rename ini dieksekusi — repo di-rename jadi
+  `amanahfinance` (drop `_api`, sekaligus benerin inkonsistensi ejaan
+  "amanafinance" vs "amanahfinance" yang selama ini nyebar di dokumentasi). Semua
+  penyebutan nama repo di dokumen ini dan `CLAUDE.md`/`API-v1.md`/
+  `frontend/CLAUDE.md`/`frontend/README.md` diperbarui ikut nama baru.
 - [ ] **Siapa yang menjalankan migrasi**: bukan keputusan teknis — perlu satu orang
   dengan write access ke repo ini untuk push hasil `git subtree`. Perintahnya sendiri
   bisa dijalankan begitu tiga keputusan di atas fix.

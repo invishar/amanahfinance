@@ -1,4 +1,4 @@
-# CLAUDE.md — amanafinance-api
+# CLAUDE.md — amanahfinance
 
 Backend AmanaFinance (Laravel 11 + PHP 8.4 + MySQL/MariaDB) **dan** klien (`frontend/`,
 Next.js static export, lihat [`frontend/CLAUDE.md`](frontend/CLAUDE.md)) dalam satu repo.
