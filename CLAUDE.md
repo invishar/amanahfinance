@@ -69,6 +69,9 @@ php artisan amana:reconcile-balances   # hitung ulang cache saldo
 
 Tidak ada `php artisan horizon` — Horizon butuh `pcntl`/`posix` yang tidak tersedia di target deploy (hPanel shared hosting) maupun di dev Windows lokal.
 
+**Sebelum pasang cron `schedule:run` di paket hPanel baru, cek `proc_open` dulu:**
+`php -r "var_dump(function_exists('proc_open'));"`. Beberapa paket shared hosting (ditemukan saat deploy live Agustus 2026) men-disable `proc_open` lewat `disable_functions` — `schedule:run` butuh itu untuk spawn tiap event terjadwal, jadi kalau disabled, `queue:work` dan `amana:expire-subscriptions` di `routes/console.php` **tidak pernah jalan**, gagal silent kecuali log dicek manual. Fallback (detail & command lengkap ada di komentar `routes/console.php`): lewati `schedule:run`, cron langsung tiap command satu-satu. Constraint sama juga mematikan `symlink()` — kalau `artisan storage:link` gagal, buat symlink manual lewat `ln -s` di shell (bukan fungsi PHP, tidak kena `disable_functions`).
+
 ## Testing
 
 - Feature test per endpoint, **wajib termasuk uji kebocoran tenant** (user family A tidak boleh melihat data family B) untuk setiap resource.
