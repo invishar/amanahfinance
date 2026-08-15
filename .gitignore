@@ -15,10 +15,11 @@
 /.zed
 /auth.json
 /node_modules
-/public/build
-/public/fonts-manifest.dev.json
-/public/hot
-/public/storage
+/public/*
+!/public/.htaccess
+!/public/favicon.ico
+!/public/index.php
+!/public/robots.txt
 /storage/*.key
 /storage/pail
 /vendor
