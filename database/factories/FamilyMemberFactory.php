@@ -25,7 +25,7 @@ class FamilyMemberFactory extends Factory
             'role' => fake()->randomElement(['admin', 'member', 'viewer']),
             'nickname' => fake()->randomElement(['Ayah', 'Bunda', 'Kakak', 'Adik', null]),
             'monthly_quota' => fake()->boolean(40) ? fake()->numberBetween(500_000, 5_000_000) : null,
-            'joined_at' => now(),
+            'joined_at' => fake()->dateTimeBetween('-2 months', 'now'),
             'removed_at' => null,
         ];
     }
