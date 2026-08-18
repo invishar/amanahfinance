@@ -142,6 +142,9 @@ export default function AdminUsersPage() {
                   <div className="text-muted" style={{ fontSize: 12 }}>
                     {user.email ?? user.phone ?? "—"} · {user.families_count ?? 0} family
                   </div>
+                  <div className="text-muted" style={{ fontSize: 12 }}>
+                    Daftar {user.created_at ? formatDateID(user.created_at) : "—"}
+                  </div>
                 </div>
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -228,7 +231,7 @@ function UserDetailDialog({ id, onClose }: { id: string; onClose: () => void }) 
               </div>
               <div>
                 <span className="text-muted">Bergabung:</span>{" "}
-                {user.created_at ? new Date(user.created_at).toLocaleDateString("id-ID") : "—"}
+                {user.created_at ? formatDateID(user.created_at) : "—"}
               </div>
             </div>
 
