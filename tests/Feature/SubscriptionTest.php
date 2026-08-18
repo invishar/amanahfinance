@@ -76,7 +76,7 @@ test('platform admin sees pending requests across every family', function () {
     Subscription::factory()->for(Family::factory())->create(['status' => 'pending_payment']);
     Subscription::factory()->for(Family::factory())->active()->create();
 
-    Sanctum::actingAs(User::factory()->create(['is_platform_admin' => true]));
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
 
     $this->getJson('/api/v1/admin/subscriptions?status=pending_payment')
         ->assertOk()
@@ -89,7 +89,7 @@ test('platform admin can activate a pending subscription', function () {
         'plan_id' => $plan->id,
         'status' => 'pending_payment',
     ]);
-    $admin = User::factory()->create(['is_platform_admin' => true]);
+    $admin = User::factory()->create(['is_admin' => true]);
     Sanctum::actingAs($admin);
 
     $response = $this->postJson("/api/v1/admin/subscriptions/{$subscription->id}/activate")
@@ -109,7 +109,7 @@ test('platform admin can activate a pending subscription', function () {
 
 test('platform admin can reject a pending subscription with a note', function () {
     $subscription = Subscription::factory()->for(Family::factory())->create(['status' => 'pending_payment']);
-    $admin = User::factory()->create(['is_platform_admin' => true]);
+    $admin = User::factory()->create(['is_admin' => true]);
     Sanctum::actingAs($admin);
 
     $this->postJson("/api/v1/admin/subscriptions/{$subscription->id}/reject", [
@@ -122,7 +122,7 @@ test('platform admin can reject a pending subscription with a note', function ()
 
 test('rejecting requires a note', function () {
     $subscription = Subscription::factory()->for(Family::factory())->create(['status' => 'pending_payment']);
-    Sanctum::actingAs(User::factory()->create(['is_platform_admin' => true]));
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
 
     $this->postJson("/api/v1/admin/subscriptions/{$subscription->id}/reject", [])
         ->assertStatus(422)
@@ -131,7 +131,7 @@ test('rejecting requires a note', function () {
 
 test('activating an already resolved subscription fails with 422', function () {
     $subscription = Subscription::factory()->for(Family::factory())->active()->create();
-    Sanctum::actingAs(User::factory()->create(['is_platform_admin' => true]));
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
 
     $this->postJson("/api/v1/admin/subscriptions/{$subscription->id}/activate")
         ->assertStatus(422);

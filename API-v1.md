@@ -26,8 +26,10 @@ Authorization: Bearer <token>
 Response `register`/`login` (`201`/`200`):
 
 ```json
-{ "data": { "user": { "id": "...", "full_name": "...", "email": "...", "phone": null, "avatar_url": null, "created_at": "..." }, "token": "1|xxxxxxxx..." } }
+{ "data": { "user": { "id": "...", "full_name": "...", "email": "...", "phone": null, "avatar_url": null, "is_admin": false, "created_at": "..." }, "token": "1|xxxxxxxx..." } }
 ```
+
+`is_admin` di sini (dan di `GET /auth/me`) hanya pernah menampilkan status user **itu sendiri** — `UserResource` cuma dipakai untuk self-view (register/login/me), tidak pernah untuk merender profil user lain. Klien pakai field ini untuk memutuskan apakah menampilkan link ke area admin (`GET /admin/*`, lihat bagian "Users — direktori admin" dan "LLM Settings" di bawah); server tetap menolak lewat `403` kalau field ini dipalsukan/di-cache stale.
 
 Response `login` gagal:
 - `401` `{ "message": "Email/telepon atau kata sandi salah." }` — email/phone valid secara format tapi user tidak ada atau password salah. Pesan sengaja generik, tidak membedakan "user tidak ada" vs "password salah" untuk mencegah user enumeration.
@@ -482,14 +484,14 @@ Response `data`: `id, family_id, actor_id, entity, entity_id, action, diff, crea
 
 ## LLM Settings — platform admin only
 
-Kredensial LLM platform-wide (aturan #7), **bukan** resource per-family — tidak berada di bawah `resolve.family` maupun `X-Family-Id`. Otorisasi lewat `users.is_platform_admin` (kolom terpisah dari `family_members.role`; admin family manapun **tidak** otomatis punya akses ini). Flag ini hanya bisa di-set manual (tinker/seeder), tidak ada endpoint self-service untuk menaikkan privilege.
+Kredensial LLM platform-wide (aturan #7), **bukan** resource per-family — tidak berada di bawah `resolve.family` maupun `X-Family-Id`. Otorisasi lewat `users.is_admin` (kolom terpisah dari `family_members.role`; admin family manapun **tidak** otomatis punya akses ini). Flag ini hanya bisa di-set manual (tinker/seeder), tidak ada endpoint self-service untuk menaikkan privilege.
 
 Singleton: hanya ada satu baris `llm_settings` yang berlaku untuk seluruh platform. Tidak ada `index`/`store`/`destroy` — cuma `show`/`update` pada "the" settings.
 
 | Method | Path | Body | Role |
 | --- | --- | --- | --- |
-| GET | `/llm-settings` | — | `is_platform_admin` |
-| PUT | `/llm-settings` | `key` (opsional; kosongkan untuk mempertahankan key lama), `model*`, `base_url` (opsional) | `is_platform_admin` |
+| GET | `/llm-settings` | — | `is_admin` |
+| PUT | `/llm-settings` | `key` (opsional; kosongkan untuk mempertahankan key lama), `model*`, `base_url` (opsional) | `is_admin` |
 
 `key` **tidak pernah** dikembalikan lewat response — disimpan ter-enkripsi (Laravel `encrypted` cast, pakai `APP_KEY`) dan hanya diekspos sebagai `has_key` (boolean) + `key_preview` (4 karakter terakhir, untuk verifikasi visual saja). Sebelum baris DB pernah dibuat, `GET` menampilkan fallback dari `.env` (`LLM_API_KEY`/`LLM_MODEL`/`LLM_BASE_URL`) supaya admin tahu apa yang sedang efektif dipakai.
 
@@ -499,17 +501,32 @@ Response `data`: `model, base_url, has_key, key_preview, updated_at, updated_by`
 
 ---
 
+## Users — direktori admin
+
+Direktori seluruh user platform, lintas-family (bukan resource per-family, sama seperti LLM Settings di atas). Otorisasi lewat `users.is_admin`, sama seperti LLM Settings/Subscription Plans. **Read-only** — sengaja tidak ada `store`/`update`/`destroy`: menaikkan/menurunkan `is_admin` tetap hanya lewat tinker/seeder (lihat "LLM Settings" di atas), tidak diekspos lewat endpoint manapun.
+
+| Method | Path | Query | Role |
+| --- | --- | --- | --- |
+| GET | `/admin/users` | `?search=` (cocok sebagian pada `full_name`/`email`/`phone`), `?per_page=` (default 20, maks 100) | `is_admin` |
+| GET | `/admin/users/{user}` | — | `is_admin` |
+
+Response `data` (list): `id, full_name, email, phone, avatar_url, is_admin, families_count, last_login_at, created_at`.
+
+Response `data` (detail): sama seperti list tapi tanpa `families_count`, ditambah `families: [{ family_id, family_name, role, joined_at }]` — daftar seluruh family tempat user ini jadi anggota.
+
+---
+
 ## Subscription Plans — katalog langganan
 
-Katalog paket langganan platform, **bukan** resource per-family — mirip `llm-settings` di atas: tidak berada di bawah `resolve.family`/`X-Family-Id`. Membaca (`index`/`show`) **sepenuhnya publik, tidak perlu login sama sekali** (satu-satunya endpoint lain yang begitu adalah `/auth/register` dan `/auth/login` — lihat "Autentikasi" di atas), supaya katalog bisa ditampilkan sebelum user punya akun. Mutasi (`store`/`update`/`destroy`) gated `users.is_platform_admin`, sama seperti LLM Settings.
+Katalog paket langganan platform, **bukan** resource per-family — mirip `llm-settings` di atas: tidak berada di bawah `resolve.family`/`X-Family-Id`. Membaca (`index`/`show`) **sepenuhnya publik, tidak perlu login sama sekali** (satu-satunya endpoint lain yang begitu adalah `/auth/register` dan `/auth/login` — lihat "Autentikasi" di atas), supaya katalog bisa ditampilkan sebelum user punya akun. Mutasi (`store`/`update`/`destroy`) gated `users.is_admin`, sama seperti LLM Settings.
 
 | Method | Path | Body | Role |
 | --- | --- | --- | --- |
 | GET | `/subscription-plans` | `?is_active=` (opsional) | Publik |
-| POST | `/subscription-plans` | `code*` (unik), `name*`, `price*` (int > 0), `duration_days*` (int > 0, jumlah hari masa aktif), `description`, `is_active` (default `true`) | `is_platform_admin` |
+| POST | `/subscription-plans` | `code*` (unik), `name*`, `price*` (int > 0), `duration_days*` (int > 0, jumlah hari masa aktif), `description`, `is_active` (default `true`) | `is_admin` |
 | GET | `/subscription-plans/{subscription_plan}` | — | Publik |
-| PUT/PATCH | `/subscription-plans/{subscription_plan}` | Sama seperti store, semua field opsional | `is_platform_admin` |
-| DELETE | `/subscription-plans/{subscription_plan}` | — | `is_platform_admin`; **409** jika masih direferensikan `subscriptions` (pakai `is_active=false` alih-alih hapus) |
+| PUT/PATCH | `/subscription-plans/{subscription_plan}` | Sama seperti store, semua field opsional | `is_admin` |
+| DELETE | `/subscription-plans/{subscription_plan}` | — | `is_admin`; **409** jika masih direferensikan `subscriptions` (pakai `is_active=false` alih-alih hapus) |
 
 Response `data`: `id, code, name, price, duration_days, description, is_active, created_at, updated_at`.
 
@@ -519,7 +536,7 @@ Response `data`: `id, code, name, price, duration_days, description, is_active, 
 
 Alur: family pilih paket + konfirmasi pembayaran (`POST /subscriptions`, satu langkah) → baris masuk `status=pending_payment` → platform admin **manapun** me-review lintas-family lewat `POST /admin/subscriptions/{subscription}/activate` atau `.../reject` → `active` atau `rejected`. Job harian `amana:expire-subscriptions` (lihat `CLAUDE.md` "Perintah") menandai `active` yang sudah lewat `ends_at` menjadi `expired`.
 
-`family_id` tetap tidak pernah dari body (aturan #3) — diisi dari family yang di-resolve `resolve.family` seperti resource lain. Endpoint `/admin/subscriptions*` **sengaja** di luar `resolve.family`: admin memutuskan permintaan family manapun, bukan cuma family miliknya sendiri, gated `users.is_platform_admin` (bukan `family_members.role`).
+`family_id` tetap tidak pernah dari body (aturan #3) — diisi dari family yang di-resolve `resolve.family` seperti resource lain. Endpoint `/admin/subscriptions*` **sengaja** di luar `resolve.family`: admin memutuskan permintaan family manapun, bukan cuma family miliknya sendiri, gated `users.is_admin` (bukan `family_members.role`).
 
 Bukti transfer diunggah lewat endpoint upload umum yang sudah ada (`POST /uploads`, lihat bagian Uploads), **bukan** field `file` di `POST /subscriptions` itu sendiri — klien upload dulu untuk dapat `url`-nya, baru kirim `url` itu sebagai `payment_proof_url`. Pola yang sama seperti `transactions.receipt_url`.
 
@@ -528,9 +545,9 @@ Bukti transfer diunggah lewat endpoint upload umum yang sudah ada (`POST /upload
 | GET | `/subscriptions` | `?status=` (`pending_payment`\|`active`\|`rejected`\|`expired`), `?per_page=` (default 20, maks 100) — riwayat family sendiri | `viewer` |
 | POST | `/subscriptions` | `plan_id*` (harus mengacu paket `is_active=true`), `payment_note` (bebas teks, mis. metode transfer & referensi), `payment_proof_url` (opsional, dari `POST /uploads`) | `member`; **409** jika family masih punya request `pending_payment`/`active` |
 | GET | `/subscriptions/{subscription}` | — | `viewer` |
-| GET | `/admin/subscriptions` | `?status=`, `?per_page=` — lintas family, bukan cuma family sendiri | `is_platform_admin` |
-| POST | `/admin/subscriptions/{subscription}/activate` | — | `is_platform_admin`; hanya dari `status=pending_payment`, selain itu **422** |
-| POST | `/admin/subscriptions/{subscription}/reject` | `review_note*` | `is_platform_admin`; hanya dari `status=pending_payment`, selain itu **422** |
+| GET | `/admin/subscriptions` | `?status=`, `?per_page=` — lintas family, bukan cuma family sendiri | `is_admin` |
+| POST | `/admin/subscriptions/{subscription}/activate` | — | `is_admin`; hanya dari `status=pending_payment`, selain itu **422** |
+| POST | `/admin/subscriptions/{subscription}/reject` | `review_note*` | `is_admin`; hanya dari `status=pending_payment`, selain itu **422** |
 
 Response `data`: `id, family_id, plan_id, plan_code, plan_name, status, amount, payment_note, payment_proof_url, paid_at, starts_at, ends_at, requested_by, reviewed_by, reviewed_at, review_note, created_at, updated_at`.
 

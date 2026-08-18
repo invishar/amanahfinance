@@ -13,7 +13,7 @@ use App\Models\SubscriptionPlan;
 // Platform-wide catalog (see SubscriptionPlanPolicy): index/show are mounted
 // as fully public routes (routes/api.php, no auth:sanctum at all) -- no
 // authorize() call here since there is no user to gate against. Mutation is
-// gated by users.is_platform_admin.
+// gated by users.is_admin.
 class SubscriptionPlanController extends Controller
 {
     public function __construct(private SubscriptionPlanActions $actions) {}

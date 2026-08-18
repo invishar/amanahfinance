@@ -45,7 +45,7 @@ test('non platform admin cannot create a plan', function () {
 });
 
 test('platform admin can create update and delete a plan', function () {
-    Sanctum::actingAs(User::factory()->create(['is_platform_admin' => true]));
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
 
     $created = $this->postJson('/api/v1/subscription-plans', [
         'code' => 'bulanan',
@@ -65,7 +65,7 @@ test('platform admin can create update and delete a plan', function () {
 });
 
 test('deleting a plan referenced by a subscription is blocked with 409', function () {
-    Sanctum::actingAs(User::factory()->create(['is_platform_admin' => true]));
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
     $plan = SubscriptionPlan::factory()->create();
     Subscription::factory()->for(Family::factory())->create(['plan_id' => $plan->id]);
 

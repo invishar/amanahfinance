@@ -15,7 +15,7 @@ use App\Models\Subscription;
 // reject are mounted OUTSIDE resolve.family (see routes/api.php) -- a platform
 // admin reviews every family's requests, never just their own (aturan #3 spirit:
 // family_id still never comes from the body, but the read/write here is
-// intentionally cross-tenant, gated by users.is_platform_admin instead).
+// intentionally cross-tenant, gated by users.is_admin instead).
 class SubscriptionController extends Controller
 {
     public function __construct(private SubscriptionActions $actions) {}

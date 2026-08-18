@@ -17,7 +17,7 @@ class SubscriptionPolicy
 
     public function view(User $user, Subscription $subscription): bool
     {
-        return $user->isPlatformAdmin() || $this->belongsToCurrentFamily($subscription->family_id);
+        return $user->isAdmin() || $this->belongsToCurrentFamily($subscription->family_id);
     }
 
     public function create(User $user): bool
@@ -26,20 +26,20 @@ class SubscriptionPolicy
     }
 
     // Admin review surface: cross-family by design (a platform admin reviews
-    // every family's requests), so these are gated purely by is_platform_admin,
+    // every family's requests), so these are gated purely by is_admin,
     // never by family role -- mirrors LlmSettingPolicy, not SavingsGoalPolicy.
     public function reviewAny(User $user): bool
     {
-        return $user->isPlatformAdmin();
+        return $user->isAdmin();
     }
 
     public function activate(User $user): bool
     {
-        return $user->isPlatformAdmin();
+        return $user->isAdmin();
     }
 
     public function reject(User $user): bool
     {
-        return $user->isPlatformAdmin();
+        return $user->isAdmin();
     }
 }

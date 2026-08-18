@@ -23,7 +23,7 @@ class LlmSettingSeeder extends Seeder
             return;
         }
 
-        $admin = User::query()->where('is_platform_admin', true)->first()
+        $admin = User::query()->where('is_admin', true)->first()
             ?? User::query()->first();
 
         LlmSetting::factory()->create([

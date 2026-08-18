@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 // Platform-wide, not family-scoped -- no BelongsToFamily trait here on purpose
-// (mirrors LlmSetting). Mutation gated by users.is_platform_admin.
+// (mirrors LlmSetting). Mutation gated by users.is_admin.
 #[Fillable(['code', 'name', 'price', 'duration_days', 'description', 'is_active'])]
 class SubscriptionPlan extends Model
 {

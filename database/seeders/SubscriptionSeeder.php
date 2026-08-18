@@ -19,7 +19,7 @@ class SubscriptionSeeder extends Seeder
     public function run(): void
     {
         $plans = SubscriptionPlan::all();
-        $reviewer = User::query()->where('is_platform_admin', true)->first()
+        $reviewer = User::query()->where('is_admin', true)->first()
             ?? User::query()->first();
 
         if ($plans->isEmpty()) {

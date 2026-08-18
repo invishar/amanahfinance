@@ -9,7 +9,7 @@ return new class extends Migration
 {
     /**
      * Katalog paket langganan platform -- bukan resource per-family (mirip
-     * llm_settings), dikelola lewat users.is_platform_admin. `code` dipakai
+     * llm_settings), dikelola lewat users.is_admin. `code` dipakai
      * untuk referensi stabil (bukan `name`, yang boleh berubah tampilannya).
      */
     public function up(): void

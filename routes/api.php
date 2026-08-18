@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AiActionController;
 use App\Http\Controllers\Api\AnalyticsController;
 use App\Http\Controllers\Api\AuditLogController;
@@ -57,12 +58,17 @@ Route::prefix('v1')->group(function () {
         // the target family yet, so there is nothing for ResolveFamily to resolve.
         Route::post('/family-invites/accept', [FamilyInviteController::class, 'accept']);
 
-        // Platform-wide, not family-scoped -- gated by users.is_platform_admin
+        // Platform-wide, not family-scoped -- gated by users.is_admin
         // (LlmSettingPolicy), never by any family's role.
         Route::get('/llm-settings', [LlmSettingController::class, 'show']);
         Route::put('/llm-settings', [LlmSettingController::class, 'update']);
 
-        // Katalog paket langganan: mutasi gated is_platform_admin
+        // Direktori user platform, lintas-family -- gated is_admin (UserPolicy).
+        // Read-only: tidak ada promote/demote is_admin lewat API (tinker-only).
+        Route::get('/admin/users', [AdminUserController::class, 'index']);
+        Route::get('/admin/users/{user}', [AdminUserController::class, 'show']);
+
+        // Katalog paket langganan: mutasi gated is_admin
         // (SubscriptionPlanPolicy). GET index/show ada di blok publik di atas.
         Route::post('/subscription-plans', [SubscriptionPlanController::class, 'store']);
         Route::put('/subscription-plans/{subscription_plan}', [SubscriptionPlanController::class, 'update']);

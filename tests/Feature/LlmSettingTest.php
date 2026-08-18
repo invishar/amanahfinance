@@ -10,20 +10,20 @@ test('unauthenticated request is rejected', function () {
 });
 
 test('non platform admin cannot view settings', function () {
-    Sanctum::actingAs(User::factory()->create(['is_platform_admin' => false]));
+    Sanctum::actingAs(User::factory()->create(['is_admin' => false]));
 
     $this->getJson('/api/v1/llm-settings')->assertStatus(403);
 });
 
 test('non platform admin cannot update settings', function () {
-    Sanctum::actingAs(User::factory()->create(['is_platform_admin' => false]));
+    Sanctum::actingAs(User::factory()->create(['is_admin' => false]));
 
     $this->putJson('/api/v1/llm-settings', ['model' => 'claude-opus-5'])
         ->assertStatus(403);
 });
 
 test('platform admin sees env fallback when no row exists yet, key never in response', function () {
-    Sanctum::actingAs(User::factory()->create(['is_platform_admin' => true]));
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
 
     $this->getJson('/api/v1/llm-settings')
         ->assertOk()
@@ -34,7 +34,7 @@ test('platform admin sees env fallback when no row exists yet, key never in resp
 });
 
 test('platform admin can create the settings row via update', function () {
-    $admin = User::factory()->create(['is_platform_admin' => true]);
+    $admin = User::factory()->create(['is_admin' => true]);
     Sanctum::actingAs($admin);
 
     $response = $this->putJson('/api/v1/llm-settings', [
@@ -60,7 +60,7 @@ test('platform admin can create the settings row via update', function () {
 });
 
 test('updating without key preserves the existing key', function () {
-    Sanctum::actingAs(User::factory()->create(['is_platform_admin' => true]));
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
 
     $this->putJson('/api/v1/llm-settings', [
         'key' => 'sk-ant-original-key',
@@ -78,7 +78,7 @@ test('updating without key preserves the existing key', function () {
 });
 
 test('model is required on update', function () {
-    Sanctum::actingAs(User::factory()->create(['is_platform_admin' => true]));
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
 
     $this->putJson('/api/v1/llm-settings', [])
         ->assertStatus(422)

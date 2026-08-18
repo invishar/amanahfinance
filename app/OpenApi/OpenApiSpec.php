@@ -57,6 +57,7 @@ class OpenApiSpec
                 'Wallet Budgets', 'Income Sources', 'Savings Goals', 'Transactions', 'Recurring Rules',
                 'Chat Threads', 'Chat Messages', 'Uploads', 'Onboarding Answers', 'Notifications',
                 'AI Actions', 'Audit Logs', 'Analytics', 'LLM Settings', 'Subscription Plans', 'Subscriptions',
+                'Users',
             ]
         );
     }
@@ -159,6 +160,7 @@ class OpenApiSpec
                     'email' => ['type' => 'string', 'format' => 'email', 'nullable' => true],
                     'phone' => ['type' => 'string', 'nullable' => true],
                     'avatar_url' => ['type' => 'string', 'nullable' => true],
+                    'is_admin' => ['type' => 'boolean', 'description' => 'Selalu self-view (register/login/me) -- tidak pernah dipakai untuk profil user lain.'],
                     'created_at' => ['type' => 'string', 'format' => 'date-time'],
                 ],
             ],
@@ -167,6 +169,46 @@ class OpenApiSpec
                 'properties' => [
                     'user' => ['$ref' => '#/components/schemas/User'],
                     'token' => ['type' => 'string'],
+                ],
+            ],
+
+            'AdminUser' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'string', 'format' => 'uuid'],
+                    'full_name' => ['type' => 'string'],
+                    'email' => ['type' => 'string', 'format' => 'email', 'nullable' => true],
+                    'phone' => ['type' => 'string', 'nullable' => true],
+                    'avatar_url' => ['type' => 'string', 'nullable' => true],
+                    'is_admin' => ['type' => 'boolean'],
+                    'families_count' => ['type' => 'integer'],
+                    'last_login_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                ],
+            ],
+            'AdminUserDetail' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'string', 'format' => 'uuid'],
+                    'full_name' => ['type' => 'string'],
+                    'email' => ['type' => 'string', 'format' => 'email', 'nullable' => true],
+                    'phone' => ['type' => 'string', 'nullable' => true],
+                    'avatar_url' => ['type' => 'string', 'nullable' => true],
+                    'is_admin' => ['type' => 'boolean'],
+                    'last_login_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                    'families' => [
+                        'type' => 'array',
+                        'items' => [
+                            'type' => 'object',
+                            'properties' => [
+                                'family_id' => ['type' => 'string', 'format' => 'uuid'],
+                                'family_name' => ['type' => 'string'],
+                                'role' => ['type' => 'string', 'enum' => ['admin', 'member', 'viewer']],
+                                'joined_at' => ['type' => 'string', 'format' => 'date-time'],
+                            ],
+                        ],
+                    ],
                 ],
             ],
 
@@ -538,7 +580,41 @@ class OpenApiSpec
             self::llmSettingPaths(),
             self::subscriptionPlanPaths(),
             self::subscriptionPaths(),
+            self::adminUserPaths(),
         );
+    }
+
+    private static function adminUserPaths(): array
+    {
+        return [
+            '/admin/users' => [
+                'get' => [
+                    'tags' => ['Users'],
+                    'summary' => 'Direktori user platform (is_admin)',
+                    'description' => 'Lintas-family, bukan resource per-family. Read-only: tidak ada endpoint untuk promote/demote is_admin (tinker-only, lihat User model).',
+                    'parameters' => [
+                        ['name' => 'search', 'in' => 'query', 'description' => 'Cocok sebagian pada full_name, email, atau phone.', 'schema' => ['type' => 'string']],
+                        ['name' => 'per_page', 'in' => 'query', 'description' => 'Default 20, maks 100.', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+                    ],
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::paginatedEnvelope('AdminUser')),
+                        '403' => self::refResponse('Forbidden'),
+                    ],
+                ],
+            ],
+            '/admin/users/{user}' => [
+                'parameters' => [['name' => 'user', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']]],
+                'get' => [
+                    'tags' => ['Users'],
+                    'summary' => 'Detail user + family memberships (is_admin)',
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::envelope('AdminUserDetail')),
+                        '403' => self::refResponse('Forbidden'),
+                        '404' => self::refResponse('NotFound'),
+                    ],
+                ],
+            ],
+        ];
     }
 
     private static function subscriptionPlanPaths(): array
@@ -571,7 +647,7 @@ class OpenApiSpec
                 ],
                 'post' => [
                     'tags' => ['Subscription Plans'],
-                    'summary' => 'Tambah paket (is_platform_admin)',
+                    'summary' => 'Tambah paket (is_admin)',
                     'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => $storeBody]]],
                     'responses' => [
                         '201' => self::jsonResponse('Tersimpan.', self::envelope('SubscriptionPlan')),
@@ -594,7 +670,7 @@ class OpenApiSpec
                 ],
                 'put' => [
                     'tags' => ['Subscription Plans'],
-                    'summary' => 'Update paket (is_platform_admin)',
+                    'summary' => 'Update paket (is_admin)',
                     'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [
                         ...$storeBody, 'required' => [],
                     ]]]],
@@ -607,7 +683,7 @@ class OpenApiSpec
                 ],
                 'delete' => [
                     'tags' => ['Subscription Plans'],
-                    'summary' => 'Hapus paket (is_platform_admin)',
+                    'summary' => 'Hapus paket (is_admin)',
                     'description' => 'Masih dipakai subscriptions -> 409; pakai is_active=false alih-alih menghapus.',
                     'responses' => [
                         '204' => ['description' => 'Terhapus.'],
@@ -672,7 +748,7 @@ class OpenApiSpec
             '/admin/subscriptions' => [
                 'get' => [
                     'tags' => ['Subscriptions'],
-                    'summary' => 'Antrean review lintas-family (is_platform_admin)',
+                    'summary' => 'Antrean review lintas-family (is_admin)',
                     'description' => 'SENGAJA di luar resolve.family: admin melihat permintaan family manapun, bukan cuma family miliknya sendiri.',
                     'parameters' => $indexParams,
                     'responses' => [
@@ -685,7 +761,7 @@ class OpenApiSpec
                 'parameters' => [['name' => 'subscription', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']]],
                 'post' => [
                     'tags' => ['Subscriptions'],
-                    'summary' => 'Aktifkan langganan (is_platform_admin)',
+                    'summary' => 'Aktifkan langganan (is_admin)',
                     'description' => 'Hanya dari status pending_payment. starts_at=now, ends_at=starts_at+plan.duration_days.',
                     'responses' => [
                         '200' => self::jsonResponse('OK', self::envelope('Subscription')),
@@ -699,7 +775,7 @@ class OpenApiSpec
                 'parameters' => [['name' => 'subscription', 'in' => 'path', 'required' => true, 'schema' => ['type' => 'string', 'format' => 'uuid']]],
                 'post' => [
                     'tags' => ['Subscriptions'],
-                    'summary' => 'Tolak langganan (is_platform_admin)',
+                    'summary' => 'Tolak langganan (is_admin)',
                     'description' => 'Hanya dari status pending_payment.',
                     'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [
                         'type' => 'object', 'required' => ['review_note'], 'properties' => [
@@ -723,7 +799,7 @@ class OpenApiSpec
             '/llm-settings' => [
                 'get' => [
                     'tags' => ['LLM Settings'],
-                    'summary' => 'Lihat setting LLM platform (is_platform_admin)',
+                    'summary' => 'Lihat setting LLM platform (is_admin)',
                     'description' => 'Platform-wide, bukan per-family -- tidak di bawah resolve.family/X-Family-Id. Sebelum baris DB pernah dibuat, menampilkan fallback dari .env.',
                     'responses' => [
                         '200' => self::jsonResponse('OK', self::envelope('LlmSetting')),
@@ -732,7 +808,7 @@ class OpenApiSpec
                 ],
                 'put' => [
                     'tags' => ['LLM Settings'],
-                    'summary' => 'Update setting LLM platform (is_platform_admin)',
+                    'summary' => 'Update setting LLM platform (is_admin)',
                     'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [
                         'type' => 'object',
                         'required' => ['model'],
