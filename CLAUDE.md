@@ -79,6 +79,12 @@ php artisan package:discover --ansi   # pakai php biasa, bukan lewat composer2
 ```
 Kalau composer2 sendiri butuh extension tambahan (mis. `ext-fileinfo` belum ke-load), tambal langsung di `~/composer-php.ini` (`extension=fileinfo.so`, dst) — file itu independen dari panel dan harus di-maintain manual per extension yang composer butuhkan saat resolve dependency.
 
+**Deploy ke hPanel lewat SSH `git pull` manual.** Git hook `deploy/hooks/post-merge` menjalankan dua langkah independen begitu commit yang di-pull menyentuh path terkait: `database/migrations/` berubah → `php artisan migrate --force`; `frontend/` berubah → `npm run build` → sync `frontend/out/` ke `public/` (bukan dikomit — `public/*` tetap gitignored). Hook itu ikut ter-commit di repo tapi **tidak otomatis aktif**; sekali per checkout server:
+```bash
+git config core.hooksPath deploy/hooks
+```
+Hook cuma trigger di `git pull` yang benar-benar merge (fast-forward termasuk; **tidak** jalan kalau `pull.rebase` di-set). Migrate jalan tanpa prompt konfirmasi (`--force`) dan tanpa backup otomatis — migrasi buruk yang ikut ke-pull langsung ter-apply. Detail lain (nodevenv PATH untuk `npm`, exclude `index.php`/`.htaccess`/`robots.txt`/`storage` dari `rsync --delete`, `favicon.ico` sengaja dibiarkan ketimpa build Next) ada di komentar file hook-nya sendiri.
+
 ## Testing
 
 - Feature test per endpoint, **wajib termasuk uji kebocoran tenant** (user family A tidak boleh melihat data family B) untuk setiap resource.

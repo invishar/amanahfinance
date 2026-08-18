@@ -142,14 +142,17 @@ open question. Item keempat (siapa yang eksekusi) menyusul saat mulai langkah 1.
   `NEXT_PUBLIC_API_URL=/api/v1` tidak diset eksplisit di workflow — sudah otomatis
   lewat `frontend/.env.production` yang dikomit di langkah 2. Sudah diverifikasi
   lolos di lokal (`npm run lint`, `npx tsc --noEmit` bersih).
-- [ ] **Belum bisa dikerjakan** — step deploy (copy `frontend/out/*` → `public/`
-  lalu push/rsync ke hPanel) mengasumsikan pipeline CD ke hPanel sudah ada untuk
-  ditambahi step, tapi ternyata **belum ada pipeline deploy sama sekali** di repo
-  ini (cuma `tests.yml`, tidak ada job rsync/SSH/FTP). Ditanyakan ke user 14
-  Agustus 2026 — diputuskan **dilewati dulu**, dikerjakan terpisah begitu detail
-  mekanisme deploy hPanel (SSH+rsync / FTP / git pull di server, nama GitHub
-  Secrets yang relevan) tersedia dari user. Jangan menebak kredensial/mekanisme
-  ini.
+- [x] **SELESAI (18 Agustus 2026)** — mekanisme deploy dikonfirmasi user: SSH
+  `git pull` manual ke hPanel (bukan pipeline CI/CD terpisah, jadi tidak
+  menyentuh `tests.yml`). Build `frontend/out/` → sync ke `public/` diotomasi
+  lewat git hook `deploy/hooks/post-merge` (di-commit ke repo, diaktifkan sekali
+  per checkout server lewat `git config core.hooksPath deploy/hooks` — detail
+  aktivasi & gotcha nodevenv `npm` di `CLAUDE.md` bagian "Perintah"). Hook cuma
+  rebuild kalau `frontend/` berubah di commit yang baru di-pull, dan sync pakai
+  `rsync --delete` dengan exclude `index.php`/`.htaccess`/`robots.txt`/`storage`
+  supaya file Laravel yang tracked dan symlink storage tidak ikut kehapus;
+  `favicon.ico` sengaja tidak di-exclude karena punya Next yang harus menang
+  (keputusan di langkah 3 di atas).
 
 ### 5. Dokumentasi — SELESAI (14 Agustus 2026)
 

@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Runs after every successful `git merge` (including a plain `git pull`) on the
+# hPanel server. Two independent steps, each only when its paths actually
+# changed in the pull:
+#   - database/migrations/ changed -> php artisan migrate --force
+#   - frontend/ changed            -> rebuild static export, sync to public/
+# public/ build output stays gitignored (see .gitignore) and is never committed.
+#
+# One-time activation on the server (this file lives in git, .git/hooks does not):
+#   git config core.hooksPath deploy/hooks
+#
+# Caveats:
+# - Assumes `git pull` merges (default). If pull.rebase is set, this hook never
+#   fires — rebase doesn't trigger post-merge.
+# - migrate runs unattended with --force (no interactive "in production?"
+#   prompt, no automatic backup) — a bad migration in the pulled commit applies
+#   immediately on pull.
+# - hPanel's Node.js selector puts npm outside the default SSH PATH; the
+#   frontend step tries to source the nodevenv activate script itself (same
+#   shape of problem as the composer2 php.ini gotcha documented in CLAUDE.md).
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
+
+OLD_HEAD="$(git rev-parse ORIG_HEAD 2>/dev/null || echo "")"
+NEW_HEAD="$(git rev-parse HEAD)"
+
+# True if $1 changed between OLD_HEAD and NEW_HEAD. If OLD_HEAD is unknown
+# (e.g. first pull on this checkout) treat it as changed, to be safe.
+changed() {
+  if [ -z "$OLD_HEAD" ]; then
+    return 0
+  fi
+  ! git diff --quiet "$OLD_HEAD" "$NEW_HEAD" -- "$1"
+}
+
+if changed "database/migrations/"; then
+  echo "post-merge: database/migrations/ changed, running php artisan migrate..."
+  php artisan migrate --force
+else
+  echo "post-merge: no changes under database/migrations/, skipping migrate"
+fi
+
+if changed "frontend/"; then
+  echo "post-merge: frontend/ changed, rebuilding static export..."
+
+  if ! command -v npm >/dev/null 2>&1; then
+    NODEVENV_ACTIVATE="$(find "$HOME/nodevenv" -maxdepth 3 -name activate 2>/dev/null | head -n1 || true)"
+    if [ -n "$NODEVENV_ACTIVATE" ]; then
+      # shellcheck disable=SC1090
+      source "$NODEVENV_ACTIVATE"
+    fi
+  fi
+
+  if ! command -v npm >/dev/null 2>&1; then
+    echo "post-merge: npm not found in PATH, skipping frontend build" >&2
+  else
+    npm --prefix frontend ci
+    npm --prefix frontend run build
+
+    mkdir -p public
+    # --delete removes stale files from the previous build; the excludes protect
+    # Laravel's own tracked public/ files (index.php, .htaccess, robots.txt — the
+    # frontend build doesn't produce a robots.txt, so it must not be deleted) and
+    # any storage symlink created on the server (php artisan storage:link /
+    # manual ln -s per the hPanel symlink() gotcha in CLAUDE.md). favicon.ico is
+    # left out of the exclude list on purpose — the Next build's favicon is
+    # meant to win over Laravel's placeholder (decided in
+    # PLAN-PENGGABUNGAN-FRONTEND.md).
+    rsync -a --delete \
+      --exclude "index.php" \
+      --exclude ".htaccess" \
+      --exclude "robots.txt" \
+      --exclude "storage" \
+      frontend/out/ public/
+
+    echo "post-merge: frontend build deployed to public/"
+  fi
+else
+  echo "post-merge: no changes under frontend/, skipping build"
+fi
