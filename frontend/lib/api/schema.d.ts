@@ -34,8 +34,11 @@ export interface paths {
                         phone?: string;
                         /** Format: password */
                         password: string;
-                        /** Format: password */
-                        password_confirmation: string;
+                        /**
+                         * Format: password
+                         * @description Opsional -- kalau dikirim harus cocok dengan password.
+                         */
+                        password_confirmation?: string;
                     };
                 };
             };
@@ -105,14 +108,15 @@ export interface paths {
                     };
                 };
                 /** @description Kredensial salah (pesan generik, tidak membedakan user tidak ada vs password salah). */
-                422: {
+                401: {
                     headers: {
                         [name: string]: unknown;
                     };
                     content: {
-                        "application/json": components["schemas"]["ValidationError"];
+                        "application/json": components["schemas"]["MessageError"];
                     };
                 };
+                422: components["responses"]["ValidationError"];
             };
         };
         delete?: never;
@@ -436,6 +440,9 @@ export interface paths {
             parameters: {
                 query?: {
                     page?: number;
+                    role?: "admin" | "member" | "viewer";
+                    /** @description Default 20, maks 100. */
+                    per_page?: number;
                 };
                 header?: never;
                 path?: never;
@@ -1372,6 +1379,9 @@ export interface paths {
             parameters: {
                 query?: {
                     page?: number;
+                    status?: "active" | "achieved" | "paused" | "cancelled";
+                    /** @description Default 20, maks 100. */
+                    per_page?: number;
                 };
                 header?: never;
                 path?: never;
@@ -1566,6 +1576,14 @@ export interface paths {
             parameters: {
                 query?: {
                     page?: number;
+                    /** @description YYYY-MM, filter transaction_date. */
+                    month?: string;
+                    wallet_id?: string;
+                    /** @description Hanya mencocokkan account_id (sisi asal), bukan to_account_id. */
+                    account_id?: string;
+                    type?: "income" | "expense" | "transfer" | "savings";
+                    /** @description Default 20, maks 100. */
+                    per_page?: number;
                 };
                 header?: never;
                 path?: never;
@@ -1970,6 +1988,9 @@ export interface paths {
             parameters: {
                 query?: {
                     page?: number;
+                    kind?: "general" | "onboarding";
+                    /** @description Default 20, maks 100. */
+                    per_page?: number;
                 };
                 header?: never;
                 path?: never;
@@ -2800,6 +2821,109 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/chat-threads/{chat_thread}/stream": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                chat_thread: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * SSE thinking/action_card/balasan Amina/error (berumur pendek, klien wajib reconnect)
+         * @description Server menutup stream sendiri sebelum ±20-25 detik (aman dari max_execution_time shared hosting, tidak ada Redis/pub-sub). Event: thinking (sekali di awal kalau pesan terakhir masih role=user belum dibalas), message, action_card, error (role=system, job LLM gagal total), retry (berisi cursor untuk ?after= saat reconnect). Tidak ada token/done terpisah -- LLM dipanggil sekali per job (bukan streaming), dan message/error sendiri adalah sinyal selesainya giliran. Bukan JSON biasa -- Content-Type: text/event-stream.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Cursor ISO-8601; ambil dari event retry terakhir. Default: waktu koneksi dibuka. */
+                    after?: string;
+                };
+                header?: never;
+                path: {
+                    chat_thread: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description text/event-stream */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "text/event-stream": string;
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/uploads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Unggah berkas attachment chat (foto struk / rekaman suara)
+         * @description Hanya menyimpan berkas dan mengembalikan URL-nya -- tidak melakukan OCR/speech-to-text. Kirim url hasilnya sebagai attachment_url saat POST chat-threads/{chat_thread}/messages.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "multipart/form-data": {
+                        /** Format: binary */
+                        file: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description Tersimpan. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: {
+                                url?: string;
+                                mime?: string;
+                                /** @description Byte */
+                                size?: number;
+                            };
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/ai-actions": {
         parameters: {
             query?: never;
@@ -2809,7 +2933,7 @@ export interface paths {
         };
         /**
          * List AI Actions
-         * @description Read-only: AI tidak pernah menulis tabel bisnis (aturan #5); ai_actions hanya diubah oleh ConfirmAiAction (belum diimplementasikan), tidak pernah dihapus.
+         * @description AI tidak pernah menulis tabel bisnis langsung (aturan #5); ai_actions hanya diubah lewat POST .../confirm dan .../reject (lihat di bawah), tidak pernah dihapus.
          */
         get: {
             parameters: {
@@ -2976,6 +3100,105 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/ai-actions/{ai_action}/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ai_action: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Konfirmasi draft -- menulis baris nyata (ConfirmAiAction)
+         * @description Body opsional: field apa pun di dalamnya menimpa payload draft sebelum divalidasi & ditulis (status jadi edited, bukan confirmed). Semua id divalidasi ulang harus milik family yang sama dengan ai_action ini, tidak pernah dipercaya mentah.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ai_action: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: {
+                content: {
+                    "application/json": {
+                        [key: string]: unknown;
+                    };
+                };
+            };
+            responses: {
+                /** @description Dikonfirmasi (atau edited jika body mengirim perubahan). */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["AiAction"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/ai-actions/{ai_action}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                ai_action: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Tolak draft -- tidak menulis apa pun */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    ai_action: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Ditolak. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["AiAction"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/analytics/summary": {
         parameters: {
             query?: never;
@@ -3030,7 +3253,7 @@ export interface paths {
             cookie?: never;
         };
         /**
-         * Lihat setting LLM platform (is_platform_admin)
+         * Lihat setting LLM platform (is_admin)
          * @description Platform-wide, bukan per-family -- tidak di bawah resolve.family/X-Family-Id. Sebelum baris DB pernah dibuat, menampilkan fallback dari .env.
          */
         get: {
@@ -3056,7 +3279,7 @@ export interface paths {
                 403: components["responses"]["Forbidden"];
             };
         };
-        /** Update setting LLM platform (is_platform_admin) */
+        /** Update setting LLM platform (is_admin) */
         put: {
             parameters: {
                 query?: never;
@@ -3090,6 +3313,571 @@ export interface paths {
                 422: components["responses"]["ValidationError"];
             };
         };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscription-plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List paket langganan
+         * @description Sepenuhnya publik -- tidak perlu login sama sekali (mirip /auth/register), supaya katalog bisa ditampilkan sebelum user punya akun.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    is_active?: boolean;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["SubscriptionPlan"][];
+                        };
+                    };
+                };
+            };
+        };
+        put?: never;
+        /** Tambah paket (is_admin) */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Unik, referensi stabil (mis. "bulanan"). */
+                        code: string;
+                        name: string;
+                        price: number;
+                        duration_days: number;
+                        description?: string | null;
+                        /** @default true */
+                        is_active?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description Tersimpan. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["SubscriptionPlan"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscription-plans/{subscription_plan}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription_plan: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * Detail paket
+         * @description Sepenuhnya publik -- tidak perlu login sama sekali.
+         */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subscription_plan: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["SubscriptionPlan"];
+                        };
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        /** Update paket (is_admin) */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subscription_plan: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @description Unik, referensi stabil (mis. "bulanan"). */
+                        code?: string;
+                        name?: string;
+                        price?: number;
+                        duration_days?: number;
+                        description?: string | null;
+                        /** @default true */
+                        is_active?: boolean;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["SubscriptionPlan"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        post?: never;
+        /**
+         * Hapus paket (is_admin)
+         * @description Masih dipakai subscriptions -> 409; pakai is_active=false alih-alih menghapus.
+         */
+        delete: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subscription_plan: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description Terhapus. */
+                204: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                409: components["responses"]["Conflict"];
+            };
+        };
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Riwayat langganan family sendiri */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "pending_payment" | "active" | "rejected" | "expired";
+                    /** @description Default 20, maks 100. */
+                    per_page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["Subscription"][];
+                            links?: components["schemas"]["PaginationLinks"];
+                            meta?: components["schemas"]["PaginationMeta"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        /**
+         * Pilih paket + konfirmasi pembayaran
+         * @description Satu langkah: submit langsung menandai paid_at=now dan berstatus pending_payment, menunggu platform admin activate/reject. Ditolak 409 kalau family masih punya request pending_payment/active.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /**
+                         * Format: uuid
+                         * @description Harus mengacu ke paket dengan is_active=true.
+                         */
+                        plan_id: string;
+                        /** @description Mis. metode transfer & referensi, bebas teks. */
+                        payment_note?: string | null;
+                        /** @description URL foto bukti transfer, didapat dari POST /uploads terlebih dulu. */
+                        payment_proof_url?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description Tersimpan. */
+                201: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["Subscription"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                409: components["responses"]["Conflict"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/subscriptions/{subscription}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription: string;
+            };
+            cookie?: never;
+        };
+        /** Detail langganan */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subscription: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["Subscription"];
+                        };
+                    };
+                };
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/subscriptions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Antrean review lintas-family (is_admin)
+         * @description SENGAJA di luar resolve.family: admin melihat permintaan family manapun, bukan cuma family miliknya sendiri.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    status?: "pending_payment" | "active" | "rejected" | "expired";
+                    /** @description Default 20, maks 100. */
+                    per_page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["Subscription"][];
+                            links?: components["schemas"]["PaginationLinks"];
+                            meta?: components["schemas"]["PaginationMeta"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/subscriptions/{subscription}/activate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Aktifkan langganan (is_admin)
+         * @description Hanya dari status pending_payment. starts_at=now, ends_at=starts_at+plan.duration_days.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subscription: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["Subscription"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/subscriptions/{subscription}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                subscription: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Tolak langganan (is_admin)
+         * @description Hanya dari status pending_payment.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    subscription: string;
+                };
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        review_note: string;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["Subscription"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Direktori user platform (is_admin)
+         * @description Lintas-family, bukan resource per-family. Read-only: tidak ada endpoint untuk promote/demote is_admin (tinker-only, lihat User model).
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Cocok sebagian pada full_name, email, atau phone. */
+                    search?: string;
+                    /** @description Default 20, maks 100. */
+                    per_page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["AdminUser"][];
+                            links?: components["schemas"]["PaginationLinks"];
+                            meta?: components["schemas"]["PaginationMeta"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/admin/users/{user}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user: string;
+            };
+            cookie?: never;
+        };
+        /** Detail user + family memberships (is_admin) */
+        get: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path: {
+                    user: string;
+                };
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["AdminUserDetail"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+                404: components["responses"]["NotFound"];
+            };
+        };
+        put?: never;
         post?: never;
         delete?: never;
         options?: never;
@@ -3132,12 +3920,52 @@ export interface components {
             email?: string | null;
             phone?: string | null;
             avatar_url?: string | null;
+            /** @description Selalu self-view (register/login/me) -- tidak pernah dipakai untuk profil user lain. */
+            is_admin?: boolean;
             /** Format: date-time */
             created_at?: string;
         };
         AuthPayload: {
             user?: components["schemas"]["User"];
             token?: string;
+        };
+        AdminUser: {
+            /** Format: uuid */
+            id?: string;
+            full_name?: string;
+            /** Format: email */
+            email?: string | null;
+            phone?: string | null;
+            avatar_url?: string | null;
+            is_admin?: boolean;
+            families_count?: number;
+            /** Format: date-time */
+            last_login_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        AdminUserDetail: {
+            /** Format: uuid */
+            id?: string;
+            full_name?: string;
+            /** Format: email */
+            email?: string | null;
+            phone?: string | null;
+            avatar_url?: string | null;
+            is_admin?: boolean;
+            /** Format: date-time */
+            last_login_at?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            families?: {
+                /** Format: uuid */
+                family_id?: string;
+                family_name?: string;
+                /** @enum {string} */
+                role?: "admin" | "member" | "viewer";
+                /** Format: date-time */
+                joined_at?: string;
+            }[];
         };
         Family: {
             /** Format: uuid */
@@ -3269,6 +4097,11 @@ export interface components {
             percent?: number;
             /** Format: date */
             deadline?: string | null;
+            /**
+             * Format: date
+             * @description Estimasi tercapai (awal bulan), diproyeksikan server dari rata-rata kontribusi. null kalau status bukan active, sudah tercapai, atau belum ada histori setoran.
+             */
+            eta?: string | null;
             icon?: string | null;
             color?: string | null;
             /** Format: uuid */
@@ -3348,6 +4181,13 @@ export interface components {
             last_message_at?: string | null;
             /** Format: date-time */
             created_at?: string;
+            /** @description null kecuali kind=onboarding. */
+            onboarding?: {
+                /** @description Nomor pertanyaan yang sedang berjalan (1-based). */
+                step?: number;
+                total?: number;
+                done?: boolean;
+            } | null;
         };
         ChatMessage: {
             /** Format: uuid */
@@ -3452,6 +4292,15 @@ export interface components {
             /** @enum {string} */
             status?: "no_budget" | "over" | "warning" | "ok";
         };
+        AnalyticsIncomeSource: {
+            /** Format: uuid */
+            source_id?: string;
+            name?: string;
+            /** @description income_sources.expected_amount, bisa null kalau belum diisi. */
+            expected?: number | null;
+            /** @description Total transactions type=income untuk source ini di period ini. */
+            actual?: number;
+        };
         AnalyticsSummary: {
             /** Format: date */
             period?: string;
@@ -3462,6 +4311,7 @@ export interface components {
                 net?: number;
             };
             wallets?: components["schemas"]["AnalyticsWallet"][];
+            income_sources?: components["schemas"]["AnalyticsIncomeSource"][];
         };
         /** @description Kredensial LLM platform-wide. key tidak pernah dikembalikan lewat API. */
         LlmSetting: {
@@ -3475,6 +4325,57 @@ export interface components {
             updated_at?: string | null;
             /** Format: uuid */
             updated_by?: string | null;
+        };
+        /** @description Katalog paket langganan platform-wide, bukan per-family. */
+        SubscriptionPlan: {
+            /** Format: uuid */
+            id?: string;
+            /** @example bulanan */
+            code?: string;
+            name?: string;
+            price?: number;
+            duration_days?: number;
+            description?: string | null;
+            is_active?: boolean;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
+        };
+        /** @description Alur: pending_payment (family pilih paket + konfirmasi bayar) -> active/rejected (platform admin review) -> expired (job harian amana:expire-subscriptions). */
+        Subscription: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            family_id?: string;
+            /** Format: uuid */
+            plan_id?: string;
+            plan_code?: string;
+            plan_name?: string;
+            /** @enum {string} */
+            status?: "pending_payment" | "active" | "rejected" | "expired";
+            /** @description Snapshot subscription_plans.price saat request dibuat. */
+            amount?: number;
+            payment_note?: string | null;
+            /** @description URL hasil POST /uploads (foto bukti transfer). */
+            payment_proof_url?: string | null;
+            /** Format: date-time */
+            paid_at?: string | null;
+            /** Format: date-time */
+            starts_at?: string | null;
+            /** Format: date-time */
+            ends_at?: string | null;
+            /** Format: uuid */
+            requested_by?: string | null;
+            /** Format: uuid */
+            reviewed_by?: string | null;
+            /** Format: date-time */
+            reviewed_at?: string | null;
+            review_note?: string | null;
+            /** Format: date-time */
+            created_at?: string;
+            /** Format: date-time */
+            updated_at?: string;
         };
     };
     responses: {
