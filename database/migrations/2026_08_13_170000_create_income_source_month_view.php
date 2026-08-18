@@ -12,7 +12,7 @@ return new class extends Migration
     public function up(): void
     {
         DB::statement("
-            create view v_income_source_month as
+            create or replace view v_income_source_month as
             select s.id       as source_id,
                    s.family_id,
                    cast(date_format(t.transaction_date, '%Y-%m-01') as date) as period,

@@ -11,7 +11,7 @@ return new class extends Migration
         // seperti Postgres, jadi dipakai DATE_FORMAT(...) untuk potong ke awal
         // bulan dan CASE WHEN di dalam SUM() sebagai ganti FILTER.
         DB::statement("
-            create view v_wallet_month as
+            create or replace view v_wallet_month as
             select w.id       as wallet_id,
                    w.family_id,
                    cast(date_format(t.transaction_date, '%Y-%m-01') as date) as period,
@@ -26,7 +26,7 @@ return new class extends Migration
         ");
 
         DB::statement("
-            create view v_cashflow_month as
+            create or replace view v_cashflow_month as
             select family_id,
                    cast(date_format(transaction_date, '%Y-%m-01') as date)      as period,
                    sum(case when type = 'income' then amount end)  as total_income,
