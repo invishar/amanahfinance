@@ -26,11 +26,17 @@ class SubscriptionSeeder extends Seeder
             return;
         }
 
-        Family::all()->each(function (Family $family) use ($plans, $reviewer) {
+        Family::all()->values()->each(function (Family $family, int $index) use ($plans, $reviewer) {
             $requester = $family->members()->inRandomOrder()->first();
             $plan = $plans->random();
 
-            $state = fake()->randomElement(['active', 'expired', 'pending_payment', 'rejected']);
+            // Family pertama selalu 'active' -- data dummy harus selalu punya
+            // contoh user yang sudah berlangganan, bukan cuma kebetulan lolos
+            // random (dengan 4 state acak, ada peluang tidak ada satupun yang
+            // 'active'). Sisanya tetap acak untuk variasi status lain.
+            $state = $index === 0
+                ? 'active'
+                : fake()->randomElement(['active', 'expired', 'pending_payment', 'rejected']);
 
             $subscription = match ($state) {
                 'active' => Subscription::factory()->active(),
