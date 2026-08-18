@@ -3808,6 +3808,8 @@ export interface paths {
                 query?: {
                     /** @description Cocok sebagian pada full_name, email, atau phone. */
                     search?: string;
+                    /** @description Filter berdasarkan subscription_status yang tampil di AdminUser (status langganan terbaru family pertama user). "none" = belum pernah mengajukan langganan / belum punya family. */
+                    subscription_status?: "pending_payment" | "active" | "rejected" | "expired" | "none";
                     /** @description Default 20, maks 100. */
                     per_page?: number;
                 };
@@ -3939,6 +3941,14 @@ export interface components {
             avatar_url?: string | null;
             is_admin?: boolean;
             families_count?: number;
+            /**
+             * @description Status subscriptions terbaru milik family pertama yang diikuti user ini (urut join). Null kalau belum pernah punya family atau family belum pernah mengajukan langganan.
+             * @enum {string|null}
+             */
+            subscription_status?: "pending_payment" | "active" | "rejected" | "expired" | null;
+            subscription_plan_name?: string | null;
+            /** Format: date-time */
+            subscription_expires_at?: string | null;
             /** Format: date-time */
             last_login_at?: string | null;
             /** Format: date-time */
@@ -3965,6 +3975,14 @@ export interface components {
                 role?: "admin" | "member" | "viewer";
                 /** Format: date-time */
                 joined_at?: string;
+                /**
+                 * @description Status subscriptions terbaru milik family ini. Null kalau belum pernah mengajukan langganan.
+                 * @enum {string|null}
+                 */
+                subscription_status?: "pending_payment" | "active" | "rejected" | "expired" | null;
+                subscription_plan_name?: string | null;
+                /** Format: date-time */
+                subscription_expires_at?: string | null;
             }[];
         };
         Family: {

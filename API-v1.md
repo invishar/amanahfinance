@@ -507,12 +507,16 @@ Direktori seluruh user platform, lintas-family (bukan resource per-family, sama 
 
 | Method | Path | Query | Role |
 | --- | --- | --- | --- |
-| GET | `/admin/users` | `?search=` (cocok sebagian pada `full_name`/`email`/`phone`), `?per_page=` (default 20, maks 100) | `is_admin` |
+| GET | `/admin/users` | `?search=` (cocok sebagian pada `full_name`/`email`/`phone`), `?subscription_status=` (`pending_payment\|active\|rejected\|expired\|none`), `?per_page=` (default 20, maks 100) | `is_admin` |
 | GET | `/admin/users/{user}` | — | `is_admin` |
 
-Response `data` (list): `id, full_name, email, phone, avatar_url, is_admin, families_count, last_login_at, created_at`.
+Response `data` (list): `id, full_name, email, phone, avatar_url, is_admin, families_count, subscription_status, subscription_plan_name, subscription_expires_at, last_login_at, created_at`.
 
-Response `data` (detail): sama seperti list tapi tanpa `families_count`, ditambah `families: [{ family_id, family_name, role, joined_at }]` — daftar seluruh family tempat user ini jadi anggota.
+Response `data` (detail): sama seperti list tapi tanpa `families_count`/`subscription_status`/`subscription_plan_name`/`subscription_expires_at` di level atas, ditambah `families: [{ family_id, family_name, role, joined_at, subscription_status, subscription_plan_name, subscription_expires_at }]` — daftar seluruh family tempat user ini jadi anggota.
+
+`subscription_status`/`subscription_plan_name`/`subscription_expires_at` (`ends_at` pada baris `subscriptions`) selalu mengacu ke baris `subscriptions` **terbaru** milik family tersebut (`pending_payment|active|rejected|expired`), apapun statusnya — bukan cuma yang `active`, supaya admin tetap lihat permintaan yang baru diajukan atau ditolak. `subscription_plan_name` diambil dari `subscription_plans.name` pada saat itu (bukan snapshot -- kalau nama paket diedit setelah subscription dibuat, yang tampil adalah nama plan **saat ini**, beda dengan `subscriptions.amount` yang memang snapshot harga). Semuanya `null` kalau family belum pernah mengajukan langganan sama sekali. Di response list, ini mengacu ke family **pertama** yang diikuti user (urut `joined_at`) — untuk breakdown per-family lengkap, pakai endpoint detail.
+
+`?subscription_status=` di `GET /admin/users` memfilter berdasarkan nilai `subscription_status` yang sama persis (family pertama user, bukan semua family-nya) — `none` berarti belum pernah mengajukan langganan sama sekali (termasuk user yang belum punya family).
 
 ---
 

@@ -15,8 +15,8 @@ export const qk = {
   messages: (threadId: string) => ["messages", threadId] as const,
 
   // Platform admin: lintas-family, tidak pernah butuh familyId.
-  adminUsers: (search: string, page: number) =>
-    ["admin-users", search, page] as const,
+  adminUsers: (search: string, subscriptionStatus: string, page: number) =>
+    ["admin-users", search, subscriptionStatus, page] as const,
   adminUser: (id: string) => ["admin-user", id] as const,
   adminSubscriptions: (status: string, page: number) =>
     ["admin-subscriptions", status, page] as const,

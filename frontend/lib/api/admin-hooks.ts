@@ -25,11 +25,13 @@ function query(params: Record<string, string | number | undefined>): string {
 
 /* --- Users ----------------------------------------------------------------- */
 
-export function useAdminUsers(search: string, page: number) {
+export function useAdminUsers(search: string, subscriptionStatus: string, page: number) {
   return useQuery({
-    queryKey: qk.adminUsers(search, page),
+    queryKey: qk.adminUsers(search, subscriptionStatus, page),
     queryFn: () =>
-      api.listRaw<AdminUser>(`/admin/users${query({ search, page })}`),
+      api.listRaw<AdminUser>(
+        `/admin/users${query({ search, subscription_status: subscriptionStatus, page })}`
+      ),
     placeholderData: (previous) => previous,
   });
 }

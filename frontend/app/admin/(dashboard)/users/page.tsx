@@ -5,13 +5,53 @@ import { useState } from "react";
 import { Icon } from "@/components/icon";
 import { SkeletonList } from "@/components/ui";
 import { useAdminUser, useAdminUsers } from "@/lib/api/admin-hooks";
+import { formatDateID } from "@/lib/format";
+
+const SUBSCRIPTION_LABEL: Record<string, string> = {
+  pending_payment: "Menunggu review",
+  active: "Aktif",
+  rejected: "Ditolak",
+  expired: "Kedaluwarsa",
+  none: "Belum berlangganan",
+};
+
+const SUBSCRIPTION_TAG_CLASS: Record<string, string> = {
+  pending_payment: "tag-accent",
+  active: "tag-outline",
+  rejected: "tag-neutral",
+  expired: "tag-neutral",
+};
+
+function SubscriptionTag({
+  status,
+  planName,
+  expiresAt,
+}: {
+  status?: string | null;
+  planName?: string | null;
+  expiresAt?: string | null;
+}) {
+  if (!status) {
+    return <span className="tag tag-neutral">Belum berlangganan</span>;
+  }
+  return (
+    <span className={`tag ${SUBSCRIPTION_TAG_CLASS[status] ?? "tag-neutral"}`}>
+      {planName && <>{planName} · </>}
+      {SUBSCRIPTION_LABEL[status] ?? status}
+      {expiresAt && (status === "active" || status === "expired") && (
+        <> · s.d. {formatDateID(expiresAt)}</>
+      )}
+    </span>
+  );
+}
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
+  const [subscriptionStatus, setSubscriptionStatus] = useState("");
   const [page, setPage] = useState(1);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
-  const { data, isPending } = useAdminUsers(search, page);
+  const { data, isPending } = useAdminUsers(search, subscriptionStatus, page);
   const users = data?.data ?? [];
   const meta = data?.meta;
 
@@ -19,26 +59,48 @@ export default function AdminUsersPage() {
     <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
       <h1 style={{ fontSize: 22, margin: 0 }}>User</h1>
 
-      <div className="field" style={{ maxWidth: 360 }}>
-        <label htmlFor="user-search">Cari</label>
-        <div style={{ position: "relative" }}>
-          <Icon
-            name="search"
-            size={15}
-            style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}
-            color="var(--color-neutral-600)"
-          />
-          <input
-            id="user-search"
+      <div style={{ display: "flex", gap: "var(--space-3)", flexWrap: "wrap" }}>
+        <div className="field" style={{ maxWidth: 360, flex: 1, minWidth: 240 }}>
+          <label htmlFor="user-search">Cari</label>
+          <div style={{ position: "relative" }}>
+            <Icon
+              name="search"
+              size={15}
+              style={{ position: "absolute", left: 14, top: "50%", transform: "translateY(-50%)" }}
+              color="var(--color-neutral-600)"
+            />
+            <input
+              id="user-search"
+              className="input"
+              style={{ paddingLeft: 38 }}
+              placeholder="Nama, email, atau telepon"
+              value={search}
+              onChange={(e) => {
+                setSearch(e.target.value);
+                setPage(1);
+              }}
+            />
+          </div>
+        </div>
+
+        <div className="field" style={{ maxWidth: 220 }}>
+          <label htmlFor="subscription-filter">Status langganan</label>
+          <select
+            id="subscription-filter"
             className="input"
-            style={{ paddingLeft: 38 }}
-            placeholder="Nama, email, atau telepon"
-            value={search}
+            value={subscriptionStatus}
             onChange={(e) => {
-              setSearch(e.target.value);
+              setSubscriptionStatus(e.target.value);
               setPage(1);
             }}
-          />
+          >
+            <option value="">Semua</option>
+            <option value="active">Aktif</option>
+            <option value="pending_payment">Menunggu review</option>
+            <option value="rejected">Ditolak</option>
+            <option value="expired">Kedaluwarsa</option>
+            <option value="none">Belum berlangganan</option>
+          </select>
         </div>
       </div>
 
@@ -82,7 +144,14 @@ export default function AdminUsersPage() {
                   </div>
                 </div>
               </div>
-              {user.is_admin && <span className="tag tag-accent">Admin</span>}
+              <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {user.is_admin && <span className="tag tag-accent">Admin</span>}
+                <SubscriptionTag
+                  status={user.subscription_status}
+                  planName={user.subscription_plan_name}
+                  expiresAt={user.subscription_expires_at}
+                />
+              </div>
             </button>
           ))
         )}
@@ -178,16 +247,23 @@ function UserDetailDialog({ id, onClose }: { id: string; onClose: () => void }) 
                       key={f.family_id}
                       style={{
                         display: "flex",
-                        justifyContent: "space-between",
-                        alignItems: "center",
+                        flexDirection: "column",
+                        gap: 4,
                         padding: "6px 0",
                         borderBottom: "1px solid var(--color-divider)",
                       }}
                     >
-                      <span style={{ fontSize: 13 }}>{f.family_name}</span>
-                      <span className="tag tag-neutral">
-                        {ROLE_LABEL[f.role ?? "member"] ?? f.role}
-                      </span>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                        <span style={{ fontSize: 13 }}>{f.family_name}</span>
+                        <span className="tag tag-neutral">
+                          {ROLE_LABEL[f.role ?? "member"] ?? f.role}
+                        </span>
+                      </div>
+                      <SubscriptionTag
+                        status={f.subscription_status}
+                        planName={f.subscription_plan_name}
+                        expiresAt={f.subscription_expires_at}
+                      />
                     </div>
                   ))}
                 </div>

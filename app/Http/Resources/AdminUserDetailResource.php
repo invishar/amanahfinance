@@ -25,6 +25,9 @@ class AdminUserDetailResource extends JsonResource
                 'family_name' => $membership->family->name,
                 'role' => $membership->role,
                 'joined_at' => $membership->joined_at,
+                'subscription_status' => $membership->family->currentSubscription?->status,
+                'subscription_plan_name' => $membership->family->currentSubscription?->plan?->name,
+                'subscription_expires_at' => $membership->family->currentSubscription?->ends_at,
             ]),
         ];
     }

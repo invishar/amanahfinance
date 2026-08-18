@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Concerns\HasUuids;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Fillable(['name', 'currency', 'timezone', 'onboarding_done'])]
 class Family extends Model
@@ -132,5 +133,18 @@ class Family extends Model
     public function subscriptions(): HasMany
     {
         return $this->hasMany(Subscription::class);
+    }
+
+    /**
+     * Baris `subscriptions` terbaru milik family ini, apapun statusnya --
+     * dipakai untuk menampilkan status langganan "saat ini" (mis. di admin
+     * users), bukan sumber kebenaran transaksional (itu tetap `subscriptions`
+     * sendiri, aturan #4).
+     *
+     * @return HasOne<Subscription, $this>
+     */
+    public function currentSubscription(): HasOne
+    {
+        return $this->hasOne(Subscription::class)->latestOfMany('created_at');
     }
 }

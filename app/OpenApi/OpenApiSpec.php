@@ -182,6 +182,13 @@ class OpenApiSpec
                     'avatar_url' => ['type' => 'string', 'nullable' => true],
                     'is_admin' => ['type' => 'boolean'],
                     'families_count' => ['type' => 'integer'],
+                    'subscription_status' => [
+                        'type' => 'string', 'nullable' => true,
+                        'enum' => ['pending_payment', 'active', 'rejected', 'expired', null],
+                        'description' => 'Status subscriptions terbaru milik family pertama yang diikuti user ini (urut join). Null kalau belum pernah punya family atau family belum pernah mengajukan langganan.',
+                    ],
+                    'subscription_plan_name' => ['type' => 'string', 'nullable' => true],
+                    'subscription_expires_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
                     'last_login_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
                     'created_at' => ['type' => 'string', 'format' => 'date-time'],
                 ],
@@ -206,6 +213,13 @@ class OpenApiSpec
                                 'family_name' => ['type' => 'string'],
                                 'role' => ['type' => 'string', 'enum' => ['admin', 'member', 'viewer']],
                                 'joined_at' => ['type' => 'string', 'format' => 'date-time'],
+                                'subscription_status' => [
+                                    'type' => 'string', 'nullable' => true,
+                                    'enum' => ['pending_payment', 'active', 'rejected', 'expired', null],
+                                    'description' => 'Status subscriptions terbaru milik family ini. Null kalau belum pernah mengajukan langganan.',
+                                ],
+                                'subscription_plan_name' => ['type' => 'string', 'nullable' => true],
+                                'subscription_expires_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
                             ],
                         ],
                     ],
@@ -594,6 +608,11 @@ class OpenApiSpec
                     'description' => 'Lintas-family, bukan resource per-family. Read-only: tidak ada endpoint untuk promote/demote is_admin (tinker-only, lihat User model).',
                     'parameters' => [
                         ['name' => 'search', 'in' => 'query', 'description' => 'Cocok sebagian pada full_name, email, atau phone.', 'schema' => ['type' => 'string']],
+                        [
+                            'name' => 'subscription_status', 'in' => 'query',
+                            'description' => 'Filter berdasarkan subscription_status yang tampil di AdminUser (status langganan terbaru family pertama user). "none" = belum pernah mengajukan langganan / belum punya family.',
+                            'schema' => ['type' => 'string', 'enum' => ['pending_payment', 'active', 'rejected', 'expired', 'none']],
+                        ],
                         ['name' => 'per_page', 'in' => 'query', 'description' => 'Default 20, maks 100.', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
                     ],
                     'responses' => [
