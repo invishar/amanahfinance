@@ -31,24 +31,34 @@ class SubscriptionFactory extends Factory
 
     public function active(): static
     {
-        $startsAt = now();
+        // starts_at & durasi diacak (bukan selalu now()+30 hari) supaya banyak
+        // subscription 'active' yang dibuat berdekatan (mis. lewat seeder)
+        // tidak semuanya jatuh tempo di tanggal yang sama persis.
+        return $this->state(function () {
+            $startsAt = now()->subDays(fake()->numberBetween(0, 20));
 
-        return $this->state(fn (array $attributes) => [
-            'status' => 'active',
-            'starts_at' => $startsAt,
-            'ends_at' => $startsAt->copy()->addDays(30),
-            'reviewed_at' => now(),
-        ]);
+            return [
+                'status' => 'active',
+                'starts_at' => $startsAt,
+                'ends_at' => $startsAt->copy()->addDays(fake()->randomElement([30, 90, 365])),
+                'reviewed_at' => $startsAt,
+            ];
+        });
     }
 
     public function expired(): static
     {
-        return $this->state(fn (array $attributes) => [
-            'status' => 'expired',
-            'starts_at' => now()->subDays(60),
-            'ends_at' => now()->subDay(),
-            'reviewed_at' => now()->subDays(60),
-        ]);
+        return $this->state(function () {
+            $endsAt = now()->subDays(fake()->numberBetween(1, 45));
+            $startsAt = $endsAt->copy()->subDays(fake()->randomElement([30, 90, 365]));
+
+            return [
+                'status' => 'expired',
+                'starts_at' => $startsAt,
+                'ends_at' => $endsAt,
+                'reviewed_at' => $startsAt,
+            ];
+        });
     }
 
     public function rejected(): static
