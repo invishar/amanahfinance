@@ -2,6 +2,8 @@
 
 namespace Database\Seeders;
 
+use App\Models\Transaction;
+use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
 
@@ -39,5 +41,36 @@ class DatabaseSeeder extends Seeder
             NotificationSeeder::class,
             AuditLogSeeder::class,
         ]);
+
+        $this->printCredentialSummary();
+    }
+
+    /**
+     * created_by di transactions menunjuk ke family_members, bukan users
+     * langsung, jadi jumlah transaksi per user baru bisa dihitung setelah
+     * seeding selesai (TransactionSeeder memilih member secara acak).
+     */
+    private function printCredentialSummary(): void
+    {
+        $admin = User::where('email', 'admin@example.com')->first();
+
+        $topUser = Transaction::query()
+            ->join('family_members', 'family_members.id', '=', 'transactions.created_by')
+            ->join('users', 'users.id', '=', 'family_members.user_id')
+            ->selectRaw('users.email, users.full_name, count(*) as tx_count')
+            ->groupBy('users.id', 'users.email', 'users.full_name')
+            ->orderByDesc('tx_count')
+            ->first();
+
+        $this->command?->newLine();
+        $this->command?->info('=== Kredensial seeding ===');
+
+        if ($admin) {
+            $this->command?->line("Admin: {$admin->email} / pass: password");
+        }
+
+        if ($topUser) {
+            $this->command?->line("Sample user dengan banyak transaksi : {$topUser->email} ({$topUser->full_name}) - {$topUser->tx_count} transaksi / pass: password");
+        }
     }
 }
