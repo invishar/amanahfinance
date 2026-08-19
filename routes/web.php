@@ -17,6 +17,14 @@ Route::get('/docs', function () {
 // some assets reach this route directly rather than being served by the web
 // server/CDN, unlike what local Herd testing suggested. So the exact-path
 // check below is load-bearing in production, not just a local convenience.
+//
+// Content-Type is set from a fixed extension map rather than
+// response()->file()'s automatic guessing: that relies on the `fileinfo`
+// PHP extension, which hPanel has previously lost outside the panel's own
+// PHP config (see the composer2/composer-php.ini gotcha in CLAUDE.md) --
+// when it's missing, Symfony's guesser silently falls back to text/plain,
+// and browsers refuse to apply a stylesheet or execute a script served
+// with that Content-Type.
 Route::fallback(function () {
     if (request()->is('api/*')) {
         abort(404);
@@ -24,10 +32,36 @@ Route::fallback(function () {
 
     $path = trim(request()->path(), '/');
 
+    $mimeTypes = [
+        'css' => 'text/css',
+        'js' => 'application/javascript',
+        'mjs' => 'application/javascript',
+        'json' => 'application/json',
+        'map' => 'application/json',
+        'svg' => 'image/svg+xml',
+        'png' => 'image/png',
+        'jpg' => 'image/jpeg',
+        'jpeg' => 'image/jpeg',
+        'gif' => 'image/gif',
+        'webp' => 'image/webp',
+        'ico' => 'image/x-icon',
+        'woff' => 'font/woff',
+        'woff2' => 'font/woff2',
+        'ttf' => 'font/ttf',
+        'otf' => 'font/otf',
+        'txt' => 'text/plain',
+        'xml' => 'application/xml',
+        'webmanifest' => 'application/manifest+json',
+    ];
+
     if ($path !== '') {
         $exact = public_path($path);
         if (is_file($exact)) {
-            return response()->file($exact);
+            $extension = strtolower(pathinfo($exact, PATHINFO_EXTENSION));
+
+            return response()->file($exact, [
+                'Content-Type' => $mimeTypes[$extension] ?? 'application/octet-stream',
+            ]);
         }
     }
 
