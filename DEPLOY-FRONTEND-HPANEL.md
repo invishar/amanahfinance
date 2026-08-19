@@ -222,16 +222,29 @@ somehow sampai ke Laravel (bukan diserve langsung oleh `hcdn`/web server — per
 CDN ini tidak konsisten, sebagian file lolos sebagian tidak, worth diasumsikan tidak
 bisa diandalkan), fallback selalu 404 karena tidak ada kandidat yang cocok.
 
-**Fix:** tambah exact-path check di awal closure, sebelum coba kandidat `.html` —
-kalau `public_path($path)` adalah file yang benar-benar ada, serve langsung pakai
-`response()->file()` (Content-Type otomatis benar dari ekstensi, bukan di-hardcode
-`text/html` seperti kandidat HTML). Lihat isi lengkap di
-[routes/web.php](routes/web.php). Diverifikasi lokal: `curl` ke path CSS yang tadi
-404 sekarang `200` dengan `Content-Type: text/css`.
+**Fix (bagian 1):** tambah exact-path check di awal closure, sebelum coba kandidat
+`.html` — kalau `public_path($path)` adalah file yang benar-benar ada, serve
+langsung pakai `response()->file()`. Commit `fcbf9e6`.
 
-Ini murni perubahan kode PHP (`routes/web.php`), **tidak menyentuh `frontend/`** —
-deploy ke server cukup `git pull` biasa, tidak perlu build ulang frontend sama
-sekali.
+**Fix (bagian 2) — sub-masalah baru ketemu setelah bagian 1 di-deploy:** asset
+sudah `200`, tapi `/admin/login` di browser **masih tanpa style**. Dicek
+`Content-Type`-nya ternyata `text/plain`, bukan `text/css` — `response()->file()`
+mengandalkan deteksi MIME otomatis via extension PHP `fileinfo`, dan itu persis
+gotcha yang sudah didokumentasikan di `CLAUDE.md` bagian composer2/`composer-php.ini`
+(extension bisa hilang di luar `php.ini` situs). Ketika deteksi gagal, Symfony diam-diam
+fallback ke `text/plain` — browser menolak apply CSS / eksekusi JS yang di-serve
+dengan Content-Type itu (strict MIME checking), makanya `/admin/login` tetap polos
+meski asset-nya sudah `200`.
+
+Fix final: tentukan `Content-Type` manual dari peta ekstensi (`css`, `js`, `svg`,
+font, dst.) di closure, bukan mengandalkan `fileinfo`. Commit `d88d34b`.
+
+**Status: dikonfirmasi beres oleh user 19 Agustus 2026** — `/admin` redirect ke
+login dengan benar, `/admin/login` tampil bergaya normal.
+
+Kedua fix ini murni perubahan kode PHP (`routes/web.php`), tidak menyentuh
+`frontend/` — deploy ke server cukup `git pull` biasa, tidak perlu build ulang
+frontend sama sekali.
 
 ## Alternatif yang dipertimbangkan tapi belum dipakai
 
