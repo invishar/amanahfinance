@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build --webpack",
+    "postbuild": "node scripts/fix-nested-index.js",
     "start": "next start",
     "lint": "eslint",
     "api:types": "openapi-typescript ${NEXT_PUBLIC_API_URL:-http://127.0.0.1:8000/api/v1}/openapi.json -o lib/api/schema.d.ts"
