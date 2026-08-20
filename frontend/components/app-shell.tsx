@@ -195,6 +195,7 @@ function MobileTab({ item, active }: { item: NavItem; active: boolean }) {
 
 function MoreSheet() {
   const { moreSheetOpen, setMoreSheetOpen } = useUi();
+  const onLogout = useLogout();
   if (!moreSheetOpen) return null;
 
   return (
@@ -244,6 +245,30 @@ function MoreSheet() {
             {item.label}
           </Link>
         ))}
+
+        <button
+          type="button"
+          onClick={() => {
+            setMoreSheetOpen(false);
+            onLogout();
+          }}
+          className="text-muted"
+          style={{
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+            padding: "12px 6px",
+            textAlign: "left",
+            fontSize: 15,
+            background: "none",
+            border: "none",
+            cursor: "pointer",
+            font: "inherit",
+          }}
+        >
+          <Icon name="log-out" size={18} />
+          Keluar
+        </button>
       </div>
     </div>
   );
