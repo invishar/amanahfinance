@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\LlmSetting;
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class UpdateLlmSettingRequest extends FormRequest
 {
@@ -21,6 +22,9 @@ class UpdateLlmSettingRequest extends FormRequest
             'key' => ['sometimes', 'nullable', 'string', 'min:8'],
             'model' => ['required', 'string', 'max:255'],
             'base_url' => ['sometimes', 'nullable', 'url', 'max:2048'],
+            // Wire protocol, bukan tebakan dari base_url/model -- lihat
+            // llm_settings_provider_ck di migrasi.
+            'provider' => ['sometimes', Rule::in(['anthropic', 'openai_compatible'])],
         ];
     }
 }

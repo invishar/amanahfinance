@@ -491,13 +491,15 @@ Singleton: hanya ada satu baris `llm_settings` yang berlaku untuk seluruh platfo
 | Method | Path | Body | Role |
 | --- | --- | --- | --- |
 | GET | `/llm-settings` | — | `is_admin` |
-| PUT | `/llm-settings` | `key` (opsional; kosongkan untuk mempertahankan key lama), `model*`, `base_url` (opsional) | `is_admin` |
+| PUT | `/llm-settings` | `key` (opsional; kosongkan untuk mempertahankan key lama), `model*`, `base_url` (opsional), `provider` (opsional; `anthropic` default atau `openai_compatible`) | `is_admin` |
 
-`key` **tidak pernah** dikembalikan lewat response — disimpan ter-enkripsi (Laravel `encrypted` cast, pakai `APP_KEY`) dan hanya diekspos sebagai `has_key` (boolean) + `key_preview` (4 karakter terakhir, untuk verifikasi visual saja). Sebelum baris DB pernah dibuat, `GET` menampilkan fallback dari `.env` (`LLM_API_KEY`/`LLM_MODEL`/`LLM_BASE_URL`) supaya admin tahu apa yang sedang efektif dipakai.
+`key` **tidak pernah** dikembalikan lewat response — disimpan ter-enkripsi (Laravel `encrypted` cast, pakai `APP_KEY`) dan hanya diekspos sebagai `has_key` (boolean) + `key_preview` (4 karakter terakhir, untuk verifikasi visual saja). Sebelum baris DB pernah dibuat, `GET` menampilkan fallback dari `.env` (`LLM_API_KEY`/`LLM_MODEL`/`LLM_BASE_URL`/`LLM_PROVIDER`) supaya admin tahu apa yang sedang efektif dipakai.
 
-`AssistantService` membaca setting ini **dinamis di setiap pemanggilan** (bukan di-cache lintas request) — ganti `model`/`key`/`base_url` langsung berlaku tanpa restart/redeploy.
+`provider` menentukan wire protocol yang dipakai untuk memanggil LLM, bukan sekadar catatan: `anthropic` pakai SDK resmi Anthropic (Messages API), `openai_compatible` pakai HTTP client generik ke `{base_url}/chat/completions` (format Chat Completions -- dipakai provider seperti Groq). Keduanya tidak saling kompatibel, jadi field ini wajib diisi benar, tidak bisa ditebak dari `base_url`/`model`.
 
-Response `data`: `model, base_url, has_key, key_preview, updated_at, updated_by`.
+`AssistantService` membaca setting ini **dinamis di setiap pemanggilan** (bukan di-cache lintas request) — ganti `model`/`key`/`base_url`/`provider` langsung berlaku tanpa restart/redeploy.
+
+Response `data`: `model, base_url, provider, has_key, key_preview, updated_at, updated_by`.
 
 ---
 

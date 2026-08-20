@@ -3,6 +3,7 @@
 // Server state = TanStack Query. Komponen tidak menyalin hasilnya ke state
 // lokal (kecuali draft form), dan tidak menghitung ulang angka turunan.
 
+import { useEffect, useState } from "react";
 import {
   useMutation,
   useQuery,
@@ -10,9 +11,10 @@ import {
   type UseQueryResult,
 } from "@tanstack/react-query";
 
-import { api, type Schemas } from "@/lib/api/client";
+import { API_BASE_URL, api, type Schemas } from "@/lib/api/client";
 import { qk } from "@/lib/api/keys";
 import { useSession } from "@/lib/auth";
+import { tokenStore } from "@/lib/token-store";
 
 export type Account = Schemas["Account"];
 export type AnalyticsSummary = Schemas["AnalyticsSummary"];
@@ -243,4 +245,133 @@ export function useSendMessage(threadId: string | null) {
       if (threadId) queryClient.invalidateQueries({ queryKey: key });
     },
   });
+}
+
+/**
+ * Balasan Amina, kartu aksi, dan error datang lewat SSE (`ChatStreamController`,
+ * lihat CLAUDE.md "Alur AI"), bukan polling. Native `EventSource` tidak bisa
+ * kirim header `Authorization`, jadi ini baca stream lewat `fetch` + reader
+ * manual. Server sengaja menutup koneksi sendiri tiap ~20-25 detik (batas
+ * `max_execution_time` shared hosting) dan mengirim event `retry` berisi
+ * cursor -- loop di sini menyambung ulang pakai cursor itu selama komponen
+ * masih mount, supaya dari sisi user terasa seperti satu koneksi panjang.
+ */
+function parseSseFrame(frame: string): { event: string; data: unknown } | null {
+  const lines = frame.split("\n");
+  const eventLine = lines.find((l) => l.startsWith("event: "));
+  const dataLine = lines.find((l) => l.startsWith("data: "));
+  if (!eventLine || !dataLine) return null;
+  try {
+    return {
+      event: eventLine.slice("event: ".length).trim(),
+      data: JSON.parse(dataLine.slice("data: ".length)),
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function useChatStream(threadId: string | null) {
+  const queryClient = useQueryClient();
+  const [isThinking, setIsThinking] = useState(false);
+  const [streamError, setStreamError] = useState<ChatMessage | null>(null);
+
+  useEffect(() => {
+    if (!threadId) return;
+
+    let cancelled = false;
+    let after: string | null = null;
+
+    const appendMessage = (message: ChatMessage) => {
+      // queryClient dari useQueryClient() stabil sepanjang hidup provider,
+      // aman dipakai di sini tanpa masuk dependency array effect.
+      queryClient.setQueryData<ChatMessage[]>(
+        qk.messages(threadId),
+        (prev) => {
+          const list = prev ?? [];
+          return list.some((m) => m.id === message.id)
+            ? list
+            : [...list, message];
+        },
+      );
+    };
+
+    const connect = async () => {
+      while (!cancelled) {
+        const token = tokenStore.get();
+        if (!token) return;
+
+        let response: Response;
+        try {
+          const url = `${API_BASE_URL}/chat-threads/${threadId}/stream${after ? `?after=${encodeURIComponent(after)}` : ""}`;
+          response = await fetch(url, {
+            headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
+          });
+        } catch {
+          if (cancelled) return;
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
+
+        if (!response.ok || !response.body) {
+          if (cancelled) return;
+          await new Promise((r) => setTimeout(r, 3000));
+          continue;
+        }
+
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = "";
+
+        try {
+          while (!cancelled) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const frames = buffer.split("\n\n");
+            buffer = frames.pop() ?? "";
+
+            for (const raw of frames) {
+              const frame = parseSseFrame(raw);
+              if (!frame) continue;
+
+              if (frame.event === "thinking") {
+                setIsThinking(true);
+              } else if (frame.event === "message") {
+                setIsThinking(false);
+                appendMessage(frame.data as ChatMessage);
+              } else if (frame.event === "error") {
+                const data = frame.data as { id: string; content: string; created_at: string };
+                setIsThinking(false);
+                const errorMessage: ChatMessage = {
+                  id: data.id,
+                  thread_id: threadId,
+                  role: "system",
+                  content: data.content,
+                  created_at: data.created_at,
+                };
+                appendMessage(errorMessage);
+                setStreamError(errorMessage);
+              } else if (frame.event === "retry") {
+                after = (frame.data as { after: string }).after;
+              }
+              // `action_card` sengaja belum ditangani di sini -- kartu aksi
+              // interaktif (confirm/reject) belum ada tampilannya untuk data
+              // ai_actions asli, cuma untuk skenario demo (lihat ActionCard).
+            }
+          }
+        } catch {
+          // Koneksi putus di tengah jalan -- reconnect pakai cursor terakhir.
+        }
+      }
+    };
+
+    connect();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId, queryClient]);
+
+  return { isThinking, streamError };
 }

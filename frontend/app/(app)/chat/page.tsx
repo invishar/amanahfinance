@@ -7,6 +7,7 @@ import { MessageList, type ChatItem } from "@/components/chat/message-list";
 import {
   useAccounts,
   useActiveFamily,
+  useChatStream,
   useChatThreads,
   useCreateThread,
   useMessages,
@@ -37,6 +38,10 @@ export default function ChatPage() {
   const threadId = threads.data?.[0]?.id ?? null;
   const messages = useMessages(threadId ?? null);
   const sendMessage = useSendMessage(threadId ?? null);
+  // Balasan Amina sungguhan (real LLM) datang lewat SSE, bukan demo timer --
+  // aktif berdampingan dengan jalur demo di bawah, yang no-op sendiri begitu
+  // NEXT_PUBLIC_MOCK_AMINA=0 (lihat DEMO_AMINA).
+  const stream = useChatStream(threadId);
 
   const [input, setInput] = useState("");
   const [isRecording, setIsRecording] = useState(false);
@@ -217,7 +222,10 @@ export default function ChatPage() {
   const items: DemoItem[] = useMemo(() => {
     const fromServer = (messages.data ?? []).map((m) => ({
       id: m.id ?? "",
-      role: (m.role === "assistant" ? "assistant" : "user") as "user" | "assistant",
+      role: (m.role === "user" || m.role === "system" ? m.role : "assistant") as
+        | "user"
+        | "assistant"
+        | "system",
       content: m.content ?? "",
       pending: (m.id ?? "").startsWith("optimistic-"),
       at: m.created_at ? Date.parse(m.created_at) : 0,
@@ -269,7 +277,7 @@ export default function ChatPage() {
 
       <MessageList
         items={items}
-        isTyping={isTyping}
+        isTyping={isTyping || stream.isThinking}
         demo={DEMO_AMINA}
         onResolveCard={resolveCard}
       />

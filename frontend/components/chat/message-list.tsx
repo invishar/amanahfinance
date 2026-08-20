@@ -7,7 +7,8 @@ import type { DemoActionCard } from "@/lib/mock/assistant";
 
 export interface ChatItem {
   id: string;
-  role: "user" | "assistant";
+  /** `system` = pesan error dari server (CLAUDE.md: ProcessAssistantMessage::failed()), bukan balasan Amina biasa. */
+  role: "user" | "assistant" | "system";
   content: string;
   card?: DemoActionCard;
   /** Pesan optimistic yang belum dikonfirmasi server. */
@@ -70,7 +71,10 @@ export function MessageList({
                     m.role === "user"
                       ? "var(--color-accent-100)"
                       : "var(--color-surface)",
-                  border: "1px solid var(--color-divider)",
+                  color: m.role === "system" ? "var(--color-accent-800)" : undefined,
+                  border: m.role === "system"
+                    ? "1px solid var(--color-accent-800)"
+                    : "1px solid var(--color-divider)",
                 }}
               >
                 {m.content}
