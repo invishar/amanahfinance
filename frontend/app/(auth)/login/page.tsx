@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import { AuthHeader } from "@/components/auth-header";
+import { Icon } from "@/components/icon";
 import { ApiError } from "@/lib/api/client";
 import { useSession } from "@/lib/auth";
 
@@ -13,6 +14,7 @@ export default function LoginPage() {
   const { login, status } = useSession();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -80,15 +82,25 @@ export default function LoginPage() {
 
         <div className="field">
           <label htmlFor="password">Kata sandi</label>
-          <input
-            id="password"
-            className="input"
-            type="password"
-            autoComplete="current-password"
-            placeholder="••••••••"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
+          <div className="field-password">
+            <input
+              id="password"
+              className="input"
+              type={showPassword ? "text" : "password"}
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+            <button
+              type="button"
+              className="field-password-toggle"
+              onClick={() => setShowPassword((v) => !v)}
+              aria-label={showPassword ? "Sembunyikan kata sandi" : "Tampilkan kata sandi"}
+            >
+              <Icon name={showPassword ? "eye-off" : "eye"} size={18} />
+            </button>
+          </div>
           {fieldErrors.password && (
             <p className="field-error">{fieldErrors.password}</p>
           )}

@@ -270,6 +270,34 @@ textarea.input {
   min-height: 90px;
   resize: vertical;
 }
+.field-password {
+  position: relative;
+}
+.field-password .input {
+  padding-right: 40px;
+}
+.field-password-toggle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 44px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  padding: 0;
+  color: color-mix(in srgb, var(--color-text) 55%, transparent);
+  cursor: pointer;
+}
+.field-password-toggle:hover {
+  color: var(--color-accent-700);
+}
+.field-password-toggle:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+}
 .field-error {
   margin: 6px 0 0;
   font-size: 12px;
