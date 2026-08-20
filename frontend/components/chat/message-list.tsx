@@ -41,7 +41,7 @@ export function MessageList({
     incomeSources: IncomeSource[];
     savingsGoals: SavingsGoal[];
   };
-  onConfirmAiAction: (id: string) => void;
+  onConfirmAiAction: (id: string, edits?: Record<string, unknown>) => void;
   onRejectAiAction: (id: string) => void;
   confirmingAiActionId: string | null;
   rejectingAiActionId: string | null;
@@ -113,7 +113,7 @@ export function MessageList({
               <AiActionCard
                 aiAction={m.aiAction}
                 entities={aiActionEntities}
-                onConfirm={() => onConfirmAiAction(m.aiAction!.id!)}
+                onConfirm={(edits) => onConfirmAiAction(m.aiAction!.id!, edits)}
                 onReject={() => onRejectAiAction(m.aiAction!.id!)}
                 isConfirming={confirmingAiActionId === m.aiAction.id}
                 isRejecting={rejectingAiActionId === m.aiAction.id}

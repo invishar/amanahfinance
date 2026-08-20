@@ -57,18 +57,23 @@ export default function ChatPage() {
   const rejectAiAction = useRejectAiAction();
   const [aiActionErrors, setAiActionErrors] = useState<Record<string, string>>({});
 
-  const confirmAiActionCard = (id: string) => {
+  const confirmAiActionCard = (id: string, edits?: Record<string, unknown>) => {
     setAiActionErrors((prev) => {
       const next = { ...prev };
       delete next[id];
       return next;
     });
     confirmAiAction.mutate(
-      { id },
+      { id, edits },
       {
         onError: (error) => {
-          const message =
-            error instanceof ApiError ? error.message : "Gagal menyimpan, coba lagi.";
+          let message = "Gagal menyimpan, coba lagi.";
+          if (error instanceof ApiError) {
+            const fieldMessages = Object.keys(error.fieldErrors)
+              .map((key) => error.fieldMessage(key))
+              .filter((m): m is string => Boolean(m));
+            message = fieldMessages.length > 0 ? fieldMessages.join(" ") : error.message;
+          }
           setAiActionErrors((prev) => ({ ...prev, [id]: message }));
         },
       },

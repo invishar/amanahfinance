@@ -108,9 +108,17 @@ diasumsikan), lalu dikerjakan sesuai jawaban:
 - [x] [components/chat/ai-action-card.tsx](frontend/components/chat/ai-action-card.tsx)
       (baru) — kartu terpisah dari `ActionCard` (yang tetap demo-only). Tombol Confirm
       ("Ya, lanjutkan") & Reject ("Batal") memanggil endpoint asli, status pending
-      mutation ditampilkan ("Menyimpan…"), error dari API (mis. validasi 422 field wajib
-      kosong) ditampilkan di kartu. **Tidak ada tombol Edit** (sengaja, lihat komentar di
-      file) -- field yang gagal diresolusi cuma disorot, user perlu kirim ulang lewat chat.
+      mutation ditampilkan ("Menyimpan…"), error dari API ditampilkan di kartu **dengan
+      pesan per-field** (mis. "Wallet wajib diisi.", bukan cuma "Periksa lagi isiannya." --
+      `chat/page.tsx` sekarang menggabungkan semua `error.fieldMessage()` dari `ApiError`).
+- [x] **Tombol Edit** — `editableFieldsForAiAction()` di `ai-action-view.ts` mendefinisikan
+      field yang bisa diedit per jenis action (dropdown entitas untuk field id seperti
+      `wallet_id`/`account_id`, select untuk enum, date/text/number untuk sisanya); field
+      untuk `create_transaction` ikut berubah dinamis sesuai `type` yang sedang diedit.
+      Submit edit mengirim `edits` ke `POST .../confirm` (backend sudah mendukung ini
+      dari awal lewat `ConfirmAiAction`, tinggal disambungkan) -- hasil di DB berstatus
+      `edited`, beda dari `confirmed` polos. `advice` sengaja tidak punya tombol Edit
+      (tidak menulis apa pun, tidak ada yang perlu diedit).
 - [x] `message-list.tsx` render `AiActionCard` untuk `item.aiAction` (field baru di
       `ChatItem`, terpisah dari `card` yang demo-only), `chat/page.tsx` menyaring
       `/ai-actions` (family-wide, tidak thread-scoped) ke milik thread yang sedang dibuka
@@ -123,6 +131,12 @@ diasumsikan), lalu dikerjakan sesuai jawaban:
       `ai_actions.status=confirmed` + `result_table`/`result_id` terisi benar. Reject
       ("Batal") juga diverifikasi terpisah dengan action `advice` → status `rejected`,
       kartu menampilkan "Dibatalkan".
+- [x] **Edit juga diverifikasi end-to-end** dengan draft `create_transaction` yang sengaja
+      `wallet_id: null` (mensimulasikan NameResolver gagal cocokkan nama wallet): (1)
+      confirm tanpa edit dulu → 422, kartu menampilkan "Wallet wajib diisi." tepat di
+      tempatnya; (2) klik Edit, pilih wallet dari dropdown, "Simpan & Konfirmasi" → 200,
+      `ai_actions.status=edited` (beda dari `confirmed`), baris `transactions` sungguhan
+      muncul dengan `wallet_id` yang baru dipilih.
 
 ### Konfigurasi live (database)
 
@@ -133,9 +147,18 @@ terenkripsi (`encrypted` cast, `APP_KEY`). Key **tidak** ditulis di `.env` atau 
 manapun — cuma ada di DB. Kalau butuh ganti/lihat key sekarang, lewat halaman admin
 `/admin/llm-settings` (preview 4 karakter terakhir) atau `LlmSetting::query()->first()`.
 
+### Validasi tambahan (backend)
+
+- [x] `base_url` sekarang **wajib** kalau `provider=openai_compatible`
+      (`UpdateLlmSettingRequest::effectiveProvider()` — lihat request/DB row yang sudah
+      ada dulu baru fallback `.env`, supaya update parsial yang tidak menyertakan
+      `provider` tetap kena aturan ini kalau baris DB-nya sudah `openai_compatible`).
+      3 test baru di `LlmSettingTest.php`.
+
 ### Verifikasi
 
-- Test otomatis: 16 lulus (lihat di atas).
+- Test otomatis: 19 lulus (`LlmSettingTest` 12, `OpenAiCompatibleConversationRunnerTest`
+  3, `AssistantServiceTest` 4).
 - **End-to-end manual lewat browser (Playwright headless)**: daftar user baru → dialihkan
   `/onboarding` → buat family → `/chat` menampilkan sapaan + pertanyaan onboarding **asli
   dari server** (bukan skrip demo lama) → kirim "abis jajan 20rb di gopay" → balasan
@@ -145,10 +168,12 @@ manapun — cuma ada di DB. Kalau butuh ganti/lihat key sekarang, lewat halaman 
 
 ### Commit
 
-- [x] Semua perubahan sesi ini **di-commit** — `5c17b01` "Activate real AI chat:
-      OpenAI-compatible runner (Groq) + SSE wiring" (20 Agustus 2026). Kartu aksi
-      sungguhan (lihat di atas) dikerjakan setelah commit itu — **belum di-commit**,
-      lihat "Tugas selanjutnya". Belum ada yang di-push ke `origin/main`.
+- [x] Backend + SSE wiring — `5c17b01` "Activate real AI chat: OpenAI-compatible runner
+      (Groq) + SSE wiring" (20 Agustus 2026).
+- [x] Kartu aksi (confirm/reject) — `843db6c` "Wire real AI action cards: confirm/reject
+      drafted transactions in chat" (20 Agustus 2026).
+- [ ] Tombol Edit + validasi `base_url` — **belum di-commit**, dikerjakan setelah
+      `843db6c`. Belum ada yang di-push ke `origin/main`.
 
 ---
 
@@ -225,23 +250,20 @@ masalah karena sudah multi-worker; ini murni gotcha dev-lokal.
 
 ## Tugas selanjutnya (prioritas)
 
-1. **Commit kartu aksi asli** — perubahan belum di-commit (lihat bagian "Commit" di
-   atas). `git add` file frontend baru/berubah + jalankan `npx tsc --noEmit` sekali lagi
-   sebelum commit kalau ada perubahan lanjutan.
+1. **Commit tombol Edit + validasi `base_url`** — perubahan belum di-commit (lihat bagian
+   "Commit" di atas).
 2. **Putuskan nasib alur onboarding terstruktur** — apa tetap lewat `/onboarding-answers`
    dengan layar terpisah, atau digabung ke pengalaman chat teks bebas (kalau digabung,
    perlu tool baru di `AssistantService` untuk menulis `OnboardingAnswer`, bukan lewat
-   endpoint terpisah).
-3. **Bangun form Edit untuk kartu aksi** — sekarang field yang gagal diresolusi server
-   cuma disorot italic, user harus kirim ulang lewat chat kalau mau perbaiki. Form edit
-   per jenis action (6 jenis) yang mengirim `edits` ke `POST /ai-actions/{id}/confirm`
-   akan menutup gap ini.
-4. **Uji di luar happy path**: key Groq salah/dicabut (pastikan `ProcessAssistantMessage`
-   gagal dengan rapi ke `role=system` error, bukan diam — sudah kejadian natural lewat
-   rate limit sesi ini, lihat catatan Groq di atas, dan perilakunya sudah benar), 422 dari
-   confirm saat field wajib kosong (`aiActionErrors` di `chat/page.tsx` sudah menangkap
-   pesannya tapi belum diuji dengan draft yang sungguhan tidak lengkap), `base_url` kosong
-   untuk provider `openai_compatible` (belum ada validasi eksplisit bahwa `base_url`
-   wajib diisi kalau provider = `openai_compatible` — sekarang cuma `nullable`).
-5. **Jangan pakai `php artisan serve` untuk dev/test `/chat`** — lihat catatan operasional
+   endpoint terpisah). **Keputusan produk, bukan sekadar kerjaan teknis** — belum
+   diputuskan sesi ini.
+3. **Jangan pakai `php artisan serve` untuk dev/test `/chat`** — lihat catatan operasional
    di atas, pakai Herd atau server PHP-FPM/Apache lain.
+
+### Sudah diuji sejak draft di atas ditulis
+
+- [x] **Key Groq salah/dicabut** — diuji sengaja (bukan cuma teramati lewat rate limit):
+      ganti `llm_settings.key` jadi string acak lewat tinker, kirim pesan → Groq balas
+      `401 invalid_api_key` → `ProcessAssistantMessage` habis 3 percobaan →
+      `ChatMessage role=system` "Amina lagi ada gangguan teknis..." tertulis dengan benar
+      (bukan diam). Key asli sudah dikembalikan setelahnya, dicek lagi masih `200 OK`.
