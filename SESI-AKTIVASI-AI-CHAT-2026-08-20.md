@@ -86,8 +86,43 @@ diasumsikan), lalu dikerjakan sesuai jawaban:
       openapi-typescript`) — sudah termasuk field `provider`. **Jangan diedit tangan**,
       generate ulang lagi kalau backend openapi spec berubah lagi.
 - [x] `frontend/.env.local` (baru, git-ignored) — `NEXT_PUBLIC_MOCK_AMINA=0`,
-      `NEXT_PUBLIC_API_URL=http://127.0.0.1:8000/api/v1`. **Ini cuma di mesin lokal ini**,
+      `NEXT_PUBLIC_API_URL=http://amanahfinance_api.test/api/v1` (Herd -- lihat "Catatan
+      operasional" soal kenapa bukan `php artisan serve`). **Ini cuma di mesin lokal ini**,
       tidak ikut ter-commit (lihat `.gitignore`: `.env*` kecuali `.env.production`).
+
+### Kartu aksi (action card) sungguhan
+
+- [x] `AiAction` (tipe baru), `qk.aiActions`, `usePendingAiActions` / `useConfirmAiAction`
+      / `useRejectAiAction` di [lib/api/hooks.ts](frontend/lib/api/hooks.ts) — confirm
+      memicu `useInvalidateAll()` (di-`export` dari fungsi internal yang sudah ada,
+      dipakai ulang alih-alih menulis mapping `result_table` sendiri) supaya
+      wallets/accounts/income-sources/savings-goals/transactions/analytics semua ikut
+      refresh begitu draft tersimpan.
+- [x] `useChatStream` sekarang menerima `familyId`, event `action_card` (payload SSE cuma
+      `{id, action, payload, created_at}` -- server sudah menyaring pending & thread ini,
+      status `pending` diasumsikan) ditulis ke query cache `qk.aiActions`.
+- [x] [lib/ai-action-view.ts](frontend/lib/ai-action-view.ts) (baru) — `describeAiAction()`
+      memetakan `payload` (isinya id hasil resolusi server, bukan nama) balik ke nama
+      entitas (`accounts`/`wallets`/`incomeSources`/`savingsGoals`) buat tiap 6 jenis
+      action; field yang gagal diresolusi (nama ambigu) ditandai `missing` dan disorot.
+- [x] [components/chat/ai-action-card.tsx](frontend/components/chat/ai-action-card.tsx)
+      (baru) — kartu terpisah dari `ActionCard` (yang tetap demo-only). Tombol Confirm
+      ("Ya, lanjutkan") & Reject ("Batal") memanggil endpoint asli, status pending
+      mutation ditampilkan ("Menyimpan…"), error dari API (mis. validasi 422 field wajib
+      kosong) ditampilkan di kartu. **Tidak ada tombol Edit** (sengaja, lihat komentar di
+      file) -- field yang gagal diresolusi cuma disorot, user perlu kirim ulang lewat chat.
+- [x] `message-list.tsx` render `AiActionCard` untuk `item.aiAction` (field baru di
+      `ChatItem`, terpisah dari `card` yang demo-only), `chat/page.tsx` menyaring
+      `/ai-actions` (family-wide, tidak thread-scoped) ke milik thread yang sedang dibuka
+      lewat `message_id`.
+- [x] **Diverifikasi end-to-end lewat browser sungguhan** (bukan cuma tsc/eslint): kirim
+      "gue baru buka rekening GoPay saldo awal 100rb" → kartu "Tambah Akun Baru" muncul
+      dengan data yang benar (Nama Akun GoPay, Jenis E-Wallet, Saldo Awal Rp 100.000) →
+      klik "Ya, lanjutkan" → `POST /ai-actions/{id}/confirm` sukses (200) → kartu berubah
+      jadi "Sudah disimpan" → baris `accounts`/`wallets` sungguhan muncul di DB dengan
+      `ai_actions.status=confirmed` + `result_table`/`result_id` terisi benar. Reject
+      ("Batal") juga diverifikasi terpisah dengan action `advice` → status `rejected`,
+      kartu menampilkan "Dibatalkan".
 
 ### Konfigurasi live (database)
 
@@ -108,20 +143,37 @@ manapun — cuma ada di DB. Kalau butuh ganti/lihat key sekarang, lewat halaman 
   apa nih?") dalam ~15 detik lewat SSE, badge "Balasan demo" hilang, tidak ada error di
   console maupun `storage/logs/laravel.log`.
 
+### Commit
+
+- [x] Semua perubahan sesi ini **di-commit** — `5c17b01` "Activate real AI chat:
+      OpenAI-compatible runner (Groq) + SSE wiring" (20 Agustus 2026). Kartu aksi
+      sungguhan (lihat di atas) dikerjakan setelah commit itu — **belum di-commit**,
+      lihat "Tugas selanjutnya". Belum ada yang di-push ke `origin/main`.
+
+---
+
+## Catatan operasional penting: `php artisan serve` vs Herd untuk halaman ini
+
+Ditemukan saat verifikasi kartu aksi: `php artisan serve` (PHP built-in server) **satu
+thread** — selama koneksi SSE `useChatStream` masih terbuka (bertahan sampai ~20-25 detik
+per desain, lalu reconnect), **request lain dari tab browser yang sama ikut nge-block**
+sampai koneksi SSE itu selesai. Diukur langsung: request `GET /families` biasa yang
+harusnya instan, makan **21 detik** selagi SSE terbuka lewat `php artisan serve` — di Herd
+(nginx + PHP-FPM, banyak worker), request yang sama **1.4 detik**. Ini yang awalnya bikin
+tombol "Ya, lanjutkan" kelihatan macet di "Menyimpan…" saat racikan test pertama (bukan
+bug di kode confirm/reject-nya — sudah dibuktikan lewat `curl` langsung ke endpoint,
+selalu sukses).
+
+**Implikasi:** jangan pakai `php artisan serve` untuk dev/test halaman `/chat` (atau
+halaman apa pun yang membuka SSE lama). Pakai Herd (atau server PHP-FPM/Apache lain yang
+sungguhan) — itu juga yang dipakai `frontend/.env.local` sekarang
+(`http://amanahfinance_api.test/api/v1`). Di produksi (hPanel, Apache+PHP-FPM) ini bukan
+masalah karena sudah multi-worker; ini murni gotcha dev-lokal.
+
 ---
 
 ## Belum dikerjakan (sengaja, di luar scope sesi ini)
 
-- [ ] **P0 — Kartu aksi (action card) sungguhan.** `AiAction` (`create_transaction`, dst)
-      sudah tersimpan `pending` lewat tool call asli, endpoint
-      `POST /ai-actions/{id}/confirm|reject` juga **sudah ada** di backend — tapi
-      `MessageList`/`ActionCard` di frontend cuma render bentuk `DemoActionCard` (data
-      demo), belum ada mapping dari payload `AiAction` asli ke kartu, belum ada mutation
-      confirm/reject yang manggil endpoint itu, belum ada invalidate query per
-      `result_table` (`transactions`/`wallets`/dst) setelah confirm. **Ini yang bikin
-      user belum bisa benar-benar menyimpan draft transaksi dari chat.** Event
-      `action_card` dari SSE sudah sampai ke `useChatStream` tapi sengaja belum
-      ditangani (lihat komentar di kode) — begitu kartu asli ada, tinggal disambungkan.
 - [ ] **P1 — Alur onboarding terstruktur.** `POST /onboarding-answers`
       (`question_key`+`answer` terstruktur, bukan teks bebas) yang sesungguhnya
       menggerakkan `OnboardingConversationActions::advance()` **tidak** dipanggil dari
@@ -129,21 +181,23 @@ manapun — cuma ada di DB. Kalau butuh ganti/lihat key sekarang, lewat halaman 
       LLM biasa (general assistant), bukan mengisi `onboarding_answers`. Naskah
       pertanyaannya ada di `config/amina.php` (`onboarding_questions`), tapi belum ada
       layar/form terstruktur untuk menjawabnya.
-- [ ] **P1 — Commit.** Semua perubahan sesi ini (migrasi, backend runner, frontend SSE,
-      dst) **masih belum di-commit** — belum diminta eksplisit selama sesi.
 - [ ] **P2 — Operasional dev lokal.** Windows tidak punya cron; `queue:work` harus jalan
       terus manual untuk balasan AI muncul (lihat CLAUDE.md soal hPanel — masalah yang
       sama persis di lokal). Pertimbangkan skrip kecil (`composer run dev` ala Laravel
       default, atau task terpisah) supaya tidak perlu diingat manual tiap kali dev.
-  - **Proses masih nyala dari sesi ini** (background): `php artisan serve` (:8000),
-    `php artisan queue:work` (terus-menerus, bukan burst), `npm run dev` (:3000).
-    Matikan kalau sudah tidak dipakai, atau ganti ke workflow biasa
-    (Herd di `amanahfinance_api.test` + `NEXT_PUBLIC_API_URL` produksi-style).
-- [ ] **P2 — Pantau kuota Groq.** Free tier `openai/gpt-oss-120b`: 1K request/hari,
-      200K token/hari (lihat [GROQ-MODELS.md](GROQ-MODELS.md)) — model reasoning ini
-      boros token (lihat catatan `max_tokens` di atas). Kalau dipakai serius/testing
-      berulang, kuota harian bisa cepat habis; pertimbangkan model non-reasoning
-      (`openai/gpt-oss-20b`) atau upgrade tier kalau itu terjadi.
+  - **Proses masih nyala dari sesi ini** (background): `php artisan queue:work`
+    (terus-menerus, bukan burst), `npm run dev` (:3000, dengan `.env.local` mengarah ke
+    Herd). `php artisan serve` **sudah dimatikan** sesi ini (lihat gotcha SSE di atas).
+    Matikan `queue:work`/`npm run dev` juga kalau sudah tidak dipakai.
+- [x] **Pantau kuota Groq — sudah kejadian, bukan cuma risiko.** Sempat kena
+      `429 Rate limit reached` beneran (lihat `storage/logs/laravel.log`,
+      ~21:30) gara-gara testing berulang di sesi ini. Dimensi yang abis duluan ternyata
+      **TPM (8000 token/menit), bukan RPD** (1000/hari, jarang tersentuh) -- masuk akal
+      karena `openai/gpt-oss-120b` boros token `reasoning`, dan tiap panggilan bawa system
+      prompt + 6 definisi tool sekaligus. Window TPM reset cepat (hitungan detik-menit),
+      jadi cukup jeda sebentar antar pesan chat kalau kena ini lagi -- tapi kalau dipakai
+      serius/banyak keluarga sekaligus, pertimbangkan model non-reasoning
+      (`openai/gpt-oss-20b`) atau upgrade tier.
 - [ ] **P3 — Frontend admin llm-settings**: placeholder field "Model" masih contoh
       Anthropic (`claude-sonnet-5`) terlepas dari provider yang dipilih — kosmetik,
       tidak fungsional.
@@ -162,25 +216,32 @@ manapun — cuma ada di DB. Kalau butuh ganti/lihat key sekarang, lewat halaman 
 `tests/Feature/LlmSettingTest.php`
 
 **Frontend:** `lib/api/client.ts` · `lib/api/hooks.ts` · `lib/api/admin-hooks.ts` ·
-`lib/api/schema.d.ts` (generated) · `app/admin/(dashboard)/llm-settings/page.tsx` ·
-`app/(app)/chat/page.tsx` · `components/chat/message-list.tsx` · `.env.local` (baru,
-git-ignored)
+`lib/api/keys.ts` · `lib/api/schema.d.ts` (generated) · `lib/ai-action-view.ts` (baru) ·
+`app/admin/(dashboard)/llm-settings/page.tsx` · `app/(app)/chat/page.tsx` ·
+`components/chat/message-list.tsx` · `components/chat/ai-action-card.tsx` (baru) ·
+`.env.local` (git-ignored, sekarang arah Herd -- lihat gotcha SSE di atas)
 
 ---
 
 ## Tugas selanjutnya (prioritas)
 
-1. **Bangun kartu aksi asli** — pemetaan `AiAction.payload` → tampilan kartu per jenis
-   action, mutation confirm/reject, invalidate query pasca-confirm. Ini yang membuat AI
-   di chat benar-benar bisa dipakai mencatat transaksi, bukan cuma ngobrol.
+1. **Commit kartu aksi asli** — perubahan belum di-commit (lihat bagian "Commit" di
+   atas). `git add` file frontend baru/berubah + jalankan `npx tsc --noEmit` sekali lagi
+   sebelum commit kalau ada perubahan lanjutan.
 2. **Putuskan nasib alur onboarding terstruktur** — apa tetap lewat `/onboarding-answers`
    dengan layar terpisah, atau digabung ke pengalaman chat teks bebas (kalau digabung,
    perlu tool baru di `AssistantService` untuk menulis `OnboardingAnswer`, bukan lewat
    endpoint terpisah).
-3. **Commit** perubahan sesi ini begitu siap, dengan pesan yang memisahkan "provider
-   abstraction (Groq)" dari "SSE wiring frontend" kalau mau riwayat commit yang rapi.
+3. **Bangun form Edit untuk kartu aksi** — sekarang field yang gagal diresolusi server
+   cuma disorot italic, user harus kirim ulang lewat chat kalau mau perbaiki. Form edit
+   per jenis action (6 jenis) yang mengirim `edits` ke `POST /ai-actions/{id}/confirm`
+   akan menutup gap ini.
 4. **Uji di luar happy path**: key Groq salah/dicabut (pastikan `ProcessAssistantMessage`
-   gagal dengan rapi ke `role=system` error, bukan diam), rate limit Groq tercapai,
-   `base_url` kosong untuk provider `openai_compatible` (belum ada validasi eksplisit
-   bahwa `base_url` wajib diisi kalau provider = `openai_compatible` — sekarang cuma
-   `nullable`).
+   gagal dengan rapi ke `role=system` error, bukan diam — sudah kejadian natural lewat
+   rate limit sesi ini, lihat catatan Groq di atas, dan perilakunya sudah benar), 422 dari
+   confirm saat field wajib kosong (`aiActionErrors` di `chat/page.tsx` sudah menangkap
+   pesannya tapi belum diuji dengan draft yang sungguhan tidak lengkap), `base_url` kosong
+   untuk provider `openai_compatible` (belum ada validasi eksplisit bahwa `base_url`
+   wajib diisi kalau provider = `openai_compatible` — sekarang cuma `nullable`).
+5. **Jangan pakai `php artisan serve` untuk dev/test `/chat`** — lihat catatan operasional
+   di atas, pakai Herd atau server PHP-FPM/Apache lain.

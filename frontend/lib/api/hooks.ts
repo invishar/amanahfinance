@@ -17,6 +17,7 @@ import { useSession } from "@/lib/auth";
 import { tokenStore } from "@/lib/token-store";
 
 export type Account = Schemas["Account"];
+export type AiAction = Schemas["AiAction"];
 export type AnalyticsSummary = Schemas["AnalyticsSummary"];
 export type ChatMessage = Schemas["ChatMessage"];
 export type ChatThread = Schemas["ChatThread"];
@@ -103,7 +104,7 @@ export function useAnalytics(month = currentMonth()) {
 /* --- Mutations ----------------------------------------------------------- */
 
 /** Semua data turunan ikut berubah setiap kali entitas ditulis. */
-function useInvalidateAll() {
+export function useInvalidateAll() {
   const queryClient = useQueryClient();
   const { familyId } = useActiveFamily();
   return () => {
@@ -271,7 +272,7 @@ function parseSseFrame(frame: string): { event: string; data: unknown } | null {
   }
 }
 
-export function useChatStream(threadId: string | null) {
+export function useChatStream(threadId: string | null, familyId: string | null) {
   const queryClient = useQueryClient();
   const [isThinking, setIsThinking] = useState(false);
   const [streamError, setStreamError] = useState<ChatMessage | null>(null);
@@ -294,6 +295,24 @@ export function useChatStream(threadId: string | null) {
             : [...list, message];
         },
       );
+    };
+
+    // Payload SSE cuma { id, action, payload, created_at } (lihat
+    // ChatStreamController::emitNewActionCards) -- server sudah menyaring
+    // begitu pending & milik thread ini, jadi status pending diasumsikan di
+    // sini, bukan dikirim ulang.
+    const appendAiAction = (data: {
+      id: string;
+      action: AiAction["action"];
+      payload: AiAction["payload"];
+      created_at: string;
+    }) => {
+      if (!familyId) return;
+      queryClient.setQueryData<AiAction[]>(qk.aiActions(familyId), (prev) => {
+        const list = prev ?? [];
+        if (list.some((a) => a.id === data.id)) return list;
+        return [...list, { ...data, status: "pending" }];
+      });
     };
 
     const connect = async () => {
@@ -354,10 +373,16 @@ export function useChatStream(threadId: string | null) {
                 setStreamError(errorMessage);
               } else if (frame.event === "retry") {
                 after = (frame.data as { after: string }).after;
+              } else if (frame.event === "action_card") {
+                appendAiAction(
+                  frame.data as {
+                    id: string;
+                    action: AiAction["action"];
+                    payload: AiAction["payload"];
+                    created_at: string;
+                  },
+                );
               }
-              // `action_card` sengaja belum ditangani di sini -- kartu aksi
-              // interaktif (confirm/reject) belum ada tampilannya untuk data
-              // ai_actions asli, cuma untuk skenario demo (lihat ActionCard).
             }
           }
         } catch {
@@ -371,7 +396,52 @@ export function useChatStream(threadId: string | null) {
     return () => {
       cancelled = true;
     };
-  }, [threadId, queryClient]);
+  }, [threadId, familyId, queryClient]);
 
   return { isThinking, streamError };
+}
+
+/* --- Ai actions (kartu aksi) ----------------------------------------------
+   Draft dari AssistantService (create_transaction, dst), status pending
+   sampai user confirm/reject -- lihat CLAUDE.md aturan #5. Tidak ada endpoint
+   thread-scoped, jadi konsumen (chat/page.tsx) menyaring sendiri lewat
+   message_id yang ada di thread yang sedang dibuka. */
+
+export function usePendingAiActions() {
+  return useFamilyQuery<AiAction>(qk.aiActions, "/ai-actions");
+}
+
+export function useConfirmAiAction() {
+  const queryClient = useQueryClient();
+  const { familyId } = useActiveFamily();
+  const invalidateAll = useInvalidateAll();
+
+  return useMutation({
+    mutationFn: ({ id, edits }: { id: string; edits?: Record<string, unknown> }) =>
+      api.one<AiAction>("POST", `/ai-actions/${id}/confirm`, edits ?? {}),
+    onSuccess: (updated) => {
+      if (familyId) {
+        queryClient.setQueryData<AiAction[]>(qk.aiActions(familyId), (prev) =>
+          (prev ?? []).map((a) => (a.id === updated.id ? updated : a)),
+        );
+      }
+      invalidateAll();
+    },
+  });
+}
+
+export function useRejectAiAction() {
+  const queryClient = useQueryClient();
+  const { familyId } = useActiveFamily();
+
+  return useMutation({
+    mutationFn: (id: string) => api.one<AiAction>("POST", `/ai-actions/${id}/reject`),
+    onSuccess: (updated) => {
+      if (familyId) {
+        queryClient.setQueryData<AiAction[]>(qk.aiActions(familyId), (prev) =>
+          (prev ?? []).map((a) => (a.id === updated.id ? updated : a)),
+        );
+      }
+    },
+  });
 }
