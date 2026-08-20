@@ -2,15 +2,20 @@
 
 Dibuat 19 Agustus 2026. Log kronologis proses membuat `frontend/` (Next.js static
 export) benar-benar ter-build dan ter-serve dari `public/` di server hPanel produksi
-(`afapi.anindyo.in`). Ditulis sebagai rujukan kalau masalah serupa muncul lagi di
+(`<DOMAIN>`). Ditulis sebagai rujukan kalau masalah serupa muncul lagi di
 server lain, atau kalau server ini di-reset/redeploy dari nol. Update status tiap
 item begitu dikerjakan, jangan hapus riwayatnya — tambahkan entri baru di bawah.
+
+**Placeholder di dokumen ini** — sesuaikan dengan server kamu sendiri:
+- `<DOMAIN>` — domain publik aplikasi (mis. `api.contohdomain.com`)
+- `<APP_PATH>` — path aplikasi di home directory server (mis.
+  `~/domains/contohdomain.com/nama-app`)
 
 ---
 
 ## Gejala awal
 
-`afapi.anindyo.in/admin` (dan kemungkinan seluruh path frontend lain) mengembalikan
+`<DOMAIN>/admin` (dan kemungkinan seluruh path frontend lain) mengembalikan
 404 default Laravel, padahal source route-nya ada di `frontend/app/admin/`.
 
 ## Root cause #1 — hook belum pernah jalan
@@ -174,7 +179,7 @@ scp -P <PORT> frontend/frontend-out.tar.gz <user>@<host>:~/frontend-out.tar.gz
 ```
 Lalu di sesi SSH server:
 ```bash
-cd ~/domains/anindyo.in/amanahfinance_api
+cd <APP_PATH>
 mkdir -p /tmp/frontend-out
 tar -xzf ~/frontend-out.tar.gz -C /tmp/frontend-out
 rsync -a --delete \
@@ -182,8 +187,8 @@ rsync -a --delete \
   --exclude "robots.txt" --exclude "storage" \
   /tmp/frontend-out/ public/
 rm -rf /tmp/frontend-out ~/frontend-out.tar.gz
-curl -sI https://afapi.anindyo.in/ | head -1
-curl -sI https://afapi.anindyo.in/admin | head -1
+curl -sI https://<DOMAIN>/ | head -1
+curl -sI https://<DOMAIN>/admin | head -1
 ```
 
 Hapus `frontend/frontend-out.tar.gz` lokal setelah selesai upload — itu build
@@ -199,7 +204,7 @@ artifact, bukan sesuatu yang perlu dikomit.
       `cpus: 1` — kedua fix ini tetap berguna untuk build **lokal** yang jadi
       prosedur resmi, meski tidak menyelesaikan masalah di server
 - [x] Build-lokal-upload dieksekusi 19 Agustus 2026, dikonfirmasi:
-      `afapi.anindyo.in/`, `/admin`, `/admin/login` semua `200`
+      `<DOMAIN>/`, `/admin`, `/admin/login` semua `200`
 - [x] Prosedur build-lokal-upload jadi cara resmi deploy frontend ke depannya
       (bukan lagi cadangan)
 - [x] **Root cause #6 ditemukan & difix**: `/admin` bisa dibuka tapi blank +
@@ -257,8 +262,8 @@ frontend sama sekali.
 
 ## Fakta lingkungan server (untuk rujukan cepat, tanpa kredensial)
 
-- Domain publik: `afapi.anindyo.in`
-- Path aplikasi di server: `~/domains/anindyo.in/amanahfinance_api`
+- Domain publik: `<DOMAIN>`
+- Path aplikasi di server: `<APP_PATH>`
 - Hosting: hPanel (kemungkinan Hostinger), CloudLinux dengan LVE resource limits
 - **Tidak ada** menu "Setup Node.js App" di panel akun ini
 - **Tidak ada** binary `xz` di shell server (pakai `.tar.gz`, bukan `.tar.xz`)
