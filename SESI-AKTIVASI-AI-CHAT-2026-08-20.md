@@ -199,13 +199,13 @@ masalah karena sudah multi-worker; ini murni gotcha dev-lokal.
 
 ## Belum dikerjakan (sengaja, di luar scope sesi ini)
 
-- [ ] **P1 — Alur onboarding terstruktur.** `POST /onboarding-answers`
-      (`question_key`+`answer` terstruktur, bukan teks bebas) yang sesungguhnya
-      menggerakkan `OnboardingConversationActions::advance()` **tidak** dipanggil dari
-      kotak chat manapun — mengetik jawaban di `/chat` sekarang cuma masuk sebagai pesan
-      LLM biasa (general assistant), bukan mengisi `onboarding_answers`. Naskah
-      pertanyaannya ada di `config/amina.php` (`onboarding_questions`), tapi belum ada
-      layar/form terstruktur untuk menjawabnya.
+- [x] **Alur onboarding terstruktur — diputuskan dibiarkan dulu.** Ditanyakan ke user
+      (3 opsi: biarkan / gabung ke chat lewat tool baru / layar terpisah) — jawabannya
+      **biarkan dulu**, tidak ada desain final soal pengalaman onboarding-nya. Jadi status
+      tetap: `POST /onboarding-answers` (`question_key`+`answer` terstruktur) tidak
+      dipanggil dari kotak chat manapun, mengetik jawaban di `/chat` masuk ke LLM umum
+      (general assistant, bukan mengisi `onboarding_answers`). Bukan bug -- keputusan
+      sadar, revisit kalau desain onboarding sudah ada.
 - [ ] **P2 — Operasional dev lokal.** Windows tidak punya cron; `queue:work` harus jalan
       terus manual untuk balasan AI muncul (lihat CLAUDE.md soal hPanel — masalah yang
       sama persis di lokal). Pertimbangkan skrip kecil (`composer run dev` ala Laravel
@@ -250,20 +250,13 @@ masalah karena sudah multi-worker; ini murni gotcha dev-lokal.
 
 ## Tugas selanjutnya (prioritas)
 
-1. **Commit tombol Edit + validasi `base_url`** — perubahan belum di-commit (lihat bagian
-   "Commit" di atas).
-2. **Putuskan nasib alur onboarding terstruktur** — apa tetap lewat `/onboarding-answers`
-   dengan layar terpisah, atau digabung ke pengalaman chat teks bebas (kalau digabung,
-   perlu tool baru di `AssistantService` untuk menulis `OnboardingAnswer`, bukan lewat
-   endpoint terpisah). **Keputusan produk, bukan sekadar kerjaan teknis** — belum
-   diputuskan sesi ini.
-3. **Jangan pakai `php artisan serve` untuk dev/test `/chat`** — lihat catatan operasional
-   di atas, pakai Herd atau server PHP-FPM/Apache lain.
+Semua item teknis dari draft sebelumnya sudah selesai (commit `3a9b2dc`) dan diuji
+(termasuk key salah/dicabut — lihat "Sudah selesai" → "Validasi tambahan"/"Verifikasi").
+Satu-satunya sisa adalah keputusan produk (alur onboarding, lihat "Belum dikerjakan" di
+atas — **sudah dijawab user: dibiarkan dulu**, tidak ada tindakan lanjutan sampai desain
+onboarding final ada).
 
-### Sudah diuji sejak draft di atas ditulis
-
-- [x] **Key Groq salah/dicabut** — diuji sengaja (bukan cuma teramati lewat rate limit):
-      ganti `llm_settings.key` jadi string acak lewat tinker, kirim pesan → Groq balas
-      `401 invalid_api_key` → `ProcessAssistantMessage` habis 3 percobaan →
-      `ChatMessage role=system` "Amina lagi ada gangguan teknis..." tertulis dengan benar
-      (bukan diam). Key asli sudah dikembalikan setelahnya, dicek lagi masih `200 OK`.
+Kandidat kerjaan berikutnya kalau ada waktu lagi (tidak diminta, sekadar catatan):
+kartu aksi belum punya cara menampilkan lebih dari satu draft yang sedang pending
+sekaligus dengan rapi di layar sempit, dan `/admin/llm-settings`'s placeholder "Model"
+masih contoh Anthropic terlepas dari provider yang dipilih (kosmetik).
