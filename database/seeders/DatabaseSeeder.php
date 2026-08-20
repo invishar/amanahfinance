@@ -62,14 +62,18 @@ class DatabaseSeeder extends Seeder
             ->orderByDesc('tx_count')
             ->first();
 
+        $appUrl = rtrim(config('app.url'), '/');
+
         $this->command?->newLine();
-        $this->command?->info('=== Kredensial seeding ===');
 
         if ($admin) {
-            $this->command?->line("Admin: {$admin->email} / pass: password");
+            $this->command?->line("{$appUrl}/admin/login");
+            $this->command?->line("Sample user Admin: {$admin->email} / pass: password");
+            $this->command?->newLine();
         }
 
         if ($topUser) {
+            $this->command?->line("{$appUrl}/login");
             $this->command?->line("Sample user dengan banyak transaksi : {$topUser->email} ({$topUser->full_name}) - {$topUser->tx_count} transaksi / pass: password");
         }
     }
