@@ -1,3 +1,15 @@
+<IfModule LiteSpeed>
+    # hPanel's LiteSpeed serves a page-cache layer (LSCache) that bypasses PHP
+    # entirely for cached URLs and does not invalidate when the underlying
+    # file changes -- it kept serving a register.html snapshot from days
+    # earlier (wrong _next/static chunk hashes) through multiple redeploys.
+    # This app has no cacheable pages (every response is session-aware via
+    # Laravel's 'web' middleware, and static export content changes without
+    # the URL changing across deploys), so disable page-cache lookups
+    # entirely rather than chase per-page cache-control tuning.
+    CacheLookup off
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
