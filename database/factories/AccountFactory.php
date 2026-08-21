@@ -23,12 +23,15 @@ class AccountFactory extends Factory
 
         return [
             'family_id' => Family::factory(),
+            // Suffixed with a unique number: `name` is unique per family, and a
+            // fixed pool (e.g. 'cash' always drawing 'Tunai') would otherwise
+            // collide whenever a test creates more than one account per family.
             'name' => match ($type) {
                 'bank' => fake()->randomElement(['BCA', 'Mandiri', 'BNI', 'BRI']),
                 'ewallet' => fake()->randomElement(['GoPay', 'OVO', 'Dana', 'ShopeePay']),
                 'cash' => 'Tunai',
                 default => fake()->words(2, true),
-            },
+            }.' '.fake()->unique()->numerify('####'),
             'account_type' => $type,
             'institution' => $type === 'bank' ? fake()->company() : null,
             'masked_number' => $type === 'bank' ? '****'.fake()->numerify('####') : null,

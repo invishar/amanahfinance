@@ -20,7 +20,10 @@ class IncomeSourceFactory extends Factory
     {
         return [
             'family_id' => Family::factory(),
-            'name' => fake()->randomElement(['Gaji Bulanan', 'Freelance Desain', 'Bisnis Kecil', 'Investasi']),
+            // Suffixed with a unique number: `name` is unique per family, and this
+            // fixed pool would otherwise collide whenever a test creates more than
+            // one income source per family.
+            'name' => fake()->randomElement(['Gaji Bulanan', 'Freelance Desain', 'Bisnis Kecil', 'Investasi']).' '.fake()->unique()->numerify('####'),
             'owner_member_id' => null,
             'expected_amount' => fake()->numberBetween(2_000_000, 25_000_000),
             'cadence' => fake()->randomElement(['monthly', 'biweekly', 'weekly', 'irregular']),

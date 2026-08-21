@@ -20,10 +20,13 @@ class WalletFactory extends Factory
     {
         return [
             'family_id' => Family::factory(),
+            // Suffixed with a unique number: `name` is unique per family, and this
+            // fixed pool would otherwise collide whenever a test creates more than
+            // one wallet per family.
             'name' => fake()->randomElement([
                 'Makan & Minum', 'Transportasi', 'Belanja Bulanan', 'Hiburan',
                 'Tagihan', 'Kesehatan', 'Pendidikan', 'Lain-lain',
-            ]),
+            ]).' '.fake()->unique()->numerify('####'),
             'icon' => 'wallet',
             'color' => fake()->safeHexColor(),
             'monthly_budget' => fake()->numberBetween(200_000, 3_000_000),
