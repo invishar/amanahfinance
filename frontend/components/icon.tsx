@@ -1,6 +1,7 @@
 // Satu-satunya pintu masuk ikon. Set ikon: Lucide (jangan campur set lain).
 
 import {
+  AlertTriangle,
   ArrowDownLeft,
   ArrowUpRight,
   Banknote,
@@ -43,6 +44,7 @@ import {
 import type { CSSProperties } from "react";
 
 const ICONS = {
+  "alert-triangle": AlertTriangle,
   "arrow-down-left": ArrowDownLeft,
   "arrow-up-right": ArrowUpRight,
   banknote: Banknote,

@@ -2,6 +2,7 @@
 
 use App\Models\Account;
 use App\Models\AiAction;
+use App\Models\AiProviderError;
 use App\Models\ChatMessage;
 use App\Models\ChatThread;
 use App\Models\Family;
@@ -116,6 +117,12 @@ test('a non-2xx provider response is logged to the dedicated ai channel', functi
 
     expect(fn () => app(AssistantService::class)->respond($userMessage))
         ->toThrow(RequestException::class);
+
+    $error = AiProviderError::query()->where('message_id', $userMessage->id)->first();
+    expect($error)->not->toBeNull();
+    expect($error->status)->toBe(429);
+    expect($error->family_id)->toBe($family->id);
+    expect($error->exception)->toBe(RequestException::class);
 });
 
 test('a non-HTTP provider failure is still logged with a null status', function () {
@@ -137,6 +144,10 @@ test('a non-HTTP provider failure is still logged with a null status', function 
 
     expect(fn () => app(AssistantService::class)->respond($userMessage))
         ->toThrow(RuntimeException::class);
+
+    $error = AiProviderError::query()->where('message_id', $userMessage->id)->first();
+    expect($error)->not->toBeNull();
+    expect($error->status)->toBeNull();
 });
 
 test('fail writes a system message and bumps last_message_at', function () {

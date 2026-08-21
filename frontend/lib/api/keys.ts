@@ -21,5 +21,7 @@ export const qk = {
   adminUser: (id: string) => ["admin-user", id] as const,
   adminSubscriptions: (status: string, page: number) =>
     ["admin-subscriptions", status, page] as const,
+  adminAiErrors: (status: string, model: string, page: number) =>
+    ["admin-ai-errors", status, model, page] as const,
   llmSetting: ["llm-setting"] as const,
 };

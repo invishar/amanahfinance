@@ -525,6 +525,25 @@ Response `data` (detail): sama seperti list tapi tanpa `families_count`/`subscri
 
 ---
 
+## AI Provider Errors — monitoring admin
+
+Setiap kali panggilan LLM (`ConversationRunner`, lihat `AssistantService`) dibalas selain 2xx
+(rate limit, auth, request terlalu besar, timeout, dst.) ditulis di sini -- satu baris per
+percobaan (job `ProcessAssistantMessage` di-retry 3x, jadi satu pesan user yang gagal total
+bisa menghasilkan sampai 3 baris). Lintas-family seperti "Users" di atas, gated
+`users.is_admin`. **Read-only** -- baris ditulis internal oleh `AssistantService`, tidak ada
+`store`/`update`/`destroy` lewat API. Duplikat channel log `ai` (`config/logging.php`,
+`storage/logs/ai-*.log`) yang lebih cocok untuk `grep` manual; tabel ini yang dipakai layar
+admin supaya bisa difilter & dipaginasi.
+
+| Method | Path | Query | Role |
+| --- | --- | --- | --- |
+| GET | `/admin/ai-errors` | `?status=` (kode HTTP dari provider, exact match), `?model=` (exact match), `?per_page=` (default 20, maks 100) | `is_admin` |
+
+Response `data`: `id, family_id, family_name, thread_id, message_id, model, status, exception, body, created_at`. `status` `null` untuk kegagalan yang bukan respons HTTP (mis. timeout koneksi). `family_id`/`thread_id`/`message_id` bisa `null` kalau resource yang direferensikan sudah dihapus (`nullOnDelete`) -- baris tetap ada sebagai jejak. `body` sudah dipotong 2000 karakter saat ditulis.
+
+---
+
 ## Subscription Plans — katalog langganan
 
 Katalog paket langganan platform, **bukan** resource per-family — mirip `llm-settings` di atas: tidak berada di bawah `resolve.family`/`X-Family-Id`. Membaca (`index`/`show`) **sepenuhnya publik, tidak perlu login sama sekali** (satu-satunya endpoint lain yang begitu adalah `/auth/register` dan `/auth/login` — lihat "Autentikasi" di atas), supaya katalog bisa ditampilkan sebelum user punya akun. Mutasi (`store`/`update`/`destroy`) gated `users.is_admin`, sama seperti LLM Settings.

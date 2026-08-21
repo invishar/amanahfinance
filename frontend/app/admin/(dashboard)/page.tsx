@@ -23,6 +23,12 @@ const CARDS = [
     title: "LLM Setting",
     body: "Atur model, base URL, dan API key LLM yang dipakai asisten Amina di seluruh platform.",
   },
+  {
+    href: "/admin/ai-errors",
+    icon: "alert-triangle",
+    title: "Log AI",
+    body: "Pantau kegagalan panggilan LLM (rate limit, auth, timeout) lintas family, difilter berdasarkan status dan model.",
+  },
 ] as const;
 
 export default function AdminHomePage() {

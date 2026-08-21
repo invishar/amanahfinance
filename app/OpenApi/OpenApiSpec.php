@@ -57,7 +57,7 @@ class OpenApiSpec
                 'Wallet Budgets', 'Income Sources', 'Savings Goals', 'Transactions', 'Recurring Rules',
                 'Chat Threads', 'Chat Messages', 'Uploads', 'Onboarding Answers', 'Notifications',
                 'AI Actions', 'Audit Logs', 'Analytics', 'LLM Settings', 'Subscription Plans', 'Subscriptions',
-                'Users',
+                'Users', 'AI Provider Errors',
             ]
         );
     }
@@ -484,6 +484,21 @@ class OpenApiSpec
                     'created_at' => ['type' => 'string', 'format' => 'date-time'],
                 ],
             ],
+            'AiProviderError' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'string', 'format' => 'uuid'],
+                    'family_id' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
+                    'family_name' => ['type' => 'string', 'nullable' => true],
+                    'thread_id' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
+                    'message_id' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
+                    'model' => ['type' => 'string'],
+                    'status' => ['type' => 'integer', 'nullable' => true, 'description' => 'Kode HTTP dari provider. null kalau kegagalan bukan respons HTTP (mis. timeout).'],
+                    'exception' => ['type' => 'string', 'description' => 'Nama class exception PHP.'],
+                    'body' => ['type' => 'string', 'nullable' => true, 'description' => 'Dipotong 2000 karakter saat ditulis.'],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                ],
+            ],
             'AnalyticsWallet' => [
                 'type' => 'object',
                 'properties' => [
@@ -600,7 +615,30 @@ class OpenApiSpec
             self::subscriptionPlanPaths(),
             self::subscriptionPaths(),
             self::adminUserPaths(),
+            self::adminAiErrorPaths(),
         );
+    }
+
+    private static function adminAiErrorPaths(): array
+    {
+        return [
+            '/admin/ai-errors' => [
+                'get' => [
+                    'tags' => ['AI Provider Errors'],
+                    'summary' => 'Monitoring kegagalan panggilan LLM (is_admin)',
+                    'description' => 'Lintas-family. Satu baris per percobaan ConversationRunner yang dibalas selain 2xx (lihat AssistantService::logProviderError()) -- read-only, ditulis internal.',
+                    'parameters' => [
+                        ['name' => 'status', 'in' => 'query', 'description' => 'Kode HTTP dari provider, exact match.', 'schema' => ['type' => 'integer']],
+                        ['name' => 'model', 'in' => 'query', 'description' => 'Exact match.', 'schema' => ['type' => 'string']],
+                        ['name' => 'per_page', 'in' => 'query', 'description' => 'Default 20, maks 100.', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+                    ],
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::paginatedEnvelope('AiProviderError')),
+                        '403' => self::refResponse('Forbidden'),
+                    ],
+                ],
+            ],
+        ];
     }
 
     private static function adminUserPaths(): array

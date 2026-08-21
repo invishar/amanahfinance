@@ -8,6 +8,7 @@ use App\Actions\Analytics\AnalyticsActions;
 use App\Actions\LlmSettings\LlmSettingActions;
 use App\Models\Account;
 use App\Models\AiAction;
+use App\Models\AiProviderError;
 use App\Models\ChatMessage;
 use App\Models\ChatThread;
 use App\Models\Family;
@@ -93,9 +94,10 @@ class AssistantService
 
     // Dipanggil setiap kali panggilan runner gagal (satu entri per percobaan
     // -- job ini di-retry 3x, lihat ProcessAssistantMessage::$tries), bukan
-    // cuma sekali di percobaan terakhir. Channel `ai` (config/logging.php)
-    // terpisah dari laravel.log supaya gangguan provider (rate limit, quota,
-    // auth) gampang dipantau sendiri tanpa harus menyaring trace request web.
+    // cuma sekali di percobaan terakhir. Ditulis ke dua tempat: channel `ai`
+    // (config/logging.php, terpisah dari laravel.log supaya gangguan
+    // provider gampang di-grep) dan tabel ai_provider_errors supaya admin
+    // bisa lihat/filter lewat GET /admin/ai-errors tanpa parse file log.
     private function logProviderError(Throwable $e, Family $family, ChatMessage $userMessage, string $model): void
     {
         $status = match (true) {
@@ -104,10 +106,11 @@ class AssistantService
             default => null,
         };
 
-        $body = match (true) {
+        $rawBody = match (true) {
             $e instanceof RequestException => $e->response->body(),
             default => $e->getMessage(),
         };
+        $body = Str::limit($rawBody, 2000);
 
         Log::channel('ai')->warning('Panggilan LLM gagal', [
             'status' => $status,
@@ -116,8 +119,28 @@ class AssistantService
             'thread_id' => $userMessage->thread_id,
             'message_id' => $userMessage->id,
             'exception' => $e::class,
-            'body' => Str::limit($body, 2000),
+            'body' => $body,
         ]);
+
+        // Dibungkus try/catch sendiri: kalau insert ini yang gagal (mis. DB
+        // lagi bermasalah), exception provider ASLI yang harus tetap
+        // dilempar ulang oleh pemanggil (respond()), bukan tertutup oleh
+        // error dari baris ini.
+        try {
+            AiProviderError::create([
+                'family_id' => $family->id,
+                'thread_id' => $userMessage->thread_id,
+                'message_id' => $userMessage->id,
+                'model' => $model,
+                'status' => $status,
+                'exception' => $e::class,
+                'body' => $body,
+            ]);
+        } catch (Throwable $persistError) {
+            Log::channel('ai')->error('Gagal menyimpan baris ai_provider_errors', [
+                'exception' => $persistError->getMessage(),
+            ]);
+        }
     }
 
     /**

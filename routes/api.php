@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountController;
+use App\Http\Controllers\Api\AdminAiErrorController;
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AiActionController;
 use App\Http\Controllers\Api\AnalyticsController;
@@ -67,6 +68,11 @@ Route::prefix('v1')->group(function () {
         // Read-only: tidak ada promote/demote is_admin lewat API (tinker-only).
         Route::get('/admin/users', [AdminUserController::class, 'index']);
         Route::get('/admin/users/{user}', [AdminUserController::class, 'show']);
+
+        // Monitoring kegagalan provider LLM lintas-family (lihat
+        // AssistantService::logProviderError()) -- gated is_admin
+        // (AiProviderErrorPolicy). Read-only, ditulis internal.
+        Route::get('/admin/ai-errors', [AdminAiErrorController::class, 'index']);
 
         // Katalog paket langganan: mutasi gated is_admin
         // (SubscriptionPlanPolicy). GET index/show ada di blok publik di atas.

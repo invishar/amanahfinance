@@ -3887,6 +3887,57 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/admin/ai-errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Monitoring kegagalan panggilan LLM (is_admin)
+         * @description Lintas-family. Satu baris per percobaan ConversationRunner yang dibalas selain 2xx (lihat AssistantService::logProviderError()) -- read-only, ditulis internal.
+         */
+        get: {
+            parameters: {
+                query?: {
+                    /** @description Kode HTTP dari provider, exact match. */
+                    status?: number;
+                    /** @description Exact match. */
+                    model?: string;
+                    /** @description Default 20, maks 100. */
+                    per_page?: number;
+                };
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody?: never;
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["AiProviderError"][];
+                            links?: components["schemas"]["PaginationLinks"];
+                            meta?: components["schemas"]["PaginationMeta"];
+                        };
+                    };
+                };
+                403: components["responses"]["Forbidden"];
+            };
+        };
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -4296,6 +4347,26 @@ export interface components {
             diff?: {
                 [key: string]: unknown;
             } | null;
+            /** Format: date-time */
+            created_at?: string;
+        };
+        AiProviderError: {
+            /** Format: uuid */
+            id?: string;
+            /** Format: uuid */
+            family_id?: string | null;
+            family_name?: string | null;
+            /** Format: uuid */
+            thread_id?: string | null;
+            /** Format: uuid */
+            message_id?: string | null;
+            model?: string;
+            /** @description Kode HTTP dari provider. null kalau kegagalan bukan respons HTTP (mis. timeout). */
+            status?: number | null;
+            /** @description Nama class exception PHP. */
+            exception?: string;
+            /** @description Dipotong 2000 karakter saat ditulis. */
+            body?: string | null;
             /** Format: date-time */
             created_at?: string;
         };

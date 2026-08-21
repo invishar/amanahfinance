@@ -13,6 +13,7 @@ export type AdminUser = Schemas["AdminUser"];
 export type AdminUserDetail = Schemas["AdminUserDetail"];
 export type Subscription = Schemas["Subscription"];
 export type LlmSetting = Schemas["LlmSetting"];
+export type AiProviderError = Schemas["AiProviderError"];
 
 function query(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
@@ -77,6 +78,19 @@ export function useRejectSubscription() {
         review_note,
       }),
     onSuccess: invalidate,
+  });
+}
+
+/* --- AI provider errors ------------------------------------------------------
+   Monitoring kegagalan panggilan LLM (AssistantService::logProviderError()) --
+   satu baris per percobaan ConversationRunner yang dibalas selain 2xx. */
+
+export function useAdminAiErrors(status: string, model: string, page: number) {
+  return useQuery({
+    queryKey: qk.adminAiErrors(status, model, page),
+    queryFn: () =>
+      api.listRaw<AiProviderError>(`/admin/ai-errors${query({ status, model, page })}`),
+    placeholderData: (previous) => previous,
   });
 }
 

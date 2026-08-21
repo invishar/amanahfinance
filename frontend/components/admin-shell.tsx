@@ -7,7 +7,7 @@ import { Icon } from "@/components/icon";
 import { useSession } from "@/lib/auth";
 
 interface AdminNavItem {
-  href: "/admin/users" | "/admin/payments" | "/admin/llm-settings";
+  href: "/admin/users" | "/admin/payments" | "/admin/llm-settings" | "/admin/ai-errors";
   label: string;
   icon: string;
 }
@@ -16,6 +16,7 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/users", label: "User", icon: "users" },
   { href: "/admin/payments", label: "Pembayaran", icon: "credit-card" },
   { href: "/admin/llm-settings", label: "LLM Setting", icon: "sparkles" },
+  { href: "/admin/ai-errors", label: "Log AI", icon: "alert-triangle" },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
