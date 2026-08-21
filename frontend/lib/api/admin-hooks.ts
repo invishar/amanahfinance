@@ -92,8 +92,12 @@ export function useLlmSetting() {
 export function useUpdateLlmSetting() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: (body: { key?: string; model: string; base_url?: string | null }) =>
-      api.one<LlmSetting>("PUT", "/llm-settings", body),
+    mutationFn: (body: {
+      key?: string;
+      model: string;
+      base_url?: string | null;
+      provider?: "anthropic" | "openai_compatible";
+    }) => api.one<LlmSetting>("PUT", "/llm-settings", body),
     onSuccess: (data) => queryClient.setQueryData(qk.llmSetting, data),
   });
 }

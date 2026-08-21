@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 // Platform-wide, not family-scoped -- no BelongsToFamily trait here on purpose.
-#[Fillable(['key', 'model', 'base_url', 'updated_by'])]
+#[Fillable(['key', 'model', 'base_url', 'provider', 'updated_by'])]
 #[Hidden(['key'])]
 class LlmSetting extends Model
 {

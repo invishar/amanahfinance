@@ -28,9 +28,73 @@ test('platform admin sees env fallback when no row exists yet, key never in resp
     $this->getJson('/api/v1/llm-settings')
         ->assertOk()
         ->assertJsonPath('data.model', config('services.llm.model'))
+        ->assertJsonPath('data.provider', 'anthropic')
         ->assertJsonMissingPath('data.key');
 
     $this->assertDatabaseCount('llm_settings', 0);
+});
+
+test('platform admin can switch provider to openai_compatible', function () {
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
+
+    $response = $this->putJson('/api/v1/llm-settings', [
+        'key' => 'gsk_groq_test_key',
+        'model' => 'openai/gpt-oss-120b',
+        'base_url' => 'https://api.groq.com/openai/v1',
+        'provider' => 'openai_compatible',
+    ])->assertOk();
+
+    $response->assertJsonPath('data.provider', 'openai_compatible');
+    expect(LlmSetting::query()->first()->provider)->toBe('openai_compatible');
+});
+
+test('invalid provider is rejected', function () {
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
+
+    $this->putJson('/api/v1/llm-settings', [
+        'model' => 'claude-sonnet-5',
+        'provider' => 'not_a_real_provider',
+    ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['provider']);
+});
+
+test('openai_compatible provider requires base_url', function () {
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
+
+    $this->putJson('/api/v1/llm-settings', [
+        'model' => 'openai/gpt-oss-120b',
+        'provider' => 'openai_compatible',
+    ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['base_url']);
+});
+
+test('anthropic provider does not require base_url', function () {
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
+
+    $this->putJson('/api/v1/llm-settings', [
+        'model' => 'claude-sonnet-5',
+        'provider' => 'anthropic',
+    ])->assertOk();
+});
+
+test('base_url stays required when provider already openai_compatible in db and omitted from request', function () {
+    Sanctum::actingAs(User::factory()->create(['is_admin' => true]));
+
+    $this->putJson('/api/v1/llm-settings', [
+        'model' => 'openai/gpt-oss-120b',
+        'base_url' => 'https://api.groq.com/openai/v1',
+        'provider' => 'openai_compatible',
+    ])->assertOk();
+
+    // Second update omits both provider and base_url -- effective provider
+    // must fall back to the DB row, not silently allow base_url to vanish.
+    $this->putJson('/api/v1/llm-settings', [
+        'model' => 'openai/gpt-oss-20b',
+    ])
+        ->assertStatus(422)
+        ->assertJsonValidationErrors(['base_url']);
 });
 
 test('platform admin can create the settings row via update', function () {

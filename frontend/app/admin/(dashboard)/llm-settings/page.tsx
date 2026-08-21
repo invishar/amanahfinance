@@ -26,6 +26,9 @@ function LlmSettingForm({ initial }: { initial: LlmSetting }) {
 
   const [model, setModel] = useState(initial.model ?? "");
   const [baseUrl, setBaseUrl] = useState(initial.base_url ?? "");
+  const [provider, setProvider] = useState<"anthropic" | "openai_compatible">(
+    initial.provider ?? "anthropic",
+  );
   const [key, setKey] = useState("");
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -42,6 +45,7 @@ function LlmSettingForm({ initial }: { initial: LlmSetting }) {
       const result = await update.mutateAsync({
         model: model.trim(),
         base_url: baseUrl.trim() || null,
+        provider,
         ...(key.trim() ? { key: key.trim() } : {}),
       });
       setKey("");
@@ -92,11 +96,29 @@ function LlmSettingForm({ initial }: { initial: LlmSetting }) {
         <input
           id="base-url"
           className="input"
-          placeholder="https://api.anthropic.com"
+          placeholder={
+            provider === "openai_compatible"
+              ? "https://api.groq.com/openai/v1"
+              : "https://api.anthropic.com"
+          }
           value={baseUrl}
           onChange={(e) => setBaseUrl(e.target.value)}
         />
         {fieldErrors.base_url && <p className="field-error">{fieldErrors.base_url}</p>}
+      </div>
+
+      <div className="field">
+        <label htmlFor="provider">Provider</label>
+        <select
+          id="provider"
+          className="input"
+          value={provider}
+          onChange={(e) => setProvider(e.target.value as "anthropic" | "openai_compatible")}
+        >
+          <option value="anthropic">Anthropic (Claude)</option>
+          <option value="openai_compatible">OpenAI-compatible (Groq, dst.)</option>
+        </select>
+        {fieldErrors.provider && <p className="field-error">{fieldErrors.provider}</p>}
       </div>
 
       <div className="field">

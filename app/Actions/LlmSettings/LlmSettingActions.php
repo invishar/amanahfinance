@@ -18,6 +18,7 @@ class LlmSettingActions
             'key' => config('services.llm.key') ?: null,
             'model' => config('services.llm.model'),
             'base_url' => config('services.llm.base_url') ?: null,
+            'provider' => config('services.llm.provider', 'anthropic'),
         ]);
     }
 
@@ -27,6 +28,7 @@ class LlmSettingActions
 
         $setting->model = $data['model'];
         $setting->base_url = $data['base_url'] ?? null;
+        $setting->provider = $data['provider'] ?? $setting->provider ?? 'anthropic';
 
         if (array_key_exists('key', $data) && filled($data['key'])) {
             $setting->key = $data['key'];

@@ -6,6 +6,7 @@ use Anthropic\Client as AnthropicClient;
 use App\Actions\LlmSettings\LlmSettingActions;
 use App\Services\Ai\AnthropicConversationRunner;
 use App\Services\Ai\Contracts\ConversationRunner;
+use App\Services\Ai\OpenAiCompatibleConversationRunner;
 use App\Support\CurrentFamily;
 use Illuminate\Support\ServiceProvider;
 
@@ -32,10 +33,19 @@ class AppServiceProvider extends ServiceProvider
             );
         });
 
-        // Bound to the real SDK wrapper by default; tests rebind this to a
-        // fake that invokes the tool closures directly instead of faking
-        // Anthropic's wire format.
-        $this->app->bind(ConversationRunner::class, AnthropicConversationRunner::class);
+        // Picks the runner per llm_settings.provider -- Anthropic's SDK and a
+        // generic OpenAI-compatible client (Groq, dst) speak incompatible
+        // wire protocols, so this can't be inferred from base_url/model.
+        // Re-read every request, same reasoning as the AnthropicClient
+        // singleton above. Tests rebind this to a fake that invokes the tool
+        // closures directly instead of faking either wire format.
+        $this->app->bind(ConversationRunner::class, function ($app) {
+            $provider = $app->make(LlmSettingActions::class)->current()->provider;
+
+            return $provider === 'openai_compatible'
+                ? $app->make(OpenAiCompatibleConversationRunner::class)
+                : $app->make(AnthropicConversationRunner::class);
+        });
     }
 
     /**

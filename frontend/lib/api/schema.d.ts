@@ -4336,6 +4336,8 @@ export interface components {
             /** @example claude-sonnet-5 */
             model?: string;
             base_url?: string | null;
+            /** @enum {string} */
+            provider?: "anthropic" | "openai_compatible";
             has_key?: boolean;
             /** @example ...alue */
             key_preview?: string | null;

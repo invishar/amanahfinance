@@ -526,6 +526,7 @@ class OpenApiSpec
                 'properties' => [
                     'model' => ['type' => 'string', 'example' => 'claude-sonnet-5'],
                     'base_url' => ['type' => 'string', 'nullable' => true],
+                    'provider' => ['type' => 'string', 'enum' => ['anthropic', 'openai_compatible']],
                     'has_key' => ['type' => 'boolean'],
                     'key_preview' => ['type' => 'string', 'nullable' => true, 'example' => '...alue'],
                     'updated_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],

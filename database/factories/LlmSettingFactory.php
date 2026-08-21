@@ -20,6 +20,7 @@ class LlmSettingFactory extends Factory
             'key' => fake()->uuid(),
             'model' => config('services.llm.model', 'claude-sonnet-5'),
             'base_url' => null,
+            'provider' => 'anthropic',
             'updated_by' => User::factory(),
         ];
     }

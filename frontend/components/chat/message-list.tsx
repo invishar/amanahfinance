@@ -3,13 +3,18 @@
 import { useEffect, useRef } from "react";
 
 import { ActionCard } from "@/components/chat/action-card";
+import { AiActionCard } from "@/components/chat/ai-action-card";
+import type { Account, AiAction, IncomeSource, SavingsGoal, Wallet } from "@/lib/api/hooks";
 import type { DemoActionCard } from "@/lib/mock/assistant";
 
 export interface ChatItem {
   id: string;
-  role: "user" | "assistant";
+  /** `system` = pesan error dari server (CLAUDE.md: ProcessAssistantMessage::failed()), bukan balasan Amina biasa. */
+  role: "user" | "assistant" | "system";
   content: string;
   card?: DemoActionCard;
+  /** Draft AiAction sungguhan (bukan skenario demo) -- lihat `card` untuk itu. */
+  aiAction?: AiAction;
   /** Pesan optimistic yang belum dikonfirmasi server. */
   pending?: boolean;
 }
@@ -19,11 +24,28 @@ export function MessageList({
   isTyping,
   demo,
   onResolveCard,
+  aiActionEntities,
+  onConfirmAiAction,
+  onRejectAiAction,
+  confirmingAiActionId,
+  rejectingAiActionId,
+  aiActionErrors,
 }: {
   items: ChatItem[];
   isTyping: boolean;
   demo: boolean;
   onResolveCard: (id: string, status: "confirmed" | "cancelled") => void;
+  aiActionEntities: {
+    accounts: Account[];
+    wallets: Wallet[];
+    incomeSources: IncomeSource[];
+    savingsGoals: SavingsGoal[];
+  };
+  onConfirmAiAction: (id: string, edits?: Record<string, unknown>) => void;
+  onRejectAiAction: (id: string) => void;
+  confirmingAiActionId: string | null;
+  rejectingAiActionId: string | null;
+  aiActionErrors: Record<string, string>;
 }) {
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -70,7 +92,10 @@ export function MessageList({
                     m.role === "user"
                       ? "var(--color-accent-100)"
                       : "var(--color-surface)",
-                  border: "1px solid var(--color-divider)",
+                  color: m.role === "system" ? "var(--color-accent-800)" : undefined,
+                  border: m.role === "system"
+                    ? "1px solid var(--color-accent-800)"
+                    : "1px solid var(--color-divider)",
                 }}
               >
                 {m.content}
@@ -82,6 +107,17 @@ export function MessageList({
                 demo={demo}
                 onConfirm={() => onResolveCard(m.id, "confirmed")}
                 onCancel={() => onResolveCard(m.id, "cancelled")}
+              />
+            )}
+            {m.aiAction && (
+              <AiActionCard
+                aiAction={m.aiAction}
+                entities={aiActionEntities}
+                onConfirm={(edits) => onConfirmAiAction(m.aiAction!.id!, edits)}
+                onReject={() => onRejectAiAction(m.aiAction!.id!)}
+                isConfirming={confirmingAiActionId === m.aiAction.id}
+                isRejecting={rejectingAiActionId === m.aiAction.id}
+                errorMessage={m.aiAction.id ? aiActionErrors[m.aiAction.id] : null}
               />
             )}
           </div>
