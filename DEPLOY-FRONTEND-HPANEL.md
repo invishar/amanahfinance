@@ -163,6 +163,18 @@ Prosedur build-lokal-upload didokumentasikan lengkap di bagian
 
 ## Prosedur deploy frontend (final)
 
+**Sekali per server** (atau kalau ragu setelah setup ulang/reset), verifikasi
+document root domain benar-benar symlink ke `<APP_PATH>/public` — lihat
+[root cause #7](#root-cause-7--document-root-fisik-terpisah-dari-apppathpublic-21-agustus-2026)
+kenapa ini penting:
+```bash
+readlink -f ~/domains/<domain-utama>/public_html/<subdomain-atau-folder-docroot>
+```
+Kalau hasilnya path itu sendiri (bukan mengarah ke `<APP_PATH>/public`), berarti
+itu folder fisik terpisah — perbaiki dulu (pindahkan isinya, buat symlink) sebelum
+lanjut, kalau tidak rsync di bawah akan menulis ke tempat yang tidak pernah
+tersaji.
+
 Setiap kali `frontend/` berubah dan siap di-deploy, dari laptop lokal:
 
 ```bash
@@ -209,6 +221,11 @@ artifact, bukan sesuatu yang perlu dikomit.
       (bukan lagi cadangan)
 - [x] **Root cause #6 ditemukan & difix**: `/admin` bisa dibuka tapi blank +
       `/admin/login` tanpa style — lihat detail di bawah
+- [x] **Root cause #7 ditemukan & difix (21 Agustus 2026)**: document root domain
+      ternyata folder fisik terpisah dari `<APP_PATH>/public`, sudah diganti jadi
+      symlink — lihat detail di bawah
+- [ ] **TODO**: hapus `public_html/afapi.bak-20260821` (backup folder document
+      root lama dari fix root cause #7) setelah dipastikan stabil beberapa hari
 
 ## Root cause #6 — fallback Laravel tidak bisa serve asset statis (`_next/static/*`)
 
@@ -251,6 +268,63 @@ Kedua fix ini murni perubahan kode PHP (`routes/web.php`), tidak menyentuh
 `frontend/` — deploy ke server cukup `git pull` biasa, tidak perlu build ulang
 frontend sama sekali.
 
+## Root cause #7 — document root fisik terpisah dari `<APP_PATH>/public` (21 Agustus 2026)
+
+Setelah root cause #1–#6 di atas beres dan prosedur build-lokal-upload dijalankan
+berulang kali, `<DOMAIN>` **tetap** menyajikan versi lama — `curl -sI` menunjukkan
+`Last-Modified` beku beberapa hari ke belakang dan sama sekali tidak ada header
+Laravel (`x-powered-by`, `Set-Cookie`), padahal `<APP_PATH>/public/` di server
+sudah dikonfirmasi berisi build terbaru.
+
+Diagnosa lewat SSH:
+```bash
+find ~ -maxdepth 5 -iname "index.php"
+```
+menunjukkan **dua** `index.php` berbeda untuk domain ini:
+- `~/domains/anindyo.in/amanahfinance_api/public/index.php` — repo git, target
+  rsync prosedur deploy di atas (`<APP_PATH>/public`).
+- `~/domains/anindyo.in/public_html/afapi/index.php` — folder **fisik terpisah**,
+  ternyata inilah document root asli yang dipetakan hPanel untuk subdomain
+  `afapi.anindyo.in`.
+
+`readlink -f` pada folder kedua mengembalikan path itu sendiri (bukan symlink) —
+folder biasa, terakhir berubah beberapa hari sebelumnya, cocok dengan tanggal
+`Last-Modified` yang stale. Setiap siklus build-lokal-upload di prosedur di atas
+selama ini menulis ke `<APP_PATH>/public/` dengan benar, tapi **tidak pernah
+tersaji** karena web server membaca dari folder lain.
+
+Bukti tambahan: `index.php` di folder lama itu ternyata sudah **dipatch manual**
+(path `../../amanahfinance_api/...` alih-alih `../...` bawaan Laravel) — indikasi
+seseorang sebelumnya sudah pernah menambal gejala yang sama dengan cara manual per
+file, bukan memperbaiki penyebabnya.
+
+**Fix:** jadikan folder document root itu symlink ke `<APP_PATH>/public`, bukan
+folder fisik terpisah:
+```bash
+mv ~/domains/anindyo.in/public_html/afapi ~/domains/anindyo.in/public_html/afapi.bak-20260821
+ln -s ~/domains/anindyo.in/amanahfinance_api/public ~/domains/anindyo.in/public_html/afapi
+```
+(Symlink `storage` dan isi `.htaccess` di `<APP_PATH>/public/` sudah benar duluan,
+tidak perlu disentuh — cuma folder pembungkusnya yang diganti jadi symlink.)
+
+Efek samping positif: `.htaccess` yang live sekarang adalah yang di-track git,
+jadi fix `CacheLookup off` (LiteSpeed page-cache, commit `3a68520`, lihat
+`CLAUDE.md`) yang sebelumnya sudah di-commit tapi tidak pernah benar-benar live
+(karena live docroot adalah folder lain) ikut aktif. `curl -sI` setelah fix
+menunjukkan header Laravel yang benar (`x-powered-by: PHP/8.4.23`,
+`Set-Cookie: afapi-session=...`, `cache-control: no-cache, private`) — konfirmasi
+request sekarang benar-benar sampai ke kode terbaru.
+
+**Status: dikonfirmasi beres oleh user 21 Agustus 2026.** Folder lama dipindah
+(bukan dihapus) ke `public_html/afapi.bak-20260821` sebagai jaring pengaman —
+**TODO: hapus setelah beberapa hari stabil**, lihat checklist di bawah.
+
+**Implikasi untuk server/domain lain:** kalau setup ulang di server baru, JANGAN
+asumsikan folder document root yang ditampilkan hPanel otomatis = `<APP_PATH>/public`.
+Selalu verifikasi dengan `readlink -f` pada folder document root sebelum
+mengandalkan prosedur rsync di bawah — lihat langkah verifikasi yang ditambahkan
+di ["Prosedur deploy frontend (final)"](#prosedur-deploy-frontend-final).
+
 ## Alternatif yang dipertimbangkan tapi belum dipakai
 
 - **Build di CI (GitHub Actions) lalu deploy artifact**: belum dieksplorasi.
@@ -273,3 +347,8 @@ frontend sama sekali.
 - `proc_open` dan `symlink()` juga punya gotcha terpisah di `CLAUDE.md` bagian
   "Perintah" — kemungkinan besar server ini satu keluarga constraint yang sama
   (CloudLinux `disable_functions` + LVE), worth dicek ulang kalau ada masalah baru
+- Document root domain adalah `~/domains/anindyo.in/public_html/afapi` — sejak
+  fix [root cause #7](#root-cause-7--document-root-fisik-terpisah-dari-apppathpublic-21-agustus-2026)
+  ini adalah **symlink** ke `~/domains/anindyo.in/amanahfinance_api/public`
+  (bukan folder fisik terpisah lagi). Verifikasi dengan `readlink -f` kalau ada
+  masalah "deploy sudah jalan tapi web tidak berubah" lagi di masa depan.
