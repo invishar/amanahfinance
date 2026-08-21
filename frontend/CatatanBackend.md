@@ -73,6 +73,8 @@ Ada `/onboarding-answers` dan `ChatThread.kind: onboarding`, tapi tidak ada endp
 
 **Usulan**: saat family dibuat, server membuat thread `kind: onboarding` berisi sapaan + pertanyaan pertama sebagai `ChatMessage` biasa, dan menyisipkan pertanyaan berikutnya setiap kali jawaban masuk. Dengan begitu frontend tidak perlu tahu apa-apa soal naskahnya. Tambahkan juga penanda progres (mis. `onboarding.step` / `onboarding.total`) kalau labelnya mau tetap ditampilkan.
 
+**Resolved 2026-08-21**: persis seperti usulan di atas, plus `onboarding.question_key` (identitas pertanyaan yang belum terjawab, dipakai klien buat `POST /onboarding-answers` termasuk tombol "Lewati" — lihat API-v1.md "Chat Threads"). `app/(app)/chat/page.tsx` sudah dipindah ke kontrak ini; `DEMO_ONBOARD_QUESTIONS`/`demoGreeting` di `lib/mock/assistant.ts` sudah dihapus.
+
 ---
 
 ## 3. P1 — Menghambat fitur yang sudah didesain

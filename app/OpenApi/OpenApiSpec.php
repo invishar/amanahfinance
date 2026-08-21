@@ -405,6 +405,10 @@ class OpenApiSpec
                             'step' => ['type' => 'integer', 'description' => 'Nomor pertanyaan yang sedang berjalan (1-based).'],
                             'total' => ['type' => 'integer'],
                             'done' => ['type' => 'boolean'],
+                            'question_key' => [
+                                'type' => 'string', 'nullable' => true,
+                                'description' => 'question_key pertanyaan yang belum terjawab saat ini -- kirim balik nilai ini ke POST /onboarding-answers (mis. tombol lewati). null kalau done.',
+                            ],
                         ],
                     ],
                 ],

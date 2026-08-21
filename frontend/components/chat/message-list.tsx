@@ -88,6 +88,7 @@ export function MessageList({
                   borderRadius: "var(--radius-lg)",
                   fontSize: 14,
                   lineHeight: 1.5,
+                  whiteSpace: "pre-wrap",
                   background:
                     m.role === "user"
                       ? "var(--color-accent-100)"

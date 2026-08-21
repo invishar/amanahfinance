@@ -25,17 +25,25 @@ class ChatThreadResource extends JsonResource
     }
 
     /**
-     * @return array{step: int, total: int, done: bool}
+     * @return array{step: int, total: int, done: bool, question_key: ?string}
      */
     private function onboardingProgress(): array
     {
-        $total = count(config('amina.onboarding_questions'));
-        $answered = OnboardingAnswer::query()->where('family_id', $this->family_id)->count();
+        $questions = config('amina.onboarding_questions');
+        $total = count($questions);
+        $answeredKeys = OnboardingAnswer::query()->where('family_id', $this->family_id)->pluck('question_key')->all();
+        $answered = count($answeredKeys);
+
+        // Klien butuh key ini untuk mengisi `question_key` saat POST
+        // /onboarding-answers (mis. tombol "Lewati") -- naskah pertanyaan
+        // sendiri tetap tidak pernah dikirim dari sini, cuma identitasnya.
+        $nextKey = collect($questions)->keys()->first(fn ($key) => ! in_array($key, $answeredKeys, true));
 
         return [
             'step' => min($answered + 1, $total),
             'total' => $total,
             'done' => $answered >= $total,
+            'question_key' => $nextKey,
         ];
     }
 }

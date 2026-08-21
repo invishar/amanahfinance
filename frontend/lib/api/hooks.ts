@@ -25,6 +25,7 @@ export type Family = Schemas["Family"];
 export type FamilyInvite = Schemas["FamilyInvite"];
 export type FamilyMember = Schemas["FamilyMember"];
 export type IncomeSource = Schemas["IncomeSource"];
+export type OnboardingAnswer = Schemas["OnboardingAnswer"];
 export type SavingsGoal = Schemas["SavingsGoal"];
 export type Transaction = Schemas["Transaction"];
 export type Wallet = Schemas["Wallet"];
@@ -244,6 +245,33 @@ export function useSendMessage(threadId: string | null) {
     },
     onSettled: () => {
       if (threadId) queryClient.invalidateQueries({ queryKey: key });
+    },
+  });
+}
+
+/**
+ * Wawancara awal (CLAUDE.md "Alur AI"): naskah & urutan pertanyaan hidup di
+ * server, klien cuma tahu `question_key` yang sedang aktif lewat
+ * `ChatThread.onboarding.question_key` (lihat API-v1.md "Onboarding Answers").
+ * Setiap POST yang berhasil (jawaban asli maupun `skipped=true`) membuat
+ * server menyisipkan pertanyaan berikutnya ke thread yang sama -- invalidasi
+ * chat-threads (progres) & messages (pertanyaan baru) supaya keduanya segar.
+ */
+export function useCreateOnboardingAnswer(threadId: string | null) {
+  const queryClient = useQueryClient();
+  const { familyId } = useActiveFamily();
+
+  return useMutation({
+    mutationFn: (body: {
+      question_key: string;
+      answer?: Record<string, unknown> | null;
+      skipped?: boolean;
+    }) => api.one<OnboardingAnswer>("POST", "/onboarding-answers", body),
+    onSuccess: () => {
+      if (familyId)
+        queryClient.invalidateQueries({ queryKey: qk.chatThreads(familyId) });
+      if (threadId)
+        queryClient.invalidateQueries({ queryKey: qk.messages(threadId) });
     },
   });
 }

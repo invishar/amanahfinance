@@ -11,6 +11,7 @@ import {
   useChatStream,
   useChatThreads,
   useConfirmAiAction,
+  useCreateOnboardingAnswer,
   useCreateThread,
   useIncomeSources,
   useMessages,
@@ -23,8 +24,6 @@ import {
 import {
   DEMO_AMINA,
   DEMO_CHIPS,
-  DEMO_ONBOARD_QUESTIONS,
-  demoGreeting,
   demoReply,
   type DemoActionCard,
   type Scenario,
@@ -86,16 +85,14 @@ export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  /* --- Bagian demo (aktif selama backend belum membalas) ----------------- */
+  /* --- Bagian demo (skenario contoh lewat chip, lihat lib/mock/assistant) - */
   const [demoItems, setDemoItems] = useState<DemoItem[]>([]);
   const [isTyping, setIsTyping] = useState(false);
-  // `undefined` = belum pernah diubah pengguna; nilainya diturunkan di bawah.
-  const [stepOverride, setStepOverride] = useState<number | null | undefined>(
-    undefined,
-  );
   const threadRequested = useRef(false);
 
-  // Belum punya thread → buat satu (sekali saja).
+  // Belum punya thread → buat satu (sekali saja). Family baru sudah otomatis
+  // dapat thread kind=onboarding dari FamilyActions::create di server; ini
+  // cuma fallback kalau entah kenapa family belum punya thread sama sekali.
   useEffect(() => {
     if (
       threads.isSuccess &&
@@ -107,38 +104,17 @@ export default function ChatPage() {
     }
   }, [threads.isSuccess, threads.data, createThread]);
 
-  // Sapaan + pertanyaan pertama: nilai turunan yang dipatok ke waktu thread
-  // dibuat, supaya tetap di urutan paling atas dan tidak butuh state/effect.
   const thread = threads.data?.[0];
-  const introItems = useMemo<DemoItem[]>(() => {
-    if (!DEMO_AMINA || !thread) return [];
-    const at = thread.created_at ? Date.parse(thread.created_at) : 0;
-    return [
-      {
-        id: "demo-greeting",
-        role: "assistant",
-        content: demoGreeting(family?.name ?? "keluargamu"),
-        at,
-      },
-      {
-        id: "demo-q0",
-        role: "assistant",
-        content: DEMO_ONBOARD_QUESTIONS[0],
-        at: at + 1,
-      },
-    ];
-  }, [thread, family?.name]);
-
-  // Wawancara dianggap berjalan selama thread belum punya pesan dari user.
-  const serverUserMessages = (messages.data ?? []).filter(
-    (m) => m.role === "user",
-  ).length;
-  const onboardStep =
-    stepOverride !== undefined
-      ? stepOverride
-      : DEMO_AMINA && messages.isSuccess && serverUserMessages === 0
-        ? 0
-        : null;
+  // Naskah & progres wawancara awal datang dari server lewat
+  // ChatThreadResource.onboarding (API-v1.md "Chat Threads") -- klien cuma
+  // tahu `question_key` yang sedang aktif, tidak pernah menyimpan naskahnya
+  // sendiri (CLAUDE.md "Alur AI").
+  const onboarding = thread?.kind === "onboarding" ? thread.onboarding : null;
+  const inWawancara = Boolean(onboarding) && !onboarding!.done;
+  const createOnboardingAnswer = useCreateOnboardingAnswer(threadId);
+  const [skipFeedback, setSkipFeedback] = useState<
+    { type: "success" | "error"; text: string } | null
+  >(null);
 
   useEffect(
     () => () => {
@@ -163,30 +139,11 @@ export default function ChatPage() {
   };
 
   const runDemoAnswer = (text: string, scenario?: Scenario) => {
-    if (!DEMO_AMINA) return;
+    if (!DEMO_AMINA || inWawancara) return;
     setIsTyping(true);
 
     // Timer di sini adalah bagian dari demo; balasan sungguhan nanti dipicu
     // event dari server, bukan setTimeout.
-    if (onboardStep !== null && scenario === undefined) {
-      later(() => {
-        setIsTyping(false);
-        const next = onboardStep + 1;
-        if (next < DEMO_ONBOARD_QUESTIONS.length) {
-          setStepOverride(next);
-          pushDemo({ role: "assistant", content: DEMO_ONBOARD_QUESTIONS[next] });
-        } else {
-          setStepOverride(null);
-          pushDemo({
-            role: "assistant",
-            content:
-              "Makasih banyak infonya! Sekarang kamu bisa langsung cerita transaksi atau lihat ringkasannya di Dashboard.",
-          });
-        }
-      }, 700);
-      return;
-    }
-
     later(() => {
       setIsTyping(false);
       const reply = demoReply(text, scenario, {
@@ -205,6 +162,36 @@ export default function ChatPage() {
     const content = text.trim();
     if (!content || !threadId) return;
     setInput("");
+
+    // Selama wawancara awal, jawaban bebas dicatat sebagai OnboardingAnswer
+    // (bukan cuma lewat tombol "Lewati") supaya progresnya beneran maju --
+    // pertanyaan berikutnya disisipkan server ke thread yang sama begitu ini
+    // sukses. Sengaja TIDAK ikut lewat /chat-threads/messages di sini: thread
+    // ini masih naskah terstruktur, bukan obrolan bebas, jadi tidak perlu
+    // memicu balasan LLM sungguhan (yang juga cuma mubazir kena
+    // rate limit provider di tengah wawancara). Balasan user tetap
+    // ditampilkan lewat bubble lokal supaya riwayatnya kelihatan.
+    if (inWawancara && scenario === undefined) {
+      // Sama seperti skipOnboardStep: tunggu question_key yang segar dulu
+      // kalau masih ada refetch dari jawaban sebelumnya yang belum selesai.
+      if (!onboarding?.question_key || createOnboardingAnswer.isPending || threads.isFetching)
+        return;
+      pushDemo({ role: "user", content });
+      setSkipFeedback(null);
+      createOnboardingAnswer.mutate(
+        { question_key: onboarding.question_key, answer: { note: content } },
+        {
+          onError: () => {
+            setSkipFeedback({
+              type: "error",
+              text: "Gagal menyimpan jawaban, coba lagi.",
+            });
+          },
+        },
+      );
+      return;
+    }
+
     sendMessage.mutate({
       content,
       input_mode: scenario === "transaction_voice" ? "voice" : "text",
@@ -213,29 +200,31 @@ export default function ChatPage() {
   };
 
   const skipOnboardStep = () => {
-    if (onboardStep === null) return;
-    setIsTyping(true);
-    later(() => {
-      setIsTyping(false);
-      pushDemo({
-        role: "assistant",
-        content: "Oke, nggak masalah — bisa diisi belakangan.",
-      });
-      const next = onboardStep + 1;
-      if (next < DEMO_ONBOARD_QUESTIONS.length) {
-        setStepOverride(next);
-        later(
-          () =>
-            pushDemo({
-              role: "assistant",
-              content: DEMO_ONBOARD_QUESTIONS[next],
-            }),
-          500,
-        );
-      } else {
-        setStepOverride(null);
-      }
-    }, 700);
+    // `threads.isFetching` juga dicek supaya tidak submit `question_key` basi
+    // -- begitu satu jawaban sukses, chat-threads diinvalidasi (lihat
+    // useCreateOnboardingAnswer) dan butuh waktu refetch sebelum
+    // `onboarding.question_key` di closure ini benar-benar yang terbaru.
+    if (!onboarding?.question_key || createOnboardingAnswer.isPending || threads.isFetching)
+      return;
+    setSkipFeedback(null);
+    createOnboardingAnswer.mutate(
+      { question_key: onboarding.question_key, skipped: true },
+      {
+        onSuccess: () => {
+          setSkipFeedback({
+            type: "success",
+            text: "Oke, pertanyaan ini dilewati — bisa diisi belakangan.",
+          });
+          later(() => setSkipFeedback(null), 2500);
+        },
+        onError: () => {
+          setSkipFeedback({
+            type: "error",
+            text: "Gagal melewati pertanyaan, coba lagi.",
+          });
+        },
+      },
+    );
   };
 
   const resolveCard = (id: string, status: "confirmed" | "cancelled") => {
@@ -286,12 +275,10 @@ export default function ChatPage() {
           }))
       : [];
 
-    return [...introItems, ...fromServer, ...fromAiActions, ...demoItems].sort(
+    return [...fromServer, ...fromAiActions, ...demoItems].sort(
       (a, b) => a.at - b.at,
     );
-  }, [introItems, messages.data, demoItems, pendingAiActions.data]);
-
-  const inWawancara = onboardStep !== null;
+  }, [messages.data, demoItems, pendingAiActions.data]);
 
   return (
     <div className="amana-chat-pane">
@@ -333,7 +320,7 @@ export default function ChatPage() {
 
       <MessageList
         items={items}
-        isTyping={isTyping || stream.isThinking}
+        isTyping={isTyping || stream.isThinking || createOnboardingAnswer.isPending}
         demo={DEMO_AMINA}
         onResolveCard={resolveCard}
         aiActionEntities={{
@@ -349,9 +336,9 @@ export default function ChatPage() {
         aiActionErrors={aiActionErrors}
       />
 
-      {inWawancara && (
+      {inWawancara && onboarding && (
         <div className="text-muted" style={{ padding: "0 var(--space-4)", fontSize: 11 }}>
-          Pertanyaan {(onboardStep ?? 0) + 1} dari {DEMO_ONBOARD_QUESTIONS.length} —
+          Pertanyaan {onboarding.step} dari {onboarding.total} —
           boleh dilewati kapan saja
         </div>
       )}
@@ -370,8 +357,9 @@ export default function ChatPage() {
             className="btn btn-secondary"
             style={{ fontSize: 12, whiteSpace: "nowrap", flex: "none" }}
             onClick={skipOnboardStep}
+            disabled={createOnboardingAnswer.isPending || threads.isFetching}
           >
-            Lewati pertanyaan ini
+            {createOnboardingAnswer.isPending ? "Melewati…" : "Lewati pertanyaan ini"}
           </button>
         ) : (
           DEMO_CHIPS.map((c) => (
@@ -387,6 +375,15 @@ export default function ChatPage() {
           ))
         )}
       </div>
+
+      {skipFeedback && (
+        <p
+          className={skipFeedback.type === "error" ? "field-error" : "text-muted"}
+          style={{ padding: "0 var(--space-4)", fontSize: 12 }}
+        >
+          {skipFeedback.text}
+        </p>
+      )}
 
       {sendMessage.isError && (
         <p className="field-error" style={{ padding: "0 var(--space-4)" }}>

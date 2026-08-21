@@ -2,6 +2,7 @@
 
 use App\Models\ChatThread;
 use App\Models\Family;
+use App\Models\OnboardingAnswer;
 
 test('store sets member id from current member not body', function () {
     [, $family, $member] = $this->actingAsFamilyMember('member');
@@ -32,6 +33,32 @@ test('index rejects an invalid kind filter', function () {
     $this->getJson('/api/v1/chat-threads?kind=whatever')
         ->assertStatus(422)
         ->assertJsonValidationErrors(['kind']);
+});
+
+test('onboarding progress exposes the next unanswered question key', function () {
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create(['kind' => 'onboarding']);
+    OnboardingAnswer::factory()->for($family)->create(['question_key' => 'members']);
+
+    $keys = array_keys(config('amina.onboarding_questions'));
+
+    $this->getJson("/api/v1/chat-threads/{$thread->id}")
+        ->assertOk()
+        ->assertJsonPath('data.onboarding.question_key', $keys[1])
+        ->assertJsonPath('data.onboarding.done', false);
+});
+
+test('onboarding progress question key is null once all questions are answered', function () {
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create(['kind' => 'onboarding']);
+    foreach (array_keys(config('amina.onboarding_questions')) as $key) {
+        OnboardingAnswer::factory()->for($family)->create(['question_key' => $key]);
+    }
+
+    $this->getJson("/api/v1/chat-threads/{$thread->id}")
+        ->assertOk()
+        ->assertJsonPath('data.onboarding.question_key', null)
+        ->assertJsonPath('data.onboarding.done', true);
 });
 
 test('tenant leak cannot view other familys thread', function () {

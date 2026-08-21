@@ -335,9 +335,12 @@ Response `data`: `id, family_id, type, amount, wallet_id, source_id, account_id,
 
 Response `data`: `id, family_id, member_id, title, kind, last_message_at, created_at, onboarding`.
 
-`onboarding` adalah `{ step, total, done }` (jumlah pertanyaan naskah onboarding &
-progres keluarga ini menjawabnya) untuk thread `kind=onboarding`, dan `null` untuk
-thread `kind=general`.
+`onboarding` adalah `{ step, total, done, question_key }` (jumlah pertanyaan naskah
+onboarding & progres keluarga ini menjawabnya) untuk thread `kind=onboarding`, dan
+`null` untuk thread `kind=general`. `question_key` adalah identitas pertanyaan yang
+belum terjawab saat ini -- klien kirim balik nilai ini ke `POST /onboarding-answers`
+(mis. tombol "lewati") tanpa perlu tahu naskah/urutan pertanyaannya sendiri; `null`
+kalau `done`.
 
 ---
 

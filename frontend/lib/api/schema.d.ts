@@ -4205,6 +4205,8 @@ export interface components {
                 step?: number;
                 total?: number;
                 done?: boolean;
+                /** @description question_key pertanyaan yang belum terjawab saat ini -- kirim balik nilai ini ke POST /onboarding-answers (mis. tombol lewati). null kalau done. */
+                question_key?: string | null;
             } | null;
         };
         ChatMessage: {

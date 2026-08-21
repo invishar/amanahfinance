@@ -1,10 +1,12 @@
 // DEMO ONLY — dipagari flag `NEXT_PUBLIC_MOCK_AMINA`.
 //
-// Backend menyimpan pesan user, tapi BELUM membalas: tidak ada pesan
-// `role: assistant`, tidak ada baris `ai_actions`, tidak ada streaming.
-// Sampai itu ada, layar chat memakai balasan tiruan di sini supaya alurnya
-// bisa didemokan. Begitu API membalas: set `NEXT_PUBLIC_MOCK_AMINA=0`, lalu
-// hapus file ini beserta pemakaiannya di `app/(app)/chat/page.tsx`.
+// Backend sudah membalas sungguhan lewat AssistantService (LLM tool calling
+// + `ai_actions`) dan wawancara awal sudah punya endpoint sendiri
+// (`ChatThread kind=onboarding` + `/onboarding-answers`, lihat
+// `app/(app)/chat/page.tsx`) -- keduanya tidak lagi lewat file ini. Yang
+// tersisa di sini cuma chip skenario contoh (`DEMO_CHIPS`/`demoReply`) untuk
+// demo cepat sebelum backend tersambung penuh di semua environment; hapus
+// begitu tidak dibutuhkan lagi.
 
 import { formatRupiah } from "@/lib/format";
 
@@ -162,15 +164,3 @@ export const DEMO_CHIPS: {
     demoText: "Gimana kondisi keuangan bulan ini?",
   },
 ];
-
-/** Naskah wawancara awal — milik server begitu endpointnya ada. */
-export const DEMO_ONBOARD_QUESTIONS = [
-  "Sebelum mulai, boleh kenalan dulu sama kondisi keuangan keluarga? Ada berapa anggota keluarga yang bakal ikut mencatat di sini?",
-  "Penghasilan bulanan biasanya dari mana saja? Boleh sebutin semuanya, misalnya gaji, freelance, atau usaha.",
-  "Pengeluaran rutin bulanan yang paling besar biasanya buat apa?",
-  "Terakhir, ada target tabungan yang sedang dikejar? Misalnya dana darurat, liburan, atau renovasi rumah.",
-];
-
-export function demoGreeting(familyName: string): string {
-  return `Halo! Aku Amina, asisten keuangan buat ${familyName}. Sebelum mulai, boleh aku tanya beberapa hal dasar biar bantuanku makin pas? Santai aja, kalau belum tahu jawabannya bisa dilewati dulu.`;
-}
