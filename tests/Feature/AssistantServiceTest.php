@@ -9,6 +9,10 @@ use App\Models\FamilyMember;
 use App\Models\Wallet;
 use App\Services\Ai\AssistantService;
 use App\Services\Ai\Contracts\ConversationRunner;
+use GuzzleHttp\Psr7\Response as Psr7Response;
+use Illuminate\Http\Client\RequestException;
+use Illuminate\Http\Client\Response;
+use Illuminate\Support\Facades\Log;
 use Tests\Support\FakeConversationRunner;
 
 // LLM di-mock lewat ConversationRunner (CLAUDE.md: "LLM selalu di-mock di
@@ -84,6 +88,55 @@ test('unresolvable account name is left blank instead of guessed', function () {
     $aiAction = AiAction::query()->where('message_id', $userMessage->id)->first();
     expect($aiAction->payload['account_id'])->toBeNull();
     expect($aiAction->payload['wallet_id'])->toBeNull();
+});
+
+test('a non-2xx provider response is logged to the dedicated ai channel', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    $response = new Response(new Psr7Response(429, [], 'rate limited'));
+    app()->bind(ConversationRunner::class, fn () => new class($response) implements ConversationRunner
+    {
+        public function __construct(private Response $response) {}
+
+        public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): string
+        {
+            throw new RequestException($this->response);
+        }
+    });
+
+    Log::shouldReceive('channel')->once()->with('ai')->andReturnSelf();
+    Log::shouldReceive('warning')->once()->with('Panggilan LLM gagal', Mockery::on(function (array $context) use ($family, $userMessage) {
+        return $context['status'] === 429
+            && $context['family_id'] === $family->id
+            && $context['message_id'] === $userMessage->id;
+    }));
+
+    expect(fn () => app(AssistantService::class)->respond($userMessage))
+        ->toThrow(RequestException::class);
+});
+
+test('a non-HTTP provider failure is still logged with a null status', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    app()->bind(ConversationRunner::class, fn () => new class implements ConversationRunner
+    {
+        public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): string
+        {
+            throw new RuntimeException('connection timed out');
+        }
+    });
+
+    Log::shouldReceive('channel')->once()->with('ai')->andReturnSelf();
+    Log::shouldReceive('warning')->once()->with('Panggilan LLM gagal', Mockery::on(fn (array $context) => $context['status'] === null));
+
+    expect(fn () => app(AssistantService::class)->respond($userMessage))
+        ->toThrow(RuntimeException::class);
 });
 
 test('fail writes a system message and bumps last_message_at', function () {

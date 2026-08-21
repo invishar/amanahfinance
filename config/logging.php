@@ -73,6 +73,19 @@ return [
             'replace_placeholders' => true,
         ],
 
+        // Channel khusus setiap kali provider LLM (Anthropic atau OpenAI-
+        // compatible seperti Groq, lihat AssistantService::logProviderError())
+        // membalas selain 2xx -- terpisah dari laravel.log yang penuh trace
+        // request web biasa, supaya gangguan provider (rate limit, quota,
+        // auth) gampang dipantau/di-grep sendiri.
+        'ai' => [
+            'driver' => 'daily',
+            'path' => storage_path('logs/ai.log'),
+            'level' => env('LOG_AI_LEVEL', 'warning'),
+            'days' => env('LOG_AI_DAYS', 30),
+            'replace_placeholders' => true,
+        ],
+
         'slack' => [
             'driver' => 'slack',
             'url' => env('LOG_SLACK_WEBHOOK_URL'),

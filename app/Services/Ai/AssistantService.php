@@ -2,6 +2,7 @@
 
 namespace App\Services\Ai;
 
+use Anthropic\Core\Exceptions\APIStatusException;
 use Anthropic\Lib\Tools\BetaRunnableTool;
 use App\Actions\Analytics\AnalyticsActions;
 use App\Actions\LlmSettings\LlmSettingActions;
@@ -15,8 +16,12 @@ use App\Models\OnboardingAnswer;
 use App\Models\SavingsGoal;
 use App\Models\Wallet;
 use App\Services\Ai\Contracts\ConversationRunner;
+use Illuminate\Http\Client\RequestException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Str;
+use Throwable;
 
 // Pesan masuk -> AssistantService -> LLM tool calling -> payload disimpan
 // sebagai ai_actions.pending -> SSE action_card ke klien (lihat CLAUDE.md
@@ -43,13 +48,21 @@ class AssistantService
         $sources = $this->activeCandidates(IncomeSource::query()->where('family_id', $family->id)->where('is_archived', false), 'name');
         $goals = $this->activeCandidates(SavingsGoal::query()->where('family_id', $family->id)->where('status', 'active'), 'target_name');
 
-        $finalText = $this->runner->run(
-            model: $this->llmSettingsModel(),
-            system: $this->buildSystemPrompt($family),
-            messages: $this->buildHistory($thread),
-            tools: $this->buildTools($family, $userMessage, $wallets, $accounts, $sources, $goals),
-            maxIterations: 4,
-        );
+        $model = $this->llmSettingsModel();
+
+        try {
+            $finalText = $this->runner->run(
+                model: $model,
+                system: $this->buildSystemPrompt($family),
+                messages: $this->buildHistory($thread),
+                tools: $this->buildTools($family, $userMessage, $wallets, $accounts, $sources, $goals),
+                maxIterations: 4,
+            );
+        } catch (Throwable $e) {
+            $this->logProviderError($e, $family, $userMessage, $model);
+
+            throw $e;
+        }
 
         return $thread->messages()->create([
             'role' => 'assistant',
@@ -76,6 +89,35 @@ class AssistantService
         $thread->update(['last_message_at' => $errorMessage->created_at]);
 
         return $errorMessage;
+    }
+
+    // Dipanggil setiap kali panggilan runner gagal (satu entri per percobaan
+    // -- job ini di-retry 3x, lihat ProcessAssistantMessage::$tries), bukan
+    // cuma sekali di percobaan terakhir. Channel `ai` (config/logging.php)
+    // terpisah dari laravel.log supaya gangguan provider (rate limit, quota,
+    // auth) gampang dipantau sendiri tanpa harus menyaring trace request web.
+    private function logProviderError(Throwable $e, Family $family, ChatMessage $userMessage, string $model): void
+    {
+        $status = match (true) {
+            $e instanceof RequestException => $e->response->status(),
+            $e instanceof APIStatusException => $e->status,
+            default => null,
+        };
+
+        $body = match (true) {
+            $e instanceof RequestException => $e->response->body(),
+            default => $e->getMessage(),
+        };
+
+        Log::channel('ai')->warning('Panggilan LLM gagal', [
+            'status' => $status,
+            'model' => $model,
+            'family_id' => $family->id,
+            'thread_id' => $userMessage->thread_id,
+            'message_id' => $userMessage->id,
+            'exception' => $e::class,
+            'body' => Str::limit($body, 2000),
+        ]);
     }
 
     /**
