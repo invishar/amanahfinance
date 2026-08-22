@@ -1,10 +1,11 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { Icon } from "@/components/icon";
 import { EmptyState, ProgressBar, Skeleton, SkeletonList } from "@/components/ui";
+import { TransactionEditDialog } from "@/components/transaction-edit-dialog";
 import {
   useAccounts,
   useAnalytics,
@@ -12,6 +13,7 @@ import {
   useSavingsGoals,
   useTransactions,
   useWallets,
+  type Transaction,
 } from "@/lib/api/hooks";
 import { useMe } from "@/lib/auth";
 import { firstName, formatDayDateID, formatRupiah, initials } from "@/lib/format";
@@ -27,6 +29,7 @@ import {
 export default function DashboardPage() {
   const router = useRouter();
   const me = useMe();
+  const [editingTx, setEditingTx] = useState<Transaction | null>(null);
   const accounts = useAccounts();
   const analytics = useAnalytics();
   const wallets = useWallets();
@@ -366,11 +369,24 @@ export default function DashboardPage() {
                 >
                   {t.amountLabel}
                 </div>
+                <button
+                  type="button"
+                  className="btn btn-icon-sm btn-secondary"
+                  onClick={() => setEditingTx(t.raw)}
+                  aria-label={`Ubah transaksi ${t.note}`}
+                >
+                  <Icon name="pencil" size={14} />
+                </button>
               </div>
             ))
           )}
         </div>
       </div>
+
+      <TransactionEditDialog
+        transaction={editingTx}
+        onClose={() => setEditingTx(null)}
+      />
     </div>
   );
 }

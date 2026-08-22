@@ -156,6 +156,21 @@ export function useDeleteEntity(kind: EntityKind) {
   });
 }
 
+/**
+ * Transaksi punya field wajib yang bergantung pada `type` (lihat CLAUDE.md
+ * "Constraint transaksi") dan opsi select yang datang dari entitas lain
+ * (wallet/akun/sumber/target) — tidak cocok dengan bentuk statis
+ * `ENTITY_FORMS`, jadi mutasinya berdiri sendiri di luar `useSaveEntity`.
+ */
+export function useUpdateTransaction() {
+  const invalidate = useInvalidateAll();
+  return useMutation({
+    mutationFn: ({ id, body }: { id: string; body: Record<string, unknown> }) =>
+      api.one<Transaction>("PUT", `/transactions/${id}`, body),
+    onSuccess: invalidate,
+  });
+}
+
 /* --- Family & undangan ---------------------------------------------------- */
 
 export function useCreateFamily() {

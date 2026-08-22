@@ -170,6 +170,7 @@ export interface TransactionView {
   icon: string;
   iconBg: string;
   iconColor: string;
+  raw: Transaction;
 }
 
 const INFLOW: ReadonlySet<string> = new Set(["income"]);
@@ -201,6 +202,7 @@ export function recentTransactions(
         iconColor: isIncome
           ? "var(--color-income-fg)"
           : "var(--color-accent-700)",
+        raw: t,
       };
     });
 }
