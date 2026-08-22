@@ -15,6 +15,7 @@ import {
   useCreateThread,
   useIncomeSources,
   useMessages,
+  useOnboardingAnswers,
   usePendingAiActions,
   useRejectAiAction,
   useSavingsGoals,
@@ -31,6 +32,22 @@ import {
 
 interface DemoItem extends ChatItem {
   at: number;
+  /**
+   * Jumlah pesan server (`messages.data`) yang sudah ada saat item lokal ini
+   * dibuat. Dipakai untuk menyisipkan bubble ini di posisi yang benar --
+   * BUKAN lewat perbandingan `at` dengan timestamp server, karena jam client
+   * & server bisa beda (root cause bubble jawaban user ketuker posisi dgn
+   * pertanyaan onboarding berikutnya begitu server clock sedikit di
+   * belakang/depan jam browser).
+   */
+  anchor: number;
+  /**
+   * `question_key` yang dijawab, hanya diisi utk echo jawaban onboarding.
+   * Dipakai untuk membuang bubble optimistic lokal ini begitu jawaban yang
+   * sama sudah datang dari `GET /onboarding-answers` (lihat `items` di
+   * bawah) -- supaya tidak tampil dobel.
+   */
+  onboardingQuestionKey?: string;
 }
 
 export default function ChatPage() {
@@ -112,6 +129,9 @@ export default function ChatPage() {
   const onboarding = thread?.kind === "onboarding" ? thread.onboarding : null;
   const inWawancara = Boolean(onboarding) && !onboarding!.done;
   const createOnboardingAnswer = useCreateOnboardingAnswer(threadId);
+  // Sumber kebenaran bubble jawaban onboarding -- lihat `useOnboardingAnswers`
+  // kenapa ini dibutuhkan (jawabannya sengaja tidak tersimpan sbg ChatMessage).
+  const onboardingAnswers = useOnboardingAnswers();
   const [skipFeedback, setSkipFeedback] = useState<
     { type: "success" | "error"; text: string } | null
   >(null);
@@ -127,13 +147,14 @@ export default function ChatPage() {
     timers.current.push(setTimeout(fn, ms));
   };
 
-  const pushDemo = (item: Omit<DemoItem, "at" | "id"> & { id?: string }) => {
+  const pushDemo = (item: Omit<DemoItem, "at" | "id" | "anchor"> & { id?: string }) => {
     setDemoItems((prev) => [
       ...prev,
       {
         ...item,
         id: item.id ?? `demo-${Date.now()}-${prev.length}`,
         at: Date.now(),
+        anchor: messages.data?.length ?? 0,
       },
     ]);
   };
@@ -169,14 +190,21 @@ export default function ChatPage() {
     // sukses. Sengaja TIDAK ikut lewat /chat-threads/messages di sini: thread
     // ini masih naskah terstruktur, bukan obrolan bebas, jadi tidak perlu
     // memicu balasan LLM sungguhan (yang juga cuma mubazir kena
-    // rate limit provider di tengah wawancara). Balasan user tetap
-    // ditampilkan lewat bubble lokal supaya riwayatnya kelihatan.
+    // rate limit provider di tengah wawancara). Balasan user langsung
+    // ditampilkan lewat bubble lokal (optimistic) supaya riwayatnya kelihatan
+    // seketika, lalu digantikan bubble dari `useOnboardingAnswers` begitu
+    // request-nya sukses -- itu yang bikin bubble-nya tetap ada walau user
+    // pindah halaman lalu balik lagi.
     if (inWawancara && scenario === undefined) {
       // Sama seperti skipOnboardStep: tunggu question_key yang segar dulu
       // kalau masih ada refetch dari jawaban sebelumnya yang belum selesai.
       if (!onboarding?.question_key || createOnboardingAnswer.isPending || threads.isFetching)
         return;
-      pushDemo({ role: "user", content });
+      pushDemo({
+        role: "user",
+        content,
+        onboardingQuestionKey: onboarding.question_key,
+      });
       setSkipFeedback(null);
       createOnboardingAnswer.mutate(
         { question_key: onboarding.question_key, answer: { note: content } },
@@ -246,7 +274,25 @@ export default function ChatPage() {
     }, 1500);
   };
 
-  /** Pesan server + item demo, diurutkan berdasarkan waktu. */
+  /**
+   * Pesan server + item demo. `fromServer`, `fromAiActions`, &
+   * `fromOnboardingAnswers` semuanya pakai jam server jadi aman diurutkan
+   * lewat `at`. `demoItems` (balasan demo & echo jawaban onboarding,
+   * keduanya lokal-only) TIDAK ikut sort-by-`at` terhadap ketiganya --
+   * disisipkan lewat `anchor` (jumlah pesan server saat item itu dibuat,
+   * lihat `pushDemo`) supaya urutannya tidak goyah saat jam client & server
+   * beda.
+   *
+   * Echo jawaban onboarding butuh perlakuan ekstra: jawabannya sengaja tidak
+   * tersimpan sebagai `ChatMessage` (lihat komentar di `send()`), cuma
+   * `OnboardingAnswer`, jadi begitu komponen ini unmount (user pindah
+   * halaman) `demoItems` hilang dan bubble-nya lenyap padahal jawabannya
+   * masih ada di server. `fromOnboardingAnswers` di bawah membaca ulang dari
+   * `GET /onboarding-answers` supaya bubble itu muncul lagi setelah remount;
+   * begitu jawaban utk satu `question_key` sudah kebaca dari sana, echo
+   * lokal utk `question_key` yang sama dibuang dari `demoItems` supaya tidak
+   * dobel.
+   */
   const items: DemoItem[] = useMemo(() => {
     const fromServer = (messages.data ?? []).map((m) => ({
       id: m.id ?? "",
@@ -257,6 +303,7 @@ export default function ChatPage() {
       content: m.content ?? "",
       pending: (m.id ?? "").startsWith("optimistic-"),
       at: m.created_at ? Date.parse(m.created_at) : 0,
+      anchor: 0,
     }));
 
     // `/ai-actions` tidak thread-scoped (lihat useChatStream) -- saring ke
@@ -272,13 +319,42 @@ export default function ChatPage() {
             content: "",
             aiAction: a,
             at: a.created_at ? Date.parse(a.created_at) : 0,
+            anchor: 0,
           }))
       : [];
 
-    return [...fromServer, ...fromAiActions, ...demoItems].sort(
-      (a, b) => a.at - b.at,
-    );
-  }, [messages.data, demoItems, pendingAiActions.data]);
+    const answeredQuestionKeys = new Set<string>();
+    const fromOnboardingAnswers = (onboardingAnswers.data ?? [])
+      .filter((a) => !a.skipped && typeof a.answer?.note === "string" && a.answer.note)
+      .map((a) => {
+        if (a.question_key) answeredQuestionKeys.add(a.question_key);
+        return {
+          id: `onboarding-answer-${a.id}`,
+          role: "user" as const,
+          content: String(a.answer!.note),
+          at: a.answered_at ? Date.parse(a.answered_at) : 0,
+          anchor: 0,
+        };
+      });
+
+    const result: DemoItem[] = [
+      ...fromServer,
+      ...fromAiActions,
+      ...fromOnboardingAnswers,
+    ].sort((a, b) => a.at - b.at);
+
+    demoItems
+      .filter(
+        (item) =>
+          !item.onboardingQuestionKey ||
+          !answeredQuestionKeys.has(item.onboardingQuestionKey),
+      )
+      .forEach((item, i) => {
+        result.splice(Math.min(item.anchor + i, result.length), 0, item);
+      });
+
+    return result;
+  }, [messages.data, demoItems, pendingAiActions.data, onboardingAnswers.data]);
 
   return (
     <div className="amana-chat-pane">

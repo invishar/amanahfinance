@@ -250,12 +250,25 @@ export function useSendMessage(threadId: string | null) {
 }
 
 /**
+ * `GET /onboarding-answers` (API-v1.md "Onboarding Answers") -- sumber
+ * kebenaran untuk bubble jawaban user selama wawancara awal. Dipakai supaya
+ * bubble itu tidak hilang saat user pindah halaman lalu balik lagi ke
+ * `/chat`: jawaban onboarding sengaja TIDAK ikut tersimpan sebagai
+ * `ChatMessage` (lihat `useCreateOnboardingAnswer`), jadi kalau cuma
+ * mengandalkan state lokal komponen, bubble-nya lenyap begitu komponen
+ * unmount.
+ */
+export const useOnboardingAnswers = () =>
+  useFamilyQuery<OnboardingAnswer>(qk.onboardingAnswers, "/onboarding-answers");
+
+/**
  * Wawancara awal (CLAUDE.md "Alur AI"): naskah & urutan pertanyaan hidup di
  * server, klien cuma tahu `question_key` yang sedang aktif lewat
  * `ChatThread.onboarding.question_key` (lihat API-v1.md "Onboarding Answers").
  * Setiap POST yang berhasil (jawaban asli maupun `skipped=true`) membuat
  * server menyisipkan pertanyaan berikutnya ke thread yang sama -- invalidasi
- * chat-threads (progres) & messages (pertanyaan baru) supaya keduanya segar.
+ * chat-threads (progres), messages (pertanyaan baru), & onboarding-answers
+ * (bubble jawaban) supaya ketiganya segar.
  */
 export function useCreateOnboardingAnswer(threadId: string | null) {
   const queryClient = useQueryClient();
@@ -268,8 +281,12 @@ export function useCreateOnboardingAnswer(threadId: string | null) {
       skipped?: boolean;
     }) => api.one<OnboardingAnswer>("POST", "/onboarding-answers", body),
     onSuccess: () => {
-      if (familyId)
+      if (familyId) {
         queryClient.invalidateQueries({ queryKey: qk.chatThreads(familyId) });
+        queryClient.invalidateQueries({
+          queryKey: qk.onboardingAnswers(familyId),
+        });
+      }
       if (threadId)
         queryClient.invalidateQueries({ queryKey: qk.messages(threadId) });
     },
