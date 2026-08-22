@@ -332,7 +332,14 @@ export default function ChatPage() {
           id: `onboarding-answer-${a.id}`,
           role: "user" as const,
           content: String(a.answer!.note),
-          at: a.answered_at ? Date.parse(a.answered_at) : 0,
+          // -1ms: server menulis pertanyaan berikutnya TEPAT setelah jawaban
+          // ini tersimpan, dalam request yang sama (API-v1.md "Onboarding
+          // Answers") -- kalau keduanya kebetulan dibulatkan ke detik yang
+          // sama, `Array.sort` yang stabil akan menaruh pertanyaan berikutnya
+          // (dari `fromServer`, digabung duluan di bawah) SEBELUM jawaban ini
+          // walau urutan sebenarnya terbalik. Epsilon ini memaksa jawaban
+          // selalu menang saat seri, sesuai urutan sungguhan di server.
+          at: a.answered_at ? Date.parse(a.answered_at) - 1 : 0,
           anchor: 0,
         };
       });
