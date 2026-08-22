@@ -73,7 +73,7 @@ lib/entity-forms.ts pemetaan field desain → field API
 lib/selectors.ts    pemetaan label (tanpa hitungan turunan)
 ```
 
-Yang **masih demo** dan wajib dihapus begitu backend siap: `lib/mock/assistant.ts` di balik flag `NEXT_PUBLIC_MOCK_AMINA` — balasan Amina, kartu aksi, dan naskah wawancara awal. Alasannya: `POST /chat-threads/{id}/messages` menyimpan pesan user tapi belum membalas, dan tidak ada endpoint confirm/reject `ai_actions`. Pesan user tetap dikirim ke API sungguhan; header chat menampilkan penanda "Balasan demo" supaya tidak ada yang mengira itu jawaban asli.
+Chat sudah lepas dari mock: balasan Amina datang dari `AssistantService` lewat SSE (`GET /chat-threads/{id}/stream`), dan kartu aksi (`ai_actions`) dikonfirmasi/ditolak lewat `POST /ai-actions/{id}/confirm|reject` — lihat `useChatStream`/`usePendingAiActions`/`useConfirmAiAction`/`useRejectAiAction` di `lib/api/hooks.ts` dan `components/chat/ai-action-card.tsx`. `lib/mock/assistant.ts` (balasan tiruan `setTimeout` + flag `NEXT_PUBLIC_MOCK_AMINA`) sudah dihapus.
 
 Catatan penting soal sesi: token dibaca dari `tokenStore` **pada tiap request**, bukan dicermin ke variabel modul lewat `useEffect` — versi effect membuat request pertama setelah reload jalan tanpa header dan memicu `401` palsu.
 
@@ -84,7 +84,7 @@ Catatan penting soal sesi: token dibaca dari `tokenStore` **pada tiap request**,
 3. **Jangan hitung apa pun yang dihitung server** — spent per wallet, status budget, percent, estimasi target, insight.
 4. **Semua `fetch` lewat `lib/api/client.ts`.** Tidak ada `fetch` tersebar di komponen.
 5. **Server state pakai TanStack Query** dengan key ber-`familyId`, mis. `['wallets', familyId]`. Jangan menyalin data server ke state lokal kecuali draft form.
-6. **Tidak ada penulisan data langsung dari klien saat chat** — hanya lewat konfirmasi `ai_actions`. Catatan: `openapi.json` baru mengekspos `GET /ai-actions`; endpoint confirm/reject belum ada. Kalau butuh, **tanya backend dulu — jangan diakali dengan `POST /transactions` dari layar chat.**
+6. **Tidak ada penulisan data langsung dari klien saat chat** — hanya lewat konfirmasi `ai_actions` (`POST /ai-actions/{id}/confirm` atau `.../reject`). **Jangan diakali dengan `POST /transactions` dari layar chat.**
 7. **Naskah pertanyaan onboarding tidak disimpan di klien.** Render urutan yang dikirim API (thread `kind: onboarding` + `/onboarding-answers`).
 
 ## Token desain (sumber: `app/globals.css`)
@@ -113,7 +113,7 @@ Hover nav/tab → `accent-100`. Primary hover → `accent-600`, active → `acce
 
 ## Chat
 
-- Typing indicator harus dipicu event dari server (`thinking` bila SSE tersedia), **bukan timer palsu**. Bentuk streaming balasan belum ada di `openapi.json` — konfirmasi ke backend sebelum membangun parser SSE.
+- Typing indicator dipicu event `thinking` dari SSE (`GET /chat-threads/{id}/stream`, lihat `useChatStream`), **bukan timer palsu**.
 - Action card = satu baris `ai_actions` (`status: pending|confirmed|edited|rejected|expired`, `payload`, `result_table`, `result_id`). "Ya, lanjutkan" → confirm; "Edit" → modal prefilled lalu confirm dengan payload hasil edit; "Batal" → reject.
 - Setelah confirm sukses: invalidasi query sesuai `result_table` (`transactions`, `wallets`, `accounts`, `analytics`); baris tombol diganti "Sudah disimpan".
 - **Optimistic UI boleh, tapi wajib rollback bila API gagal.**

@@ -40,7 +40,7 @@ UI seluruh layar sudah jadi dan berjalan di atas data mock. Sasaran pekerjaan in
 ### Keputusan yang diambil
 
 - **Penyimpanan token**: `localStorage` + memori (SPA, tanpa SSR data fetching). Sanctum tidak punya refresh token. Konsekuensi: rentan XSS — kalau nanti butuh SSR/cookie `httpOnly`, itu pekerjaan terpisah dan ditulis sebagai follow-up, bukan dikerjakan diam-diam.
-- **Chat sampai blocker #1 & #2 beres**: kirim & muat pesan **lewat API sungguhan**; balasan Amina + action card tetap dari mock, dipagari flag `NEXT_PUBLIC_MOCK_AMINA` (default `1`). Begitu backend siap → set `0` dan hapus [lib/mock/assistant.ts](lib/mock/assistant.ts). Tanpa flag ini layar chat tampak rusak (kirim pesan, tidak pernah dibalas).
+- **Chat**: blocker #1 & #2 sudah beres (backend membalas lewat SSE, endpoint confirm/reject `ai_actions` sudah ada) — kirim/muat pesan, balasan Amina, dan action card semuanya **lewat API sungguhan**. `lib/mock/assistant.ts` + flag `NEXT_PUBLIC_MOCK_AMINA` sudah dihapus.
 - **Satu family per sesi**: API tidak punya header `X-Family-Id`; scope ikut token. Family aktif = `data[0]` dari `GET /families`. Pemilih family multi-keluarga = follow-up.
 
 ### Beda kontrak vs desain yang mengubah UI
@@ -103,17 +103,15 @@ UI seluruh layar sudah jadi dan berjalan di atas data mock. Sasaran pekerjaan in
 - [x] Skeleton per kartu mengikuti status query masing-masing
 - [x] Empty state per seksi
 
-### Fase 6 — Chat (parsial — lihat blocker)
+### Fase 6 — Chat
 
 - [x] Ambil thread `GET /chat-threads`, buat otomatis bila kosong
 - [x] Riwayat `GET /chat-threads/{id}/messages`
 - [x] Kirim pesan `POST .../messages` dengan optimistic UI + rollback saat gagal
-- [x] Penanda "Balasan demo" di header selama `NEXT_PUBLIC_MOCK_AMINA` aktif
-- [x] Kartu aksi demo menulis "Dikonfirmasi (demo, belum tersimpan)" — tidak berpura-pura tersimpan
-- [ ] **Blocked**: balasan asisten dari server (blocker #1)
-- [ ] **Blocked**: confirm/reject `ai_actions` + tombol "Edit" (blocker #2)
-- [ ] **Blocked**: unggah struk & suara (belum ada endpoint upload)
-- [ ] **Blocked**: wawancara awal dari server (`onboarding-answers`)
+- [x] Balasan asisten dari server lewat SSE `GET /chat-threads/{id}/stream` (blocker #1 beres)
+- [x] Confirm/reject `ai_actions` + tombol "Edit" (blocker #2 beres) — `AiActionCard` menampilkan "Sudah disimpan"/"Dibatalkan"/error validasi per-field
+- [x] Wawancara awal dari server (`ChatThread.onboarding` + `/onboarding-answers`)
+- [ ] **Blocked**: unggah struk & suara (belum ada UI upload — endpoint `POST /uploads` sudah ada di backend, tombol kamera/mic di layar chat masih placeholder teks)
 
 ### Fase 7 — Pengaturan keluarga ✅
 
@@ -127,14 +125,13 @@ UI seluruh layar sudah jadi dan berjalan di atas data mock. Sasaran pekerjaan in
 - [x] `lib/selectors.ts` tinggal pemetaan label
 - [x] State klien pindah ke `lib/ui-store.tsx` (modal, sheet, draft)
 - [x] `npx next build` + `npx eslint .` bersih; alur utama dicek di browser (mobile 414px & desktop 1280px)
-- [ ] Hapus `lib/mock/assistant.ts` + flag `NEXT_PUBLIC_MOCK_AMINA` — menunggu blocker #1 & #2
-- [ ] Perbarui bagian "Utang teknis" di CLAUDE.md setelah blocker beres
+- [x] Hapus `lib/mock/assistant.ts` + flag `NEXT_PUBLIC_MOCK_AMINA` (blocker #1 & #2 beres)
 
 ## 4. Definition of done
 
 1. Tidak ada `fetch` di luar `lib/api/`.
 2. Tidak ada angka turunan yang dihitung di klien (spent, percent, status, total).
-3. Tidak ada import ke `lib/mock/*` selain dari jalur yang dipagari `NEXT_PUBLIC_MOCK_AMINA`.
+3. Tidak ada `lib/mock/*` tersisa di repo — seluruh layar (termasuk chat) memakai data sungguhan.
 4. `422`/`401`/`403`/`409` punya tampilan masing-masing di layar yang relevan.
 5. Tampilan tetap sama persis dengan `template/README.md` (kecuali perubahan di tabel §2 yang memang dipaksa kontrak API).
 6. Build & lint bersih; alur register → onboarding → CRUD → dashboard jalan di backend lokal.

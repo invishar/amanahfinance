@@ -22,13 +22,12 @@ import {
   useSendMessage,
   useWallets,
 } from "@/lib/api/hooks";
-import {
-  DEMO_AMINA,
-  DEMO_CHIPS,
-  demoReply,
-  type DemoActionCard,
-  type Scenario,
-} from "@/lib/mock/assistant";
+const QUICK_PROMPTS: { label: string; text: string }[] = [
+  { label: "Catat pengeluaran", text: "Tadi beli kopi sama snack 45rb pakai GoPay" },
+  { label: "Buat wallet baru", text: "Aku mau bikin wallet baru buat Kesehatan" },
+  { label: "Tambah akun baru", text: "Tolong tambahin akun Dana sebagai e-wallet" },
+  { label: "Minta saran keuangan", text: "Gimana kondisi keuangan bulan ini?" },
+];
 
 interface DemoItem extends ChatItem {
   at: number;
@@ -62,9 +61,7 @@ export default function ChatPage() {
   const threadId = threads.data?.[0]?.id ?? null;
   const messages = useMessages(threadId ?? null);
   const sendMessage = useSendMessage(threadId ?? null);
-  // Balasan Amina sungguhan (real LLM) datang lewat SSE, bukan demo timer --
-  // aktif berdampingan dengan jalur demo di bawah, yang no-op sendiri begitu
-  // NEXT_PUBLIC_MOCK_AMINA=0 (lihat DEMO_AMINA).
+  // Balasan Amina sungguhan (real LLM) datang lewat SSE.
   const stream = useChatStream(threadId, familyId);
 
   /* --- Kartu aksi (AiAction) sungguhan ------------------------------------ */
@@ -102,9 +99,8 @@ export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  /* --- Bagian demo (skenario contoh lewat chip, lihat lib/mock/assistant) - */
+  /* --- Item lokal-only (echo jawaban onboarding), lihat DemoItem di atas -- */
   const [demoItems, setDemoItems] = useState<DemoItem[]>([]);
-  const [isTyping, setIsTyping] = useState(false);
   const threadRequested = useRef(false);
 
   // Belum punya thread → buat satu (sekali saja). Family baru sudah otomatis
@@ -159,27 +155,10 @@ export default function ChatPage() {
     ]);
   };
 
-  const runDemoAnswer = (text: string, scenario?: Scenario) => {
-    if (!DEMO_AMINA || inWawancara) return;
-    setIsTyping(true);
-
-    // Timer di sini adalah bagian dari demo; balasan sungguhan nanti dipicu
-    // event dari server, bukan setTimeout.
-    later(() => {
-      setIsTyping(false);
-      const reply = demoReply(text, scenario, {
-        walletName: wallets.data?.[0]?.name,
-        accountName: accounts.data?.[0]?.name,
-      });
-      pushDemo({
-        role: "assistant",
-        content: reply.content,
-        card: reply.card,
-      });
-    }, 750);
-  };
-
-  const send = (text: string, scenario?: Scenario) => {
+  const send = (
+    text: string,
+    opts?: { inputMode?: "text" | "voice"; bypassOnboarding?: boolean },
+  ) => {
     const content = text.trim();
     if (!content || !threadId) return;
     setInput("");
@@ -195,7 +174,7 @@ export default function ChatPage() {
     // seketika, lalu digantikan bubble dari `useOnboardingAnswers` begitu
     // request-nya sukses -- itu yang bikin bubble-nya tetap ada walau user
     // pindah halaman lalu balik lagi.
-    if (inWawancara && scenario === undefined) {
+    if (inWawancara && !opts?.bypassOnboarding) {
       // Sama seperti skipOnboardStep: tunggu question_key yang segar dulu
       // kalau masih ada refetch dari jawaban sebelumnya yang belum selesai.
       if (!onboarding?.question_key || createOnboardingAnswer.isPending || threads.isFetching)
@@ -222,9 +201,8 @@ export default function ChatPage() {
 
     sendMessage.mutate({
       content,
-      input_mode: scenario === "transaction_voice" ? "voice" : "text",
+      input_mode: opts?.inputMode ?? "text",
     });
-    runDemoAnswer(content, scenario);
   };
 
   const skipOnboardStep = () => {
@@ -255,22 +233,15 @@ export default function ChatPage() {
     );
   };
 
-  const resolveCard = (id: string, status: "confirmed" | "cancelled") => {
-    setDemoItems((prev) =>
-      prev.map((item) =>
-        item.id === id && item.card
-          ? { ...item, card: { ...item.card, status } as DemoActionCard }
-          : item,
-      ),
-    );
-  };
-
   const toggleRecording = () => {
     if (isRecording) return;
     setIsRecording(true);
     later(() => {
       setIsRecording(false);
-      send("Tadi abis makan siang di warteg 25rb dari GoPay", "transaction_voice");
+      send("Tadi abis makan siang di warteg 25rb dari GoPay", {
+        inputMode: "voice",
+        bypassOnboarding: true,
+      });
     }, 1500);
   };
 
@@ -310,18 +281,16 @@ export default function ChatPage() {
     // milik thread ini lewat message_id. Event SSE tidak membawa message_id
     // sama sekali (server sudah menyaringnya duluan), jadi selalu lolos.
     const messageIds = new Set((messages.data ?? []).map((m) => m.id));
-    const fromAiActions = !DEMO_AMINA
-      ? (pendingAiActions.data ?? [])
-          .filter((a) => !a.message_id || messageIds.has(a.message_id))
-          .map((a) => ({
-            id: `ai-action-${a.id}`,
-            role: "assistant" as const,
-            content: "",
-            aiAction: a,
-            at: a.created_at ? Date.parse(a.created_at) : 0,
-            anchor: 0,
-          }))
-      : [];
+    const fromAiActions = (pendingAiActions.data ?? [])
+      .filter((a) => !a.message_id || messageIds.has(a.message_id))
+      .map((a) => ({
+        id: `ai-action-${a.id}`,
+        role: "assistant" as const,
+        content: "",
+        aiAction: a,
+        at: a.created_at ? Date.parse(a.created_at) : 0,
+        anchor: 0,
+      }));
 
     const answeredQuestionKeys = new Set<string>();
     const fromOnboardingAnswers = (onboardingAnswers.data ?? [])
@@ -394,18 +363,11 @@ export default function ChatPage() {
             Asisten keuangan {family?.name ?? ""}
           </div>
         </div>
-        {DEMO_AMINA && (
-          <span className="tag tag-neutral" title="Balasan Amina belum datang dari server">
-            Balasan demo
-          </span>
-        )}
       </div>
 
       <MessageList
         items={items}
-        isTyping={isTyping || stream.isThinking || createOnboardingAnswer.isPending}
-        demo={DEMO_AMINA}
-        onResolveCard={resolveCard}
+        isTyping={stream.isThinking || createOnboardingAnswer.isPending}
         aiActionEntities={{
           accounts: accounts.data ?? [],
           wallets: wallets.data ?? [],
@@ -445,13 +407,13 @@ export default function ChatPage() {
             {createOnboardingAnswer.isPending ? "Melewati…" : "Lewati pertanyaan ini"}
           </button>
         ) : (
-          DEMO_CHIPS.map((c) => (
+          QUICK_PROMPTS.map((c) => (
             <button
               key={c.label}
               type="button"
               className="btn btn-secondary"
               style={{ fontSize: 12, whiteSpace: "nowrap", flex: "none" }}
-              onClick={() => send(c.demoText, c.scenario)}
+              onClick={() => send(c.text, { bypassOnboarding: true })}
             >
               {c.label}
             </button>
@@ -487,7 +449,7 @@ export default function ChatPage() {
         <button
           type="button"
           className="btn btn-icon btn-secondary"
-          onClick={() => send("[Foto struk diunggah]", "transaction_receipt")}
+          onClick={() => send("[Foto struk diunggah]", { bypassOnboarding: true })}
           title="Kirim foto struk"
           aria-label="Kirim foto struk"
         >

@@ -2,18 +2,15 @@
 
 import { useEffect, useRef } from "react";
 
-import { ActionCard } from "@/components/chat/action-card";
 import { AiActionCard } from "@/components/chat/ai-action-card";
 import type { Account, AiAction, IncomeSource, SavingsGoal, Wallet } from "@/lib/api/hooks";
-import type { DemoActionCard } from "@/lib/mock/assistant";
 
 export interface ChatItem {
   id: string;
   /** `system` = pesan error dari server (CLAUDE.md: ProcessAssistantMessage::failed()), bukan balasan Amina biasa. */
   role: "user" | "assistant" | "system";
   content: string;
-  card?: DemoActionCard;
-  /** Draft AiAction sungguhan (bukan skenario demo) -- lihat `card` untuk itu. */
+  /** Draft AiAction sungguhan menunggu konfirmasi user. */
   aiAction?: AiAction;
   /** Pesan optimistic yang belum dikonfirmasi server. */
   pending?: boolean;
@@ -22,8 +19,6 @@ export interface ChatItem {
 export function MessageList({
   items,
   isTyping,
-  demo,
-  onResolveCard,
   aiActionEntities,
   onConfirmAiAction,
   onRejectAiAction,
@@ -33,8 +28,6 @@ export function MessageList({
 }: {
   items: ChatItem[];
   isTyping: boolean;
-  demo: boolean;
-  onResolveCard: (id: string, status: "confirmed" | "cancelled") => void;
   aiActionEntities: {
     accounts: Account[];
     wallets: Wallet[];
@@ -101,14 +94,6 @@ export function MessageList({
               >
                 {m.content}
               </div>
-            )}
-            {m.card && (
-              <ActionCard
-                card={m.card}
-                demo={demo}
-                onConfirm={() => onResolveCard(m.id, "confirmed")}
-                onCancel={() => onResolveCard(m.id, "cancelled")}
-              />
             )}
             {m.aiAction && (
               <AiActionCard
