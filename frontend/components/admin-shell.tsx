@@ -4,12 +4,22 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { Icon } from "@/components/icon";
-import { useSession } from "@/lib/auth";
+import { useMe, useSession } from "@/lib/auth";
 
 interface AdminNavItem {
-  href: "/admin/users" | "/admin/payments" | "/admin/llm-settings" | "/admin/ai-errors";
+  href:
+    | "/admin/users"
+    | "/admin/payments"
+    | "/admin/llm-settings"
+    | "/admin/ai-errors"
+    | "/admin/ai-logs";
   label: string;
   icon: string;
+  // Menu ini datanya cuma pernah ada kalau server API jalan dengan
+  // APP_ENV=local (lihat AssistantService::logLocalDebug()) -- disembunyikan
+  // di luar itu lewat User.is_local (GET /auth/me), bukan NEXT_PUBLIC_*,
+  // supaya server yang menentukan, bukan build klien yang salah deploy.
+  localOnly?: boolean;
 }
 
 const ADMIN_NAV: AdminNavItem[] = [
@@ -17,12 +27,15 @@ const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/payments", label: "Pembayaran", icon: "credit-card" },
   { href: "/admin/llm-settings", label: "LLM Setting", icon: "sparkles" },
   { href: "/admin/ai-errors", label: "Log AI", icon: "alert-triangle" },
+  { href: "/admin/ai-logs", label: "Log Prompt", icon: "message-circle", localOnly: true },
 ];
 
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout } = useSession();
+  const me = useMe();
+  const navItems = ADMIN_NAV.filter((item) => !item.localOnly || me.data?.is_local);
 
   return (
     <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -54,7 +67,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
         </div>
 
         <nav style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
-          {ADMIN_NAV.map((item) => (
+          {navItems.map((item) => (
             <Link
               key={item.href}
               href={item.href}

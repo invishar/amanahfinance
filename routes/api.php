@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\AccountController;
 use App\Http\Controllers\Api\AdminAiErrorController;
+use App\Http\Controllers\Api\AdminAiLogController;
 use App\Http\Controllers\Api\AdminUserController;
 use App\Http\Controllers\Api\AiActionController;
 use App\Http\Controllers\Api\AnalyticsController;
@@ -73,6 +74,11 @@ Route::prefix('v1')->group(function () {
         // AssistantService::logProviderError()) -- gated is_admin
         // (AiProviderErrorPolicy). Read-only, ditulis internal.
         Route::get('/admin/ai-errors', [AdminAiErrorController::class, 'index']);
+
+        // Debugging prompt lokal (lihat AssistantService::logLocalDebug()) --
+        // gated is_admin (AiLogPolicy). Baris cuma pernah ada kalau server
+        // API jalan dengan APP_ENV=local; read-only, ditulis internal.
+        Route::get('/admin/ai-logs', [AdminAiLogController::class, 'index']);
 
         // Katalog paket langganan: mutasi gated is_admin
         // (SubscriptionPlanPolicy). GET index/show ada di blok publik di atas.

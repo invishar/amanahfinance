@@ -3,6 +3,7 @@
 namespace Tests\Support;
 
 use App\Services\Ai\Contracts\ConversationRunner;
+use App\Services\Ai\ConversationResult;
 
 // Fakes only the LLM network boundary. The scripted plan drives real
 // BetaRunnableTool::run() closures from AssistantService::buildTools(), so
@@ -16,16 +17,22 @@ class FakeConversationRunner implements ConversationRunner
 
     private string $finalText;
 
+    private ?int $inputTokens;
+
+    private ?int $outputTokens;
+
     /**
      * @param  array<int, array{tool: string, input: array<string, mixed>}>  $toolCalls
      */
-    public function __construct(array $toolCalls = [], string $finalText = 'Oke, siap!')
+    public function __construct(array $toolCalls = [], string $finalText = 'Oke, siap!', ?int $inputTokens = 123, ?int $outputTokens = 45)
     {
         $this->toolCalls = $toolCalls;
         $this->finalText = $finalText;
+        $this->inputTokens = $inputTokens;
+        $this->outputTokens = $outputTokens;
     }
 
-    public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): string
+    public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): ConversationResult
     {
         foreach ($this->toolCalls as $call) {
             $tool = collect($tools)->first(fn ($t) => $t->name() === $call['tool']);
@@ -37,6 +44,6 @@ class FakeConversationRunner implements ConversationRunner
             $tool->run($call['input']);
         }
 
-        return $this->finalText;
+        return new ConversationResult($this->finalText, $this->inputTokens, $this->outputTokens);
     }
 }

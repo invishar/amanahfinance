@@ -57,7 +57,7 @@ class OpenApiSpec
                 'Wallet Budgets', 'Income Sources', 'Savings Goals', 'Transactions', 'Recurring Rules',
                 'Chat Threads', 'Chat Messages', 'Uploads', 'Onboarding Answers', 'Notifications',
                 'AI Actions', 'Audit Logs', 'Analytics', 'LLM Settings', 'Subscription Plans', 'Subscriptions',
-                'Users', 'AI Provider Errors',
+                'Users', 'AI Provider Errors', 'AI Logs',
             ]
         );
     }
@@ -161,6 +161,7 @@ class OpenApiSpec
                     'phone' => ['type' => 'string', 'nullable' => true],
                     'avatar_url' => ['type' => 'string', 'nullable' => true],
                     'is_admin' => ['type' => 'boolean', 'description' => 'Selalu self-view (register/login/me) -- tidak pernah dipakai untuk profil user lain.'],
+                    'is_local' => ['type' => 'boolean', 'description' => 'True kalau server API jalan dengan APP_ENV=local. Klien pakai ini untuk menampilkan/menyembunyikan menu admin yang cuma berguna di dev (mis. GET /admin/ai-logs).'],
                     'created_at' => ['type' => 'string', 'format' => 'date-time'],
                 ],
             ],
@@ -499,6 +500,22 @@ class OpenApiSpec
                     'created_at' => ['type' => 'string', 'format' => 'date-time'],
                 ],
             ],
+            'AiLog' => [
+                'type' => 'object',
+                'properties' => [
+                    'id' => ['type' => 'string', 'format' => 'uuid'],
+                    'family_id' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
+                    'family_name' => ['type' => 'string', 'nullable' => true],
+                    'thread_id' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
+                    'message_id' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
+                    'model' => ['type' => 'string'],
+                    'user_prompt' => ['type' => 'string', 'nullable' => true, 'description' => 'Isi pesan user (ChatMessage.content) yang memicu panggilan ini.'],
+                    'system_prompt' => ['type' => 'string', 'nullable' => true, 'description' => 'Persona + konteks family (AssistantService::buildSystemPrompt()) yang dikirim ke LLM.'],
+                    'input_tokens' => ['type' => 'integer', 'nullable' => true],
+                    'output_tokens' => ['type' => 'integer', 'nullable' => true],
+                    'created_at' => ['type' => 'string', 'format' => 'date-time'],
+                ],
+            ],
             'AnalyticsWallet' => [
                 'type' => 'object',
                 'properties' => [
@@ -616,6 +633,7 @@ class OpenApiSpec
             self::subscriptionPaths(),
             self::adminUserPaths(),
             self::adminAiErrorPaths(),
+            self::adminAiLogPaths(),
         );
     }
 
@@ -634,6 +652,28 @@ class OpenApiSpec
                     ],
                     'responses' => [
                         '200' => self::jsonResponse('OK', self::paginatedEnvelope('AiProviderError')),
+                        '403' => self::refResponse('Forbidden'),
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    private static function adminAiLogPaths(): array
+    {
+        return [
+            '/admin/ai-logs' => [
+                'get' => [
+                    'tags' => ['AI Logs'],
+                    'summary' => 'Debugging prompt lokal (is_admin)',
+                    'description' => 'Lintas-family. Satu baris per panggilan AssistantService yang berhasil (lihat AssistantService::logLocalDebug()) -- user_prompt, system_prompt, dan token usage. Baris cuma pernah ada kalau server API jalan dengan APP_ENV=local; read-only, ditulis internal.',
+                    'parameters' => [
+                        ['name' => 'model', 'in' => 'query', 'description' => 'Exact match.', 'schema' => ['type' => 'string']],
+                        ['name' => 'family_id', 'in' => 'query', 'schema' => ['type' => 'string', 'format' => 'uuid']],
+                        ['name' => 'per_page', 'in' => 'query', 'description' => 'Default 20, maks 100.', 'schema' => ['type' => 'integer', 'minimum' => 1, 'maximum' => 100]],
+                    ],
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::paginatedEnvelope('AiLog')),
                         '403' => self::refResponse('Forbidden'),
                     ],
                 ],

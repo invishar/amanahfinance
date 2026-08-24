@@ -21,6 +21,12 @@ class UserResource extends JsonResource
             'phone' => $this->phone,
             'avatar_url' => $this->avatar_url,
             'is_admin' => $this->isAdmin(),
+            // Klien pakai ini buat nunjukin/nyembunyiin menu admin yang cuma
+            // berguna kalau API-nya sendiri jalan dengan APP_ENV=local (mis.
+            // "Log Prompt", lihat GET /admin/ai-logs) -- server yang
+            // menentukan, bukan NEXT_PUBLIC_* di klien, supaya build produksi
+            // yang salah deploy tetap tidak menampilkan menunya.
+            'is_local' => app()->environment('local'),
             'created_at' => $this->created_at,
         ];
     }
