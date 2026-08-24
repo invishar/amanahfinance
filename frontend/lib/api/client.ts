@@ -115,7 +115,11 @@ async function request<T>(
     const fieldErrors =
       (payload as { errors?: FieldErrors } | null)?.errors ?? {};
 
-    if (response.status === 401) onUnauthorized?.();
+    // 401 hanya berarti "sesi mati" kalau request ini memang membawa token.
+    // Tanpa token (mis. percobaan /auth/login yang gagal), 401 adalah
+    // kredensial salah untuk request itu sendiri -- biar pemanggil yang
+    // menangani, jangan pernah redirect global.
+    if (response.status === 401 && token) onUnauthorized?.();
 
     throw new ApiError(
       response.status,
