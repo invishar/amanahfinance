@@ -6,6 +6,7 @@ use Anthropic\Core\Contracts\BaseModel;
 use Anthropic\Lib\Tools\BetaRunnableTool;
 use App\Actions\LlmSettings\LlmSettingActions;
 use App\Services\Ai\Contracts\ConversationRunner;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 
@@ -19,7 +20,7 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
 {
     public function __construct(private LlmSettingActions $settings) {}
 
-    public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): string
+    public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): ConversationResult
     {
         $settings = $this->settings->current();
         $baseUrl = rtrim($settings->base_url ?: '', '/');
@@ -35,9 +36,11 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
             : $toolsByName->values()->map(fn (BetaRunnableTool $tool) => $this->toOpenAiTool($tool))->all();
 
         $finalText = '';
+        $inputTokens = 0;
+        $outputTokens = 0;
 
         for ($i = 0; $i < $maxIterations; $i++) {
-            $message = Http::withToken($settings->key ?: '')
+            $response = Http::withToken($settings->key ?: '')
                 ->timeout(60)
                 ->acceptJson()
                 ->post("{$baseUrl}/chat/completions", array_filter([
@@ -50,8 +53,15 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
                     // terlalu rendah membuat balasan terpotong kosong.
                     'max_tokens' => 2048,
                 ], fn ($value) => $value !== null))
-                ->throw()
-                ->json('choices.0.message') ?? [];
+                ->throw();
+
+            // Bentuk usage ala OpenAI Chat Completions (prompt_tokens /
+            // completion_tokens) -- dijumlah per giliran, sama seperti
+            // AnthropicConversationRunner, supaya mewakili satu turn penuh.
+            $inputTokens += (int) ($response->json('usage.prompt_tokens') ?? 0);
+            $outputTokens += (int) ($response->json('usage.completion_tokens') ?? 0);
+
+            $message = $response->json('choices.0.message') ?? [];
 
             $toolCalls = $message['tool_calls'] ?? [];
             $chatMessages[] = $this->assistantMessageForHistory($message);
@@ -66,12 +76,12 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
             }
         }
 
-        return $finalText;
+        return new ConversationResult($finalText, $inputTokens, $outputTokens);
     }
 
     /**
      * @param  array<string, mixed>  $call
-     * @param  \Illuminate\Support\Collection<string, BetaRunnableTool>  $toolsByName
+     * @param  Collection<string, BetaRunnableTool>  $toolsByName
      * @return array{role: string, tool_call_id: string, content: string}
      */
     private function runToolCall(array $call, $toolsByName): array

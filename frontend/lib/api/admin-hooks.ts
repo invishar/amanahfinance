@@ -14,6 +14,7 @@ export type AdminUserDetail = Schemas["AdminUserDetail"];
 export type Subscription = Schemas["Subscription"];
 export type LlmSetting = Schemas["LlmSetting"];
 export type AiProviderError = Schemas["AiProviderError"];
+export type AiLog = Schemas["AiLog"];
 
 function query(params: Record<string, string | number | undefined>): string {
   const search = new URLSearchParams();
@@ -90,6 +91,19 @@ export function useAdminAiErrors(status: string, model: string, page: number) {
     queryKey: qk.adminAiErrors(status, model, page),
     queryFn: () =>
       api.listRaw<AiProviderError>(`/admin/ai-errors${query({ status, model, page })}`),
+    placeholderData: (previous) => previous,
+  });
+}
+
+/* --- AI logs (local-only debugging) ------------------------------------------
+   Prompt user, system prompt yang dibangun, dan token usage per panggilan
+   AssistantService yang berhasil (AssistantService::logLocalDebug()). Baris
+   cuma pernah ada kalau server API jalan dengan APP_ENV=local. */
+
+export function useAdminAiLogs(model: string, page: number) {
+  return useQuery({
+    queryKey: qk.adminAiLogs(model, page),
+    queryFn: () => api.listRaw<AiLog>(`/admin/ai-logs${query({ model, page })}`),
     placeholderData: (previous) => previous,
   });
 }

@@ -26,10 +26,12 @@ Authorization: Bearer <token>
 Response `register`/`login` (`201`/`200`):
 
 ```json
-{ "data": { "user": { "id": "...", "full_name": "...", "email": "...", "phone": null, "avatar_url": null, "is_admin": false, "created_at": "..." }, "token": "1|xxxxxxxx..." } }
+{ "data": { "user": { "id": "...", "full_name": "...", "email": "...", "phone": null, "avatar_url": null, "is_admin": false, "is_local": false, "created_at": "..." }, "token": "1|xxxxxxxx..." } }
 ```
 
 `is_admin` di sini (dan di `GET /auth/me`) hanya pernah menampilkan status user **itu sendiri** — `UserResource` cuma dipakai untuk self-view (register/login/me), tidak pernah untuk merender profil user lain. Klien pakai field ini untuk memutuskan apakah menampilkan link ke area admin (`GET /admin/*`, lihat bagian "Users — direktori admin" dan "LLM Settings" di bawah); server tetap menolak lewat `403` kalau field ini dipalsukan/di-cache stale.
+
+`is_local` mencerminkan `app()->environment('local')` di server API — tidak terkait sama sekali dengan `is_admin`. Klien pakai ini untuk menyembunyikan menu admin yang hanya berguna di dev (lihat "AI Logs" di bawah); bukan flag keamanan (endpoint yang dijaganya tetap gated `is_admin` sendiri di server), cuma supaya build produksi yang salah ter-deploy pun tidak menampilkan menu yang datanya memang selalu kosong.
 
 Response `login` gagal:
 - `401` `{ "message": "Email/telepon atau kata sandi salah." }` — email/phone valid secara format tapi user tidak ada atau password salah. Pesan sengaja generik, tidak membedakan "user tidak ada" vs "password salah" untuk mencegah user enumeration.
@@ -541,6 +543,18 @@ admin supaya bisa difilter & dipaginasi.
 | GET | `/admin/ai-errors` | `?status=` (kode HTTP dari provider, exact match), `?model=` (exact match), `?per_page=` (default 20, maks 100) | `is_admin` |
 
 Response `data`: `id, family_id, family_name, thread_id, message_id, model, status, exception, body, created_at`. `status` `null` untuk kegagalan yang bukan respons HTTP (mis. timeout koneksi). `family_id`/`thread_id`/`message_id` bisa `null` kalau resource yang direferensikan sudah dihapus (`nullOnDelete`) -- baris tetap ada sebagai jejak. `body` sudah dipotong 2000 karakter saat ditulis.
+
+---
+
+## AI Logs — debugging prompt lokal
+
+Satu baris per panggilan `AssistantService` yang **berhasil** (lihat `AssistantService::logLocalDebug()`) -- isinya `user_prompt` (pesan user yang memicu), `system_prompt` (persona + konteks family yang sebenarnya dikirim ke LLM, lihat `AssistantService::buildSystemPrompt()`), dan token usage yang dilaporkan provider. **Cuma pernah ditulis kalau server API jalan dengan `APP_ENV=local`** -- di environment lain baris ini selalu kosong (bukan gagal silent, memang tidak pernah ditulis). Lintas-family seperti "AI Provider Errors" di atas, gated `users.is_admin`. **Read-only** -- baris ditulis internal, tidak ada `store`/`update`/`destroy` lewat API. Panggilan yang gagal (exception provider) tidak menghasilkan baris di sini -- itu tetap masuk `ai_provider_errors` seperti biasa.
+
+| Method | Path | Query | Role |
+| --- | --- | --- | --- |
+| GET | `/admin/ai-logs` | `?model=` (exact match), `?family_id=`, `?per_page=` (default 20, maks 100) | `is_admin` |
+
+Response `data`: `id, family_id, family_name, thread_id, message_id, model, user_prompt, system_prompt, input_tokens, output_tokens, created_at`. `input_tokens`/`output_tokens` bisa `null` kalau provider tidak melaporkan usage. `family_id`/`thread_id`/`message_id` bisa `null` kalau resource yang direferensikan sudah dihapus (`nullOnDelete`).
 
 ---
 

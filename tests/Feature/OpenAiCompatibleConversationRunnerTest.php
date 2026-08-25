@@ -10,7 +10,7 @@ use Illuminate\Support\Facades\Http;
 // the suite) -- Http::fake() stands in for the actual HTTP call, but the
 // request shape, tool-calling loop, and BetaRunnableTool::run() closures are
 // exercised for real.
-function makeTool(string $name, \Closure $run): BetaRunnableTool
+function makeTool(string $name, Closure $run): BetaRunnableTool
 {
     return new BetaRunnableTool(
         definition: [
@@ -33,6 +33,7 @@ test('sends chat completions request with bearer auth and system prompt', functi
     Http::fake([
         'api.groq.com/*' => Http::response([
             'choices' => [['message' => ['role' => 'assistant', 'content' => 'Halo juga!']]],
+            'usage' => ['prompt_tokens' => 42, 'completion_tokens' => 7],
         ]),
     ]);
 
@@ -44,7 +45,9 @@ test('sends chat completions request with bearer auth and system prompt', functi
         maxIterations: 4,
     );
 
-    expect($result)->toBe('Halo juga!');
+    expect($result->text)->toBe('Halo juga!');
+    expect($result->inputTokens)->toBe(42);
+    expect($result->outputTokens)->toBe(7);
 
     Http::assertSent(function ($request) {
         return $request->url() === 'https://api.groq.com/openai/v1/chat/completions'
@@ -100,7 +103,7 @@ test('executes tool calls and feeds results back before returning final text', f
     );
 
     expect($received)->toBe(['amount' => 20000]);
-    expect($result)->toBe('Siap, sudah aku catat drafnya.');
+    expect($result->text)->toBe('Siap, sudah aku catat drafnya.');
 
     Http::assertSentCount(2);
 });
@@ -137,6 +140,6 @@ test('stops after maxIterations without a final text response', function () {
         maxIterations: 2,
     );
 
-    expect($result)->toBe('');
+    expect($result->text)->toBe('');
     Http::assertSentCount(2);
 });

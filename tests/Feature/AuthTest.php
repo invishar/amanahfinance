@@ -118,6 +118,27 @@ test('me returns current user', function () {
         ->assertJsonPath('data.full_name', 'Siti Aminah');
 });
 
+test('me reports is_local matching APP_ENV', function () {
+    app()['env'] = 'local';
+    $user = User::factory()->create();
+    $token = $user->createToken('test')->plainTextToken;
+
+    $this->withHeader('Authorization', "Bearer {$token}")
+        ->getJson('/api/v1/auth/me')
+        ->assertOk()
+        ->assertJsonPath('data.is_local', true);
+});
+
+test('me reports is_local false outside local env', function () {
+    $user = User::factory()->create();
+    $token = $user->createToken('test')->plainTextToken;
+
+    $this->withHeader('Authorization', "Bearer {$token}")
+        ->getJson('/api/v1/auth/me')
+        ->assertOk()
+        ->assertJsonPath('data.is_local', false);
+});
+
 test('logout revokes the token', function () {
     $user = User::factory()->create();
     $token = $user->createToken('test')->plainTextToken;

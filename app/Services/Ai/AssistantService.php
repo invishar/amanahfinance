@@ -8,6 +8,7 @@ use App\Actions\Analytics\AnalyticsActions;
 use App\Actions\LlmSettings\LlmSettingActions;
 use App\Models\Account;
 use App\Models\AiAction;
+use App\Models\AiLog;
 use App\Models\AiProviderError;
 use App\Models\ChatMessage;
 use App\Models\ChatThread;
@@ -50,11 +51,12 @@ class AssistantService
         $goals = $this->activeCandidates(SavingsGoal::query()->where('family_id', $family->id)->where('status', 'active'), 'target_name');
 
         $model = $this->llmSettingsModel();
+        $systemPrompt = $this->buildSystemPrompt($family);
 
         try {
-            $finalText = $this->runner->run(
+            $result = $this->runner->run(
                 model: $model,
-                system: $this->buildSystemPrompt($family),
+                system: $systemPrompt,
                 messages: $this->buildHistory($thread),
                 tools: $this->buildTools($family, $userMessage, $wallets, $accounts, $sources, $goals),
                 maxIterations: 4,
@@ -65,10 +67,12 @@ class AssistantService
             throw $e;
         }
 
+        $this->logLocalDebug($family, $userMessage, $model, $systemPrompt, $result);
+
         return $thread->messages()->create([
             'role' => 'assistant',
-            'content' => $finalText !== ''
-                ? $finalText
+            'content' => $result->text !== ''
+                ? $result->text
                 : 'Maaf, aku belum paham maksudnya. Bisa dijelaskan lagi?',
         ]);
     }
@@ -138,6 +142,37 @@ class AssistantService
             ]);
         } catch (Throwable $persistError) {
             Log::channel('ai')->error('Gagal menyimpan baris ai_provider_errors', [
+                'exception' => $persistError->getMessage(),
+            ]);
+        }
+    }
+
+    // Jejak debugging lokal: baris prompt user, system prompt yang dibangun,
+    // dan token usage dari provider (lihat ConversationResult). Cuma jalan di
+    // app()->environment('local') -- system_prompt bisa memuat ringkasan
+    // finansial family, jangan sampai menumpuk di ai_logs server produksi.
+    // Dibungkus try/catch sendiri, sama seperti logProviderError(): kegagalan
+    // menulis log lokal tidak boleh menggagalkan balasan Amina yang sudah
+    // berhasil didapat.
+    private function logLocalDebug(Family $family, ChatMessage $userMessage, string $model, string $systemPrompt, ConversationResult $result): void
+    {
+        if (! app()->environment('local')) {
+            return;
+        }
+
+        try {
+            AiLog::create([
+                'family_id' => $family->id,
+                'thread_id' => $userMessage->thread_id,
+                'message_id' => $userMessage->id,
+                'model' => $model,
+                'user_prompt' => $userMessage->content,
+                'system_prompt' => $systemPrompt,
+                'input_tokens' => $result->inputTokens,
+                'output_tokens' => $result->outputTokens,
+            ]);
+        } catch (Throwable $persistError) {
+            Log::channel('ai')->error('Gagal menyimpan baris ai_logs', [
                 'exception' => $persistError->getMessage(),
             ]);
         }

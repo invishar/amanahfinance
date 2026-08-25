@@ -2,6 +2,7 @@
 
 use App\Models\Account;
 use App\Models\AiAction;
+use App\Models\AiLog;
 use App\Models\AiProviderError;
 use App\Models\ChatMessage;
 use App\Models\ChatThread;
@@ -10,6 +11,7 @@ use App\Models\FamilyMember;
 use App\Models\Wallet;
 use App\Services\Ai\AssistantService;
 use App\Services\Ai\Contracts\ConversationRunner;
+use App\Services\Ai\ConversationResult;
 use GuzzleHttp\Psr7\Response as Psr7Response;
 use Illuminate\Http\Client\RequestException;
 use Illuminate\Http\Client\Response;
@@ -102,7 +104,7 @@ test('a non-2xx provider response is logged to the dedicated ai channel', functi
     {
         public function __construct(private Response $response) {}
 
-        public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): string
+        public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): ConversationResult
         {
             throw new RequestException($this->response);
         }
@@ -133,7 +135,7 @@ test('a non-HTTP provider failure is still logged with a null status', function 
 
     app()->bind(ConversationRunner::class, fn () => new class implements ConversationRunner
     {
-        public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): string
+        public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): ConversationResult
         {
             throw new RuntimeException('connection timed out');
         }
@@ -161,6 +163,41 @@ test('fail writes a system message and bumps last_message_at', function () {
     expect($errorMessage->role)->toBe('system');
     expect($errorMessage->thread_id)->toBe($thread->id);
     expect($thread->fresh()->last_message_at)->not->toBeNull();
+});
+
+test('a successful respond writes an ai_logs row only when APP_ENV=local', function () {
+    app()['env'] = 'local';
+
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user', 'content' => 'halo amina']);
+
+    bindConversationRunner(finalText: 'Halo juga!');
+
+    app(AssistantService::class)->respond($userMessage);
+
+    $log = AiLog::query()->where('message_id', $userMessage->id)->first();
+    expect($log)->not->toBeNull();
+    expect($log->family_id)->toBe($family->id);
+    expect($log->thread_id)->toBe($thread->id);
+    expect($log->user_prompt)->toBe('halo amina');
+    expect($log->system_prompt)->not->toBeEmpty();
+    expect($log->input_tokens)->toBe(123);
+    expect($log->output_tokens)->toBe(45);
+});
+
+test('a successful respond does not write an ai_logs row outside APP_ENV=local', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    bindConversationRunner(finalText: 'Halo juga!');
+
+    app(AssistantService::class)->respond($userMessage);
+
+    expect(AiLog::query()->where('message_id', $userMessage->id)->exists())->toBeFalse();
 });
 
 test('respond with no tool calls just persists the assistant reply', function () {

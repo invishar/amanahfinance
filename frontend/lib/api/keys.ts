@@ -24,5 +24,7 @@ export const qk = {
     ["admin-subscriptions", status, page] as const,
   adminAiErrors: (status: string, model: string, page: number) =>
     ["admin-ai-errors", status, model, page] as const,
+  adminAiLogs: (model: string, page: number) =>
+    ["admin-ai-logs", model, page] as const,
   llmSetting: ["llm-setting"] as const,
 };
