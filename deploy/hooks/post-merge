@@ -56,15 +56,20 @@ if changed "frontend/"; then
   if ! command -v npm >/dev/null 2>&1; then
     echo "post-merge: npm not found in PATH, skipping frontend build" >&2
   else
-    npm --prefix frontend ci
-    # NODE_ENV=production only for the build step: `npm ci` above needs the
-    # shell's own NODE_ENV (whatever the Node.js Selector app mode set, e.g.
-    # "development") so devDependencies (typescript, tailwind, ...) actually
-    # get installed -- `next build` doesn't need them, but static export
-    # prerendering crashes outright ("Cannot read properties of null (reading
-    # 'useContext')" on the internal /_global-error page) when NODE_ENV isn't
-    # exactly "production" at build time. Confirmed by reproducing locally.
-    NODE_ENV=production npm --prefix frontend run build
+    # --include=dev forces devDependencies (typescript, tailwind, ...) to
+    # install regardless of NODE_ENV -- needed because the Node.js Selector
+    # app must stay in "Production" mode (see below), not because we expect
+    # NODE_ENV=development here.
+    npm --prefix frontend ci --include=dev
+    # `next build` crashes prerendering the internal /_global-error page
+    # ("Cannot read properties of null (reading 'useContext')") unless
+    # NODE_ENV is exactly "production" at build time. The Node.js Selector's
+    # own node/npm wrapper re-asserts NODE_ENV from the app's configured
+    # "Application mode" regardless of what the caller's shell exports, so
+    # prefixing this command with NODE_ENV=production has no effect -- the
+    # Node.js app itself must be set to "Production" mode in cPanel for this
+    # to actually take. Confirmed by reproducing locally.
+    npm --prefix frontend run build
 
     mkdir -p public
     # --delete removes stale files from the previous build; the excludes protect
