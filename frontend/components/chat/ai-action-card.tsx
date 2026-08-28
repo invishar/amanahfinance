@@ -9,7 +9,17 @@ import {
   isEditableAction,
   type AiActionEditField,
 } from "@/lib/ai-action-view";
-import type { Account, AiAction, IncomeSource, SavingsGoal, Wallet } from "@/lib/api/hooks";
+import { ApiError } from "@/lib/api/client";
+import { useSaveEntity, type Account, type AiAction, type EntityKind, type IncomeSource, type SavingsGoal, type Wallet } from "@/lib/api/hooks";
+
+const ACCOUNT_TYPE_OPTIONS = [
+  { value: "bank", label: "Bank" },
+  { value: "ewallet", label: "E-Wallet" },
+  { value: "cash", label: "Tunai" },
+  { value: "other", label: "Lainnya" },
+];
+
+const ADD_NEW_VALUE = "__add_new__";
 
 type Entities = {
   accounts: Account[];
@@ -217,11 +227,52 @@ function EditForm({
   draft: Record<string, string>;
   onChange: (key: string, value: string) => void;
 }) {
+  // Muncul saat entitas yang diinginkan belum ada di daftar -- entri baru
+  // langsung dibuat lewat useSaveEntity(kind), lalu id-nya dipakai sebagai
+  // value field ini. Entitas hasil buatan disimpan lokal supaya langsung
+  // muncul di <select> tanpa menunggu refetch entities dari parent.
+  const [addingKey, setAddingKey] = useState<string | null>(null);
+  const [justCreated, setJustCreated] = useState<Record<string, { id: string; name: string }>>({});
+
+  const saveWallet = useSaveEntity("wallet");
+  const saveAccount = useSaveEntity("account");
+  const saveIncome = useSaveEntity("income");
+  const saveGoal = useSaveEntity("goal");
+  const saveByKind: Record<EntityKind, ReturnType<typeof useSaveEntity>> = {
+    wallet: saveWallet,
+    account: saveAccount,
+    income: saveIncome,
+    goal: saveGoal,
+  };
+
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
       {fields.map((f) => {
         const id = `ai-action-edit-${f.key}`;
         const value = draft[f.key] ?? "";
+        const extraEntity = justCreated[f.key];
+        const entityOptions =
+          extraEntity && !f.entities?.some((e) => e.id === extraEntity.id)
+            ? [...(f.entities ?? []), extraEntity]
+            : f.entities;
+
+        if (f.type === "entity-select" && addingKey === f.key && f.entityKind) {
+          return (
+            <NewEntityInlineForm
+              key={f.key}
+              label={f.label}
+              entityKind={f.entityKind}
+              mutation={saveByKind[f.entityKind]}
+              onCancel={() => setAddingKey(null)}
+              onCreated={(entity) => {
+                setJustCreated((prev) => ({ ...prev, [f.key]: entity }));
+                onChange(f.key, entity.id);
+                setAddingKey(null);
+              }}
+            />
+          );
+        }
+
         return (
           <div key={f.key} style={{ display: "flex", flexDirection: "column", gap: 2 }}>
             <label htmlFor={id} className="text-muted" style={{ fontSize: 12 }}>
@@ -234,7 +285,13 @@ function EditForm({
                 className="input"
                 style={{ fontSize: 13 }}
                 value={value}
-                onChange={(e) => onChange(f.key, e.target.value)}
+                onChange={(e) => {
+                  if (e.target.value === ADD_NEW_VALUE) {
+                    setAddingKey(f.key);
+                    return;
+                  }
+                  onChange(f.key, e.target.value);
+                }}
               >
                 <option value="">— pilih —</option>
                 {f.type === "select"
@@ -243,11 +300,14 @@ function EditForm({
                         {o.label}
                       </option>
                     ))
-                  : f.entities?.map((entity) => (
+                  : entityOptions?.map((entity) => (
                       <option key={entity.id} value={entity.id}>
                         {entity.name}
                       </option>
                     ))}
+                {f.type === "entity-select" && f.entityKind && (
+                  <option value={ADD_NEW_VALUE}>+ Tambah baru…</option>
+                )}
               </select>
             ) : (
               <input
@@ -262,6 +322,127 @@ function EditForm({
           </div>
         );
       })}
+    </div>
+  );
+}
+
+/** Mini-form "Tambah baru" untuk satu entity-select -- field minimal per jenis
+ * entitas (lihat API-v1.md: hanya `name`/`target_name` yang benar-benar wajib,
+ * `account_type` tambahan wajib khusus akun, `target_amount` wajib khusus target). */
+function NewEntityInlineForm({
+  label,
+  entityKind,
+  mutation,
+  onCancel,
+  onCreated,
+}: {
+  label: string;
+  entityKind: EntityKind;
+  mutation: ReturnType<typeof useSaveEntity>;
+  onCancel: () => void;
+  onCreated: (entity: { id: string; name: string }) => void;
+}) {
+  const [name, setName] = useState("");
+  const [accountType, setAccountType] = useState("bank");
+  const [targetAmount, setTargetAmount] = useState("");
+  const [error, setError] = useState<string | null>(null);
+
+  const nameLabel = entityKind === "goal" ? "Nama target baru" : `${label} baru`;
+  const canSubmit =
+    name.trim().length > 0 && (entityKind !== "goal" || Number(targetAmount) > 0);
+
+  const submit = async () => {
+    setError(null);
+    const trimmed = name.trim();
+    const body: Record<string, unknown> =
+      entityKind === "goal"
+        ? { target_name: trimmed, target_amount: Number(targetAmount) }
+        : { name: trimmed };
+    if (entityKind === "account") body.account_type = accountType;
+
+    try {
+      const created = (await mutation.mutateAsync({ body })) as {
+        id: string;
+        name?: string;
+        target_name?: string;
+      };
+      onCreated({ id: created.id, name: created.name ?? created.target_name ?? trimmed });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Gagal menambah opsi baru.");
+    }
+  };
+
+  return (
+    <div
+      style={{
+        display: "flex",
+        flexDirection: "column",
+        gap: 6,
+        padding: 8,
+        border: "1px dashed var(--color-divider)",
+        borderRadius: "var(--radius-sm)",
+      }}
+    >
+      <span className="text-muted" style={{ fontSize: 12 }}>
+        {nameLabel}
+      </span>
+      <input
+        className="input"
+        style={{ fontSize: 13 }}
+        autoFocus
+        value={name}
+        onChange={(e) => setName(e.target.value)}
+        placeholder={nameLabel}
+      />
+      {entityKind === "account" && (
+        <select
+          className="input"
+          style={{ fontSize: 13 }}
+          value={accountType}
+          onChange={(e) => setAccountType(e.target.value)}
+        >
+          {ACCOUNT_TYPE_OPTIONS.map((o) => (
+            <option key={o.value} value={o.value}>
+              {o.label}
+            </option>
+          ))}
+        </select>
+      )}
+      {entityKind === "goal" && (
+        <input
+          className="input"
+          style={{ fontSize: 13 }}
+          type="number"
+          value={targetAmount}
+          onChange={(e) => setTargetAmount(e.target.value)}
+          placeholder="Nominal Target (Rp)"
+        />
+      )}
+      {error && (
+        <p className="field-error" style={{ margin: 0 }}>
+          {error}
+        </p>
+      )}
+      <div style={{ display: "flex", gap: 6 }}>
+        <button
+          type="button"
+          className="btn btn-primary"
+          style={{ flex: 1, fontSize: 12 }}
+          onClick={submit}
+          disabled={!canSubmit || mutation.isPending}
+        >
+          {mutation.isPending ? "Menyimpan…" : "Simpan"}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost"
+          style={{ fontSize: 12 }}
+          onClick={onCancel}
+          disabled={mutation.isPending}
+        >
+          Batal
+        </button>
+      </div>
     </div>
   );
 }

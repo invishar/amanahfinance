@@ -3,7 +3,7 @@
 // family yang sudah di-fetch di layar lain, bukan menampilkan UUID mentah.
 
 import { formatDateID, formatRupiah } from "@/lib/format";
-import type { Account, AiAction, IncomeSource, SavingsGoal, Wallet } from "@/lib/api/hooks";
+import type { Account, AiAction, EntityKind, IncomeSource, SavingsGoal, Wallet } from "@/lib/api/hooks";
 
 export interface AiActionField {
   label: string;
@@ -96,6 +96,8 @@ export interface AiActionEditField {
   options?: { value: string; label: string }[];
   /** Hanya untuk type "entity-select" -- daftar entitas family buat dropdown. */
   entities?: { id?: string; name?: string }[];
+  /** Hanya untuk type "entity-select" -- entitas apa yang dibuat lewat opsi "Tambah baru". */
+  entityKind?: EntityKind;
   required?: boolean;
 }
 
@@ -119,19 +121,19 @@ export function editableFieldsForAiAction(
     const fields: AiActionEditField[] = [
       { key: "type", label: "Jenis", type: "select", options: TX_TYPE_OPTIONS, required: true },
       { key: "amount", label: "Nominal (Rp)", type: "number", required: true },
-      { key: "account_id", label: "Sumber Dana", type: "entity-select", entities: entities.accounts, required: true },
+      { key: "account_id", label: "Sumber Dana", type: "entity-select", entities: entities.accounts, entityKind: "account", required: true },
     ];
     if (type === "expense") {
-      fields.push({ key: "wallet_id", label: "Wallet", type: "entity-select", entities: entities.wallets, required: true });
+      fields.push({ key: "wallet_id", label: "Wallet", type: "entity-select", entities: entities.wallets, entityKind: "wallet", required: true });
     }
     if (type === "income") {
-      fields.push({ key: "source_id", label: "Sumber Pemasukan", type: "entity-select", entities: entities.incomeSources, required: true });
+      fields.push({ key: "source_id", label: "Sumber Pemasukan", type: "entity-select", entities: entities.incomeSources, entityKind: "income", required: true });
     }
     if (type === "transfer") {
-      fields.push({ key: "to_account_id", label: "Akun Tujuan", type: "entity-select", entities: entities.accounts, required: true });
+      fields.push({ key: "to_account_id", label: "Akun Tujuan", type: "entity-select", entities: entities.accounts, entityKind: "account", required: true });
     }
     if (type === "savings") {
-      fields.push({ key: "goal_id", label: "Target Tabungan", type: "entity-select", entities: entities.savingsGoals, required: true });
+      fields.push({ key: "goal_id", label: "Target Tabungan", type: "entity-select", entities: entities.savingsGoals, entityKind: "goal", required: true });
     }
     fields.push({ key: "transaction_date", label: "Tanggal", type: "date", required: true });
     fields.push({ key: "note", label: "Catatan", type: "text" });
@@ -167,7 +169,7 @@ export function editableFieldsForAiAction(
       { key: "target_name", label: "Nama Target", type: "text", required: true },
       { key: "target_amount", label: "Nominal Target (Rp)", type: "number", required: true },
       { key: "deadline", label: "Tenggat", type: "date" },
-      { key: "account_id", label: "Akun Penampung", type: "entity-select", entities: entities.accounts },
+      { key: "account_id", label: "Akun Penampung", type: "entity-select", entities: entities.accounts, entityKind: "account" },
     ];
   }
 
