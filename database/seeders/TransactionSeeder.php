@@ -16,12 +16,12 @@ class TransactionSeeder extends Seeder
      */
     public function run(): void
     {
-        Family::all()->each(function (Family $family) {
+        Family::with(['accounts', 'wallets', 'incomeSources', 'savingsGoals', 'members'])->get()->each(function (Family $family) {
             $accounts = $family->accounts;
             $wallets = $family->wallets;
             $sources = $family->incomeSources;
             $goals = $family->savingsGoals;
-            $member = $family->members()->inRandomOrder()->first();
+            $member = $family->members->isNotEmpty() ? $family->members->random() : null;
 
             if ($accounts->isEmpty()) {
                 return;
