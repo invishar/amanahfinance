@@ -19,6 +19,17 @@ class ProcessAssistantMessage implements ShouldQueue
 
     public int $tries = 3;
 
+    // Beberapa provider (mis. 9Router) sempat balas error transien lalu pulih
+    // sendiri dalam hitungan puluhan detik (ditemukan lewat ai_provider_errors
+    // -- request yang identik berhasil begitu diulang ~1 menit kemudian).
+    // Tanpa jeda, database queue langsung meretry job begitu tersedia lagi,
+    // jadi ketiga percobaan bisa habis sebelum provider sempat pulih --
+    // pesan "gangguan teknis" pun muncul padahal sebenarnya cuma butuh
+    // nunggu sebentar. Selaras juga dengan pola burst worker per menit
+    // (CLAUDE.md "Perintah"): job yang belum available_at tidak diambil,
+    // baru dicoba lagi di burst berikutnya.
+    public array $backoff = [10, 30];
+
     public function __construct(public string $chatMessageId) {}
 
     public function handle(AssistantService $assistant): void

@@ -52,6 +52,12 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
                     // token buat `reasoning` sebelum `content` terisi; batas
                     // terlalu rendah membuat balasan terpotong kosong.
                     'max_tokens' => 2048,
+                    // Eksplisit false: sebagian provider (mis. 9Router) kalau
+                    // field ini tak dikirim, menempelkan literal `data:
+                    // [DONE]` langsung setelah body JSON non-stream tanpa
+                    // pemisah -- bikin json_decode() gagal senyap dan Amina
+                    // dianggap membalas kosong.
+                    'stream' => false,
                 ], fn ($value) => $value !== null))
                 ->throw();
 
@@ -67,7 +73,7 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
             $chatMessages[] = $this->assistantMessageForHistory($message);
 
             if ($toolCalls === []) {
-                $finalText = trim((string) ($message['content'] ?? ''));
+                $finalText = $this->stripReasoning((string) ($message['content'] ?? ''));
                 break;
             }
 
@@ -77,6 +83,18 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
         }
 
         return new ConversationResult($finalText, $inputTokens, $outputTokens);
+    }
+
+    // Sebagian model reasoning (mis. deepseek-r1-distill di balik model
+    // "amanafinance" pada 9Router) menaruh chain-of-thought-nya langsung di
+    // `content` lewat tag <think>...</think>, bukan di field terpisah --
+    // beda dari gpt-oss (Groq) yang reasoning-nya tidak pernah muncul di
+    // content. Dibuang di sini supaya balasan Amina tidak bocor jadi
+    // paragraf mikir panjang berbahasa Inggris (lihat aturan persona
+    // "1-3 kalimat" di config/amina.php).
+    private function stripReasoning(string $content): string
+    {
+        return trim((string) preg_replace('/<think>.*?<\/think>/is', '', $content));
     }
 
     /**
@@ -107,11 +125,16 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
      */
     private function assistantMessageForHistory(array $message): array
     {
+        // `content` HARUS selalu ada (string, boleh kosong) -- sebagian
+        // provider (mis. 9Router/Cloudflare) menolak total request kalau
+        // pesan assistant dengan tool_calls tidak menyertakan key `content`
+        // sama sekali, bukan cuma mengabaikannya seperti OpenAI/Groq. Jadi
+        // cuma `tool_calls` yang di-filter kalau kosong, bukan `content`.
         return array_filter([
             'role' => 'assistant',
-            'content' => $message['content'] ?? null,
+            'content' => (string) ($message['content'] ?? ''),
             'tool_calls' => $message['tool_calls'] ?? null,
-        ], fn ($value) => $value !== null);
+        ], fn ($value, $key) => $key === 'content' || $value !== null, ARRAY_FILTER_USE_BOTH);
     }
 
     /**
