@@ -28,3 +28,6 @@ Homestead.json
 Homestead.yaml
 Thumbs.db
 prompt.php
+
+# Konfigurasi deploy per-mesin (berisi detail akses server)
+/scripts/deploy.env
