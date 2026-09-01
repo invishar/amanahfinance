@@ -51,7 +51,7 @@ class AssistantService
         $goals = $this->activeCandidates(SavingsGoal::query()->where('family_id', $family->id)->where('status', 'active'), 'target_name');
 
         $model = $this->llmSettingsModel();
-        $systemPrompt = $this->buildSystemPrompt($family);
+        $systemPrompt = $this->buildSystemPrompt($family, $wallets, $accounts, $sources, $goals);
 
         try {
             $result = $this->runner->run(
@@ -183,6 +183,10 @@ class AssistantService
      */
     private function buildHistory(ChatThread $thread): array
     {
+        // Isi tiap pesan dipotong: satu pesan panjang (user menempel struk,
+        // daftar belanja, dsb) bisa sendirian menghabiskan anggaran token
+        // seluruh giliran. 1000 karakter jauh di atas panjang wajar chat
+        // sehari-hari, jadi praktis hanya kasus ekstrem yang kena.
         return $thread->messages()
             ->whereIn('role', ['user', 'assistant'])
             ->orderByDesc('created_at')
@@ -191,12 +195,43 @@ class AssistantService
             ->reverse()
             ->values()
             ->filter(fn (ChatMessage $m) => filled($m->content))
-            ->map(fn (ChatMessage $m) => ['role' => $m->role, 'content' => (string) $m->content])
+            ->map(fn (ChatMessage $m) => [
+                'role' => $m->role,
+                'content' => Str::limit((string) $m->content, 1000),
+            ])
             ->all();
     }
 
-    private function buildSystemPrompt(Family $family): string
-    {
+    /**
+     * Konteks dibentuk atas dua prinsip:
+     *
+     * 1. Yang SELALU dibutuhkan tapi murah -> taruh inline. Itu berarti
+     *    katalog nama entitas (satu-satunya nilai sah untuk argumen *_name di
+     *    tool) dan angka kas bulan berjalan. Sebelumnya katalog akun & target
+     *    TIDAK pernah dikirim sama sekali, padahal create_transaction
+     *    mewajibkan account_name di semua jenis transaksi -- model disuruh
+     *    menyebut nama yang tak pernah ia lihat, lalu NameResolver menebak.
+     *
+     * 2. Yang BESAR tapi jarang dipakai -> jangan inline, biarkan diambil
+     *    lewat tool. Itu detail per-wallet (budget/spent/remaining/percent/
+     *    status) dan per-sumber, yang dulu ikut di setiap pesan lewat
+     *    summary() penuh -- termasuk saat user cuma bilang "halo".
+     *
+     * hari_ini penting: tanpa itu model tidak bisa menghitung "kemarin" atau
+     * "tanggal 3 lalu" jadi transaction_date yang benar.
+     *
+     * @param  Collection<int, array{id:string,name:string}>  $wallets
+     * @param  Collection<int, array{id:string,name:string}>  $accounts
+     * @param  Collection<int, array{id:string,name:string}>  $sources
+     * @param  Collection<int, array{id:string,name:string}>  $goals
+     */
+    private function buildSystemPrompt(
+        Family $family,
+        Collection $wallets,
+        Collection $accounts,
+        Collection $sources,
+        Collection $goals,
+    ): string {
         $answers = OnboardingAnswer::query()
             ->where('family_id', $family->id)
             ->where('skipped', false)
@@ -204,13 +239,18 @@ class AssistantService
             ->mapWithKeys(fn (OnboardingAnswer $a) => [$a->question_key => $a->answer])
             ->all();
 
-        $summary = $this->analytics->summary($family->id, now()->startOfMonth());
+        $names = fn (Collection $rows) => $rows->pluck('name')->values()->all();
 
         $context = [
-            'family_name' => $family->name,
-            'currency' => $family->currency,
-            'onboarding_answers' => $answers,
-            'ringkasan_bulan_berjalan' => $summary,
+            'keluarga' => $family->name,
+            'mata_uang' => $family->currency,
+            'hari_ini' => now()->toDateString(),
+            'wallets' => $names($wallets),
+            'accounts' => $names($accounts),
+            'income_sources' => $names($sources),
+            'savings_goals' => $names($goals),
+            'kas_bulan_ini' => $this->analytics->cashflow($family->id, now()->startOfMonth()),
+            'tentang_keluarga' => $answers,
         ];
 
         return config('amina.persona')

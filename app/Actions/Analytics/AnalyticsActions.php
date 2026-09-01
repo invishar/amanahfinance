@@ -24,7 +24,11 @@ class AnalyticsActions
         ];
     }
 
-    private function cashflow(string $familyId, Carbon $period): array
+    // Publik supaya AssistantService bisa menaruh angka kas bulan berjalan di
+    // system prompt tanpa ikut menarik detail per-wallet & per-sumber yang
+    // jauh lebih besar -- detail itu tetap tersedia lewat tool
+    // get_financial_summary kalau memang ditanya.
+    public function cashflow(string $familyId, Carbon $period): array
     {
         $row = DB::table('v_cashflow_month')
             ->where('family_id', $familyId)
@@ -62,7 +66,15 @@ class AnalyticsActions
             ->where('period', now()->startOfMonth()->toDateString())
             ->pluck('amount', 'wallet_id');
 
+        // family_id difilter EKSPLISIT, tidak menyandarkan diri pada global
+        // scope BelongsToFamily: scope itu fail-open (diam kalau
+        // CurrentFamily::id() null), dan CurrentFamily hanya diisi middleware
+        // ResolveFamily di request HTTP. AssistantService memanggil summary()
+        // dari dalam queue job -- tanpa request, tanpa scope -- sehingga versi
+        // sebelumnya mengembalikan wallet SELURUH tabel dan membocorkannya ke
+        // system prompt LLM.
         return Wallet::query()
+            ->where('family_id', $familyId)
             ->where('is_archived', false)
             ->orderBy('sort_order')
             ->get()
@@ -97,7 +109,9 @@ class AnalyticsActions
             ->get()
             ->keyBy('source_id');
 
+        // Filter family_id eksplisit -- alasan sama seperti di wallets().
         return IncomeSource::query()
+            ->where('family_id', $familyId)
             ->where('is_archived', false)
             ->orderBy('name')
             ->get()

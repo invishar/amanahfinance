@@ -8,6 +8,8 @@ use App\Models\ChatMessage;
 use App\Models\ChatThread;
 use App\Models\Family;
 use App\Models\FamilyMember;
+use App\Models\IncomeSource;
+use App\Models\SavingsGoal;
 use App\Models\Wallet;
 use App\Services\Ai\AssistantService;
 use App\Services\Ai\Contracts\ConversationRunner;
@@ -212,4 +214,72 @@ test('respond with no tool calls just persists the assistant reply', function ()
 
     expect($reply->content)->toBe('Halo juga! Ada yang bisa aku bantu?');
     expect(AiAction::query()->where('message_id', $userMessage->id)->exists())->toBeFalse();
+});
+
+// Runner yang cuma menangkap system prompt, supaya isi konteks bisa diperiksa
+// tanpa menyentuh jaringan. Dipakai dua test di bawah.
+function captureSystemPrompt(ChatMessage $userMessage): string
+{
+    $holder = new stdClass;
+    $holder->system = '';
+
+    app()->bind(ConversationRunner::class, fn () => new class($holder) implements ConversationRunner
+    {
+        public function __construct(private stdClass $holder) {}
+
+        public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): ConversationResult
+        {
+            $this->holder->system = $system;
+
+            return new ConversationResult('oke', 1, 1);
+        }
+    });
+
+    app(AssistantService::class)->respond($userMessage);
+
+    return $holder->system;
+}
+
+test('system prompt memuat katalog nama akun, wallet, sumber, dan target', function () {
+    $family = Family::factory()->create(['name' => 'Keluarga Uji']);
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    $account = Account::factory()->for($family)->create(['name' => 'Bank Jago']);
+    $wallet = Wallet::factory()->for($family)->create(['name' => 'Kopi Harian']);
+    $source = IncomeSource::factory()->for($family)->create(['name' => 'Royalti Buku']);
+    $goal = SavingsGoal::factory()->for($family)->create([
+        'target_name' => 'Umrah Ibu', 'status' => 'active',
+    ]);
+
+    $system = captureSystemPrompt($userMessage);
+
+    // create_transaction mewajibkan account_name di SEMUA jenis transaksi, dan
+    // goal_name untuk savings -- kalau nama-nama ini tidak ikut dikirim, model
+    // diminta menyebut sesuatu yang tak pernah ia lihat.
+    expect($system)->toContain($account->name);
+    expect($system)->toContain($wallet->name);
+    expect($system)->toContain($source->name);
+    expect($system)->toContain($goal->target_name);
+    expect($system)->toContain(now()->toDateString());
+});
+
+test('system prompt tidak lagi menyertakan detail per-wallet yang besar', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+    Wallet::factory()->for($family)->create(['name' => 'Kopi Harian']);
+
+    $system = captureSystemPrompt($userMessage);
+
+    // Rincian budget/spent/status per wallet hanya boleh datang lewat tool
+    // get_financial_summary, bukan menempel di setiap pesan.
+    expect($system)->not->toContain('"remaining"');
+    expect($system)->not->toContain('"percent"');
+    expect($system)->not->toContain('"wallet_id"');
+    // ...tapi angka kas ringkas tetap inline supaya pertanyaan umum tidak
+    // memicu satu putaran tool call tambahan.
+    expect($system)->toContain('kas_bulan_ini');
 });

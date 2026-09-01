@@ -1,11 +1,13 @@
 <?php
 
+use App\Actions\Analytics\AnalyticsActions;
 use App\Models\Account;
 use App\Models\Family;
 use App\Models\IncomeSource;
 use App\Models\Transaction;
 use App\Models\Wallet;
 use App\Models\WalletBudget;
+use App\Support\CurrentFamily;
 
 test('summary reports cashflow totals for the current month', function () {
     [, $family] = $this->actingAsFamilyMember('member');
@@ -169,4 +171,33 @@ test('invalid month format is rejected', function () {
     $this->getJson('/api/v1/analytics/summary?month=not-a-month')
         ->assertStatus(422)
         ->assertJsonValidationErrors(['month']);
+});
+
+// Regresi: AssistantService memanggil AnalyticsActions::summary() dari dalam
+// queue job -- tanpa request HTTP, jadi middleware ResolveFamily tidak pernah
+// jalan dan CurrentFamily::id() null. Global scope BelongsToFamily fail-open
+// pada kondisi itu (diam, bukan menolak), sehingga summary sempat mengembalikan
+// wallet & income source SELURUH tabel dan membocorkannya ke system prompt LLM.
+// Test lain di file ini semuanya lewat HTTP, tempat scope memang bekerja --
+// karena itu kebocoran ini lolos. Yang ini sengaja TIDAK pakai actingAs.
+test('summary tidak membocorkan data family lain saat dipanggil tanpa konteks request', function () {
+    $family = Family::factory()->create();
+    $wallet = Wallet::factory()->for($family)->create();
+    $source = IncomeSource::factory()->for($family)->create();
+
+    $otherFamily = Family::factory()->create();
+    $otherWallet = Wallet::factory()->for($otherFamily)->create();
+    $otherSource = IncomeSource::factory()->for($otherFamily)->create();
+
+    expect(app(CurrentFamily::class)->id())->toBeNull();
+
+    $summary = app(AnalyticsActions::class)
+        ->summary($family->id, now()->startOfMonth());
+
+    expect(collect($summary['wallets'])->pluck('wallet_id')->all())->toBe([$wallet->id]);
+    expect(collect($summary['income_sources'])->pluck('source_id')->all())->toBe([$source->id]);
+
+    $json = json_encode($summary);
+    expect($json)->not->toContain($otherWallet->id);
+    expect($json)->not->toContain($otherSource->id);
 });

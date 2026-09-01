@@ -1,6 +1,6 @@
 # Catatan Kerja — Setup Lokal & Jalur Deploy
 
-Dikerjakan 31 Agustus – 1 September 2026. Ringkasan poin penting saja; detail
+Dikerjakan 31 Agustus – 2 September 2026. Ringkasan poin penting saja; detail
 teknis lengkap ada di `CLAUDE.md`, `DEPLOY-FRONTEND-HPANEL.md`, dan komentar di
 dalam `scripts/deploy.sh`.
 
@@ -18,7 +18,7 @@ dalam `scripts/deploy.sh`.
 - **Database: MariaDB dari XAMPP**, bukan SQLite. Ini bukan preferensi —
   `create_reporting_views.php` memakai `date_format()` dan `curdate()` yang
   MySQL-only, jadi SQLite pasti gagal saat migrasi.
-- `.env` dibuat dari `.env.example`, diarahkan ke MySQL lokal (db `amanahfinance`).
+- `.env` dibuat dari `.env.example`, diarahkan ke MySQL lokal (db `amanahfinance_dev`).
 - 33 migrasi + seeder jalan bersih.
 
 Menyalakan (tiga terminal terpisah, dari root repo):
@@ -31,12 +31,28 @@ npm --prefix frontend run dev
 
 Kalau MariaDB mati: jalankan `C:\xampp\mysql\bin\mysqld.exe`.
 
-Akun demo dari seeder: `admin@example.com` / `password` (admin),
-`ega.mayasari@example.com` / `password` (user dengan 26 transaksi).
+Akun demo dicetak seeder di akhir `db:seed` (email user berubah tiap kali
+di-seed ulang). Admin selalu `admin@example.com` / `password`.
 
-**Test suite: 227 test, 795 assertion, semua lolos (~54 detik).**
+**Test suite: 230 test, semua lolos (~16 detik).**
 Jalankan dengan `php artisan test` — butuh database `afapi_testing` (dibuat
 terpisah, lihat `phpunit.xml`).
+
+### Gotcha: MariaDB mati paksa → "Tablespace exists"
+
+Kalau mysqld terbunuh tidak bersih (mis. proses di-kill), InnoDB bisa
+meninggalkan file `.ibd` yatim, dan migrasi berikutnya gagal dengan
+`SQLSTATE[HY000] 1813 Tablespace for table ... exists` atau
+`1932 ... doesn't exist in engine`. Menghapus folder database saat mysqld
+masih **berjalan** tidak menyelesaikan apa pun — dictionary InnoDB tetap
+memegang entri basinya. Urutan yang benar:
+
+```powershell
+C:\xampp\mysql\bin\mysqladmin.exe -u root shutdown
+Remove-Item C:\xampp\mysql\data\<nama_db> -Recurse -Force
+Start-Process C:\xampp\mysql\bin\mysqld.exe -ArgumentList '--standalone'
+# lalu create database lagi, migrate, seed
+```
 
 ---
 
@@ -124,3 +140,97 @@ semuanya 200.
   lokal tidak akan membalas sampai diisi kunci asli.
 - Catatan di `GROQ-MODELS.md` menulis contoh env `LLM_KEY=`, padahal kode membaca
   `LLM_API_KEY`. Dokumennya yang salah.
+
+---
+
+## 6. Audit alur AI Amina (2 September 2026)
+
+Dipicu pertanyaan "apakah pemakaian token Amina sudah efektif". Jawabannya
+belum — tapi temuan terbesarnya justru bukan soal token.
+
+### 6a. Kebocoran data antar-keluarga (SUDAH DIPERBAIKI)
+
+Konteks yang dikirim Amina ke penyedia LLM memuat wallet **9 keluarga lain**
+(45 dari 50 wallet) lengkap dengan nama, budget, dan pengeluarannya — di
+setiap pesan.
+
+Akar masalah: `AnalyticsActions::wallets()` dan `incomeSources()` tidak
+memfilter `family_id`, melainkan mengandalkan global scope `BelongsToFamily`.
+Scope itu **fail-open**:
+
+```php
+$familyId = app(CurrentFamily::class)->id();
+if ($familyId !== null) {        // null -> TIDAK ADA filter sama sekali
+    $query->where(...);
+}
+```
+
+`CurrentFamily` diisi middleware `ResolveFamily`, yang **hanya jalan di
+request HTTP**. Amina jalan di queue job → `CurrentFamily::id()` null → scope
+diam → seluruh tabel terbuka.
+
+| Konteks | Wallet terlihat |
+| --- | --- |
+| HTTP (dashboard, analisa) | 5 — benar |
+| Queue job (jalur Amina) | 50 — 45 milik keluarga lain |
+
+Lolos dari 227 test karena **semua** uji kebocoran tenant menembak endpoint
+HTTP, tempat scope memang bekerja. Test regresi baru di `AnalyticsTest`
+sengaja **tidak** memakai `actingAs` supaya meniru konteks queue — sudah
+diverifikasi gagal pada kode lama dan lolos pada kode baru.
+
+> **Pelajaran yang lebih luas:** pola `if ($familyId !== null)` itu masih ada
+> di `BelongsToFamily` dan melindungi seluruh model. Setiap kode yang jalan di
+> luar request HTTP (job, command, scheduler, seeder) tidak terlindungi sama
+> sekali. Yang diperbaiki di sini baru `AnalyticsActions`. **Audit pemakaian
+> model lain dari dalam job sebelum menambah fitur AI/terjadwal.**
+
+### 6b. Pemakaian token: −60%
+
+| | Sebelum | Sesudah |
+| --- | --- | --- |
+| System prompt | ~3.655 token | ~670 token |
+| Definisi tool | ~1.320 token | ~1.320 token |
+| **Overhead per panggilan LLM** | **~4.976** | **~1.990** |
+
+Sebagian besar pemborosan itu memang kebocoran di atas — 90% isi payload
+adalah data keluarga lain. Satu perbaikan menutup dua masalah.
+
+### 6c. Metode konteks yang dipakai sekarang
+
+Prinsip: **yang selalu dibutuhkan tapi murah → inline; yang besar tapi jarang
+dipakai → ambil lewat tool.** Sebelumnya terbalik.
+
+Yang berubah di `AssistantService::buildSystemPrompt()`:
+
+- **Katalog nama dikirim**: `wallets`, `accounts`, `income_sources`,
+  `savings_goals`. Sebelumnya nama akun & target **tidak pernah dikirim sama
+  sekali**, padahal `create_transaction` mewajibkan `account_name` di semua
+  jenis transaksi — model disuruh menyebut nama yang tak pernah ia lihat,
+  lalu `NameResolver` menebak.
+- **`hari_ini` ditambahkan** supaya "kemarin"/"senin lalu" bisa dihitung jadi
+  `transaction_date`. Sebelumnya konteks cuma punya awal bulan.
+- **Rincian per-wallet dikeluarkan** dari prompt (budget/spent/remaining/
+  percent/status) — sekarang hanya lewat `get_financial_summary`.
+- **`kas_bulan_ini` tetap inline.** Persona lama memerintahkan "selalu panggil
+  get_financial_summary dulu" padahal ringkasan yang sama sudah tertempel di
+  prompt, jadi satu pertanyaan membayar data itu 3x (di prompt, di hasil tool,
+  di prompt panggilan kedua). Sekarang pertanyaan umum selesai dalam satu
+  panggilan LLM, bukan dua.
+- Isi tiap pesan riwayat dipotong 1.000 karakter.
+
+Persona di `config/amina.php` ikut diselaraskan — kalau tidak, Amina tetap
+memanggil tool untuk angka yang sudah ada di konteks.
+
+Dikunci dua test di `AssistantServiceTest`: satu memastikan katalog nama &
+tanggal ikut terkirim, satu memastikan rincian per-wallet **tidak**.
+
+### 6d. Belum dikerjakan
+
+- **Kualitas jawaban belum diuji dengan LLM sungguhan** — kunci LLM lokal masih
+  dummy dari seeder. Perbaikan token & kebocoran terukur pasti; klaim soal
+  akurasi resolusi nama masih penalaran, belum bukti empiris. Isi kunci di
+  `/admin/llm-settings` untuk mengujinya.
+- **Prompt caching Anthropic** (`cache_control`) untuk memangkas ~1.320 token
+  definisi tool pada panggilan berulang. Setelah pemangkasan ini nilainya
+  berkurang, dan jalur Groq tidak mendukungnya — tinjau lagi kalau volume naik.
