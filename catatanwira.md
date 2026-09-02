@@ -38,6 +38,26 @@ di-seed ulang). Admin selalu `admin@example.com` / `password`.
 Jalankan dengan `php artisan test` — butuh database `afapi_testing` (dibuat
 terpisah, lihat `phpunit.xml`).
 
+### Gotcha: PHP portable tidak punya CA bundle → semua HTTPS gagal
+
+Paket ZIP php.net tidak menyertakan sertifikat CA, dan `php.ini-development`
+membiarkan `curl.cainfo`/`openssl.cafile` kosong. Akibatnya **setiap** panggilan
+HTTPS dari PHP gagal — termasuk panggilan ke penyedia LLM, yang muncul sebagai
+`APIConnectionException` di `ai_provider_errors` dan gampang disalahartikan
+sebagai masalah jaringan atau kunci. Padahal `curl` dari terminal jalan normal;
+yang tidak bisa hanya PHP.
+
+Sudah dipasang: `cacert.pem` dari <https://curl.se/ca/cacert.pem> ditaruh di
+folder PHP, lalu di `php.ini`:
+
+```ini
+curl.cainfo = "C:\Users\user\tools\php-8.4.25\cacert.pem"
+openssl.cafile = "C:\Users\user\tools\php-8.4.25\cacert.pem"
+```
+
+Perlu diulang kalau PHP dipasang ulang atau versinya diganti. Setelah mengubah
+php.ini, **restart queue worker** — proses lama masih memegang konfigurasi lama.
+
 ### Gotcha: MariaDB mati paksa → "Tablespace exists"
 
 Kalau mysqld terbunuh tidak bersih (mis. proses di-kill), InnoDB bisa
@@ -45,7 +65,10 @@ meninggalkan file `.ibd` yatim, dan migrasi berikutnya gagal dengan
 `SQLSTATE[HY000] 1813 Tablespace for table ... exists` atau
 `1932 ... doesn't exist in engine`. Menghapus folder database saat mysqld
 masih **berjalan** tidak menyelesaikan apa pun — dictionary InnoDB tetap
-memegang entri basinya. Urutan yang benar:
+memegang entri basinya. Bahkan setelah shutdown + hapus folder + start ulang,
+entri basi kadang MASIH tersisa (terjadi 2 September 2026); yang akhirnya
+berhasil adalah menjalankan `DROP DATABASE` + `CREATE DATABASE` sekali lagi
+setelah restart. Urutan yang dipakai:
 
 ```powershell
 C:\xampp\mysql\bin\mysqladmin.exe -u root shutdown
