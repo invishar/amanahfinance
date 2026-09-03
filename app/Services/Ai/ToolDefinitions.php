@@ -118,6 +118,24 @@ class ToolDefinitions
         ];
     }
 
+    // Hanya didaftarkan selama wawancara awal (lihat AssistantService::
+    // buildTools). Satu-satunya tool yang menulis langsung tanpa lewat
+    // ai_actions -- pengecualian sadar dari aturan #5 CLAUDE.md, karena
+    // onboarding_done adalah penanda status UI, bukan data keuangan: tidak
+    // ada rupiah, saldo, atau transaksi yang tersentuh.
+    public static function finishOnboarding(): array
+    {
+        return [
+            'name' => 'finish_onboarding',
+            'description' => 'Tandai wawancara awal selesai. Panggil SEKALI setelah semua topik pondasi tergali atau user bilang sudah cukup. Tidak menyimpan data keuangan apa pun -- draft yang sudah kamu siapkan tetap menunggu konfirmasi user.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => new \stdClass,
+                'required' => [],
+            ],
+        ];
+    }
+
     public static function getFinancialSummary(): array
     {
         return [

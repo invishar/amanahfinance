@@ -17,12 +17,14 @@ test('store creates onboarding thread with greeting and first question', functio
     expect($thread)->not->toBeNull();
     expect($thread->messages()->count())->toBe(1);
 
-    $questions = config('amina.onboarding_questions');
     $message = $thread->messages()->first();
 
+    // Pertanyaan lanjutan tidak lagi diskrip di sini -- begitu user membalas,
+    // Amina yang mewawancarai lewat jalur AI biasa (lihat
+    // OnboardingConversationActions::start). Jadi thread baru hanya berisi
+    // satu pesan pembuka.
     expect($message->role)->toBe('assistant');
-    expect($message->content)->toContain(config('amina.greeting'));
-    expect($message->content)->toContain($questions[array_key_first($questions)]);
+    expect($message->content)->toBe(config('amina.onboarding_greeting'));
 });
 
 test('store creates family and makes creator admin', function () {

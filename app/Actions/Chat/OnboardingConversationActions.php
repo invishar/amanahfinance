@@ -23,12 +23,14 @@ class OnboardingConversationActions
             'title' => 'Kenalan sama Amina',
         ]);
 
-        $questions = config('amina.onboarding_questions');
-        $firstKey = array_key_first($questions);
-
+        // Cuma pembuka. Pertanyaan lanjutannya TIDAK lagi diskrip di sini --
+        // begitu user membalas, ProcessAssistantMessage jalan seperti chat
+        // biasa dan Amina mewawancarai sendiri di bawah `onboarding_briefing`,
+        // sambil menyiapkan draft lewat tool create_*. Lihat
+        // AssistantService::respond() ($isOnboarding).
         $lastMessage = $thread->messages()->create([
             'role' => 'assistant',
-            'content' => config('amina.greeting')."\n\n".$questions[$firstKey],
+            'content' => config('amina.onboarding_greeting'),
         ]);
 
         $thread->update(['last_message_at' => $lastMessage->created_at]);

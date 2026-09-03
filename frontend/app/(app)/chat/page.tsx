@@ -11,11 +11,9 @@ import {
   useChatStream,
   useChatThreads,
   useConfirmAiAction,
-  useCreateOnboardingAnswer,
   useCreateThread,
   useIncomeSources,
   useMessages,
-  useOnboardingAnswers,
   usePendingAiActions,
   useRejectAiAction,
   useSavingsGoals,
@@ -29,24 +27,19 @@ const QUICK_PROMPTS: { label: string; text: string }[] = [
   { label: "Minta saran keuangan", text: "Gimana kondisi keuangan bulan ini?" },
 ];
 
-interface DemoItem extends ChatItem {
+// Selama wawancara awal, pintasan ini menggantikan QUICK_PROMPTS. Isinya
+// tetap dikirim sebagai pesan biasa -- Amina yang memaknainya.
+const ONBOARDING_PROMPTS: { label: string; text: string }[] = [
+  { label: "Lewati ini", text: "Lewati pertanyaan ini dulu ya" },
+  { label: "Belum tahu nominalnya", text: "Aku belum tahu nominal pastinya" },
+  { label: "Sudah cukup", text: "Sudah cukup, lanjut aja" },
+];
+
+// `at` cuma dipakai untuk mengurutkan; semua sumbernya (pesan & ai_actions)
+// memakai timestamp server, jadi tidak ada lagi masalah beda jam client-server
+// seperti waktu wawancara masih punya bubble lokal sendiri.
+interface SortableItem extends ChatItem {
   at: number;
-  /**
-   * Jumlah pesan server (`messages.data`) yang sudah ada saat item lokal ini
-   * dibuat. Dipakai untuk menyisipkan bubble ini di posisi yang benar --
-   * BUKAN lewat perbandingan `at` dengan timestamp server, karena jam client
-   * & server bisa beda (root cause bubble jawaban user ketuker posisi dgn
-   * pertanyaan onboarding berikutnya begitu server clock sedikit di
-   * belakang/depan jam browser).
-   */
-  anchor: number;
-  /**
-   * `question_key` yang dijawab, hanya diisi utk echo jawaban onboarding.
-   * Dipakai untuk membuang bubble optimistic lokal ini begitu jawaban yang
-   * sama sudah datang dari `GET /onboarding-answers` (lihat `items` di
-   * bawah) -- supaya tidak tampil dobel.
-   */
-  onboardingQuestionKey?: string;
 }
 
 export default function ChatPage() {
@@ -99,8 +92,6 @@ export default function ChatPage() {
   const [isRecording, setIsRecording] = useState(false);
   const timers = useRef<ReturnType<typeof setTimeout>[]>([]);
 
-  /* --- Item lokal-only (echo jawaban onboarding), lihat DemoItem di atas -- */
-  const [demoItems, setDemoItems] = useState<DemoItem[]>([]);
   const threadRequested = useRef(false);
 
   // Belum punya thread → buat satu (sekali saja). Family baru sudah otomatis
@@ -118,20 +109,12 @@ export default function ChatPage() {
   }, [threads.isSuccess, threads.data, createThread]);
 
   const thread = threads.data?.[0];
-  // Naskah & progres wawancara awal datang dari server lewat
-  // ChatThreadResource.onboarding (API-v1.md "Chat Threads") -- klien cuma
-  // tahu `question_key` yang sedang aktif, tidak pernah menyimpan naskahnya
-  // sendiri (CLAUDE.md "Alur AI").
+  // Server menandai wawancara awal masih berjalan lewat
+  // ChatThreadResource.onboarding.done (dinyalakan tool finish_onboarding).
+  // Klien cuma memakainya untuk petunjuk kecil di UI -- naskah pertanyaannya
+  // tetap tidak pernah ada di sini (CLAUDE.md "Alur AI").
   const onboarding = thread?.kind === "onboarding" ? thread.onboarding : null;
   const inWawancara = Boolean(onboarding) && !onboarding!.done;
-  const createOnboardingAnswer = useCreateOnboardingAnswer(threadId);
-  // Sumber kebenaran bubble jawaban onboarding -- lihat `useOnboardingAnswers`
-  // kenapa ini dibutuhkan (jawabannya sengaja tidak tersimpan sbg ChatMessage).
-  const onboardingAnswers = useOnboardingAnswers();
-  const [skipFeedback, setSkipFeedback] = useState<
-    { type: "success" | "error"; text: string } | null
-  >(null);
-
   useEffect(
     () => () => {
       timers.current.forEach(clearTimeout);
@@ -143,94 +126,24 @@ export default function ChatPage() {
     timers.current.push(setTimeout(fn, ms));
   };
 
-  const pushDemo = (item: Omit<DemoItem, "at" | "id" | "anchor"> & { id?: string }) => {
-    setDemoItems((prev) => [
-      ...prev,
-      {
-        ...item,
-        id: item.id ?? `demo-${Date.now()}-${prev.length}`,
-        at: Date.now(),
-        anchor: messages.data?.length ?? 0,
-      },
-    ]);
-  };
-
   const send = (
     text: string,
-    opts?: { inputMode?: "text" | "voice"; bypassOnboarding?: boolean },
+    opts?: { inputMode?: "text" | "voice" },
   ) => {
     const content = text.trim();
     if (!content || !threadId) return;
     setInput("");
 
-    // Selama wawancara awal, jawaban bebas dicatat sebagai OnboardingAnswer
-    // (bukan cuma lewat tombol "Lewati") supaya progresnya beneran maju --
-    // pertanyaan berikutnya disisipkan server ke thread yang sama begitu ini
-    // sukses. Sengaja TIDAK ikut lewat /chat-threads/messages di sini: thread
-    // ini masih naskah terstruktur, bukan obrolan bebas, jadi tidak perlu
-    // memicu balasan LLM sungguhan (yang juga cuma mubazir kena
-    // rate limit provider di tengah wawancara). Balasan user langsung
-    // ditampilkan lewat bubble lokal (optimistic) supaya riwayatnya kelihatan
-    // seketika, lalu digantikan bubble dari `useOnboardingAnswers` begitu
-    // request-nya sukses -- itu yang bikin bubble-nya tetap ada walau user
-    // pindah halaman lalu balik lagi.
-    if (inWawancara && !opts?.bypassOnboarding) {
-      // Sama seperti skipOnboardStep: tunggu question_key yang segar dulu
-      // kalau masih ada refetch dari jawaban sebelumnya yang belum selesai.
-      if (!onboarding?.question_key || createOnboardingAnswer.isPending || threads.isFetching)
-        return;
-      pushDemo({
-        role: "user",
-        content,
-        onboardingQuestionKey: onboarding.question_key,
-      });
-      setSkipFeedback(null);
-      createOnboardingAnswer.mutate(
-        { question_key: onboarding.question_key, answer: { note: content } },
-        {
-          onError: () => {
-            setSkipFeedback({
-              type: "error",
-              text: "Gagal menyimpan jawaban, coba lagi.",
-            });
-          },
-        },
-      );
-      return;
-    }
-
+    // Wawancara awal TIDAK lagi punya jalur sendiri. Sejak Amina yang
+    // mewawancarai (server menempelkan `onboarding_briefing` ke system prompt
+    // selama thread kind=onboarding, lihat AssistantService::respond), jawaban
+    // user adalah pesan chat biasa: dia yang menentukan pertanyaan berikutnya
+    // dan menyiapkan draft entitas lewat tool create_*. Draft itu muncul
+    // sebagai kartu aksi yang bisa diedit/dikonfirmasi seperti di chat biasa.
     sendMessage.mutate({
       content,
       input_mode: opts?.inputMode ?? "text",
     });
-  };
-
-  const skipOnboardStep = () => {
-    // `threads.isFetching` juga dicek supaya tidak submit `question_key` basi
-    // -- begitu satu jawaban sukses, chat-threads diinvalidasi (lihat
-    // useCreateOnboardingAnswer) dan butuh waktu refetch sebelum
-    // `onboarding.question_key` di closure ini benar-benar yang terbaru.
-    if (!onboarding?.question_key || createOnboardingAnswer.isPending || threads.isFetching)
-      return;
-    setSkipFeedback(null);
-    createOnboardingAnswer.mutate(
-      { question_key: onboarding.question_key, skipped: true },
-      {
-        onSuccess: () => {
-          setSkipFeedback({
-            type: "success",
-            text: "Oke, pertanyaan ini dilewati — bisa diisi belakangan.",
-          });
-          later(() => setSkipFeedback(null), 2500);
-        },
-        onError: () => {
-          setSkipFeedback({
-            type: "error",
-            text: "Gagal melewati pertanyaan, coba lagi.",
-          });
-        },
-      },
-    );
   };
 
   const toggleRecording = () => {
@@ -240,31 +153,13 @@ export default function ChatPage() {
       setIsRecording(false);
       send("Tadi abis makan siang di warteg 25rb dari GoPay", {
         inputMode: "voice",
-        bypassOnboarding: true,
       });
     }, 1500);
   };
 
-  /**
-   * Pesan server + item demo. `fromServer`, `fromAiActions`, &
-   * `fromOnboardingAnswers` semuanya pakai jam server jadi aman diurutkan
-   * lewat `at`. `demoItems` (balasan demo & echo jawaban onboarding,
-   * keduanya lokal-only) TIDAK ikut sort-by-`at` terhadap ketiganya --
-   * disisipkan lewat `anchor` (jumlah pesan server saat item itu dibuat,
-   * lihat `pushDemo`) supaya urutannya tidak goyah saat jam client & server
-   * beda.
-   *
-   * Echo jawaban onboarding butuh perlakuan ekstra: jawabannya sengaja tidak
-   * tersimpan sebagai `ChatMessage` (lihat komentar di `send()`), cuma
-   * `OnboardingAnswer`, jadi begitu komponen ini unmount (user pindah
-   * halaman) `demoItems` hilang dan bubble-nya lenyap padahal jawabannya
-   * masih ada di server. `fromOnboardingAnswers` di bawah membaca ulang dari
-   * `GET /onboarding-answers` supaya bubble itu muncul lagi setelah remount;
-   * begitu jawaban utk satu `question_key` sudah kebaca dari sana, echo
-   * lokal utk `question_key` yang sama dibuang dari `demoItems` supaya tidak
-   * dobel.
-   */
-  const items: DemoItem[] = useMemo(() => {
+  // Pesan dari server digabung dengan kartu aksi yang masih pending, lalu
+  // diurutkan berdasarkan waktu server.
+  const items: SortableItem[] = useMemo(() => {
     const fromServer = (messages.data ?? []).map((m) => ({
       id: m.id ?? "",
       role: (m.role === "user" || m.role === "system" ? m.role : "assistant") as
@@ -274,7 +169,6 @@ export default function ChatPage() {
       content: m.content ?? "",
       pending: (m.id ?? "").startsWith("optimistic-"),
       at: m.created_at ? Date.parse(m.created_at) : 0,
-      anchor: 0,
     }));
 
     // `/ai-actions` tidak thread-scoped (lihat useChatStream) -- saring ke
@@ -289,48 +183,10 @@ export default function ChatPage() {
         content: "",
         aiAction: a,
         at: a.created_at ? Date.parse(a.created_at) : 0,
-        anchor: 0,
       }));
 
-    const answeredQuestionKeys = new Set<string>();
-    const fromOnboardingAnswers = (onboardingAnswers.data ?? [])
-      .filter((a) => !a.skipped && typeof a.answer?.note === "string" && a.answer.note)
-      .map((a) => {
-        if (a.question_key) answeredQuestionKeys.add(a.question_key);
-        return {
-          id: `onboarding-answer-${a.id}`,
-          role: "user" as const,
-          content: String(a.answer!.note),
-          // -1ms: server menulis pertanyaan berikutnya TEPAT setelah jawaban
-          // ini tersimpan, dalam request yang sama (API-v1.md "Onboarding
-          // Answers") -- kalau keduanya kebetulan dibulatkan ke detik yang
-          // sama, `Array.sort` yang stabil akan menaruh pertanyaan berikutnya
-          // (dari `fromServer`, digabung duluan di bawah) SEBELUM jawaban ini
-          // walau urutan sebenarnya terbalik. Epsilon ini memaksa jawaban
-          // selalu menang saat seri, sesuai urutan sungguhan di server.
-          at: a.answered_at ? Date.parse(a.answered_at) - 1 : 0,
-          anchor: 0,
-        };
-      });
-
-    const result: DemoItem[] = [
-      ...fromServer,
-      ...fromAiActions,
-      ...fromOnboardingAnswers,
-    ].sort((a, b) => a.at - b.at);
-
-    demoItems
-      .filter(
-        (item) =>
-          !item.onboardingQuestionKey ||
-          !answeredQuestionKeys.has(item.onboardingQuestionKey),
-      )
-      .forEach((item, i) => {
-        result.splice(Math.min(item.anchor + i, result.length), 0, item);
-      });
-
-    return result;
-  }, [messages.data, demoItems, pendingAiActions.data, onboardingAnswers.data]);
+    return [...fromServer, ...fromAiActions].sort((a, b) => a.at - b.at);
+  }, [messages.data, pendingAiActions.data]);
 
   return (
     <div className="amana-chat-pane">
@@ -367,7 +223,7 @@ export default function ChatPage() {
 
       <MessageList
         items={items}
-        isTyping={stream.isThinking || createOnboardingAnswer.isPending}
+        isTyping={stream.isThinking}
         aiActionEntities={{
           accounts: accounts.data ?? [],
           wallets: wallets.data ?? [],
@@ -381,10 +237,10 @@ export default function ChatPage() {
         aiActionErrors={aiActionErrors}
       />
 
-      {inWawancara && onboarding && (
+      {inWawancara && (
         <div className="text-muted" style={{ padding: "0 var(--space-4)", fontSize: 11 }}>
-          Pertanyaan {onboarding.step} dari {onboarding.total} —
-          boleh dilewati kapan saja
+          Amina lagi kenalan sama keuangan keluargamu — jawab santai aja, boleh
+          bilang lewat kalau ada yang belum kepikiran
         </div>
       )}
 
@@ -396,39 +252,18 @@ export default function ChatPage() {
           overflowX: "auto",
         }}
       >
-        {inWawancara ? (
+        {(inWawancara ? ONBOARDING_PROMPTS : QUICK_PROMPTS).map((c) => (
           <button
+            key={c.label}
             type="button"
             className="btn btn-secondary"
             style={{ fontSize: 12, whiteSpace: "nowrap", flex: "none" }}
-            onClick={skipOnboardStep}
-            disabled={createOnboardingAnswer.isPending || threads.isFetching}
+            onClick={() => send(c.text)}
           >
-            {createOnboardingAnswer.isPending ? "Melewati…" : "Lewati pertanyaan ini"}
+            {c.label}
           </button>
-        ) : (
-          QUICK_PROMPTS.map((c) => (
-            <button
-              key={c.label}
-              type="button"
-              className="btn btn-secondary"
-              style={{ fontSize: 12, whiteSpace: "nowrap", flex: "none" }}
-              onClick={() => send(c.text, { bypassOnboarding: true })}
-            >
-              {c.label}
-            </button>
-          ))
-        )}
+        ))}
       </div>
-
-      {skipFeedback && (
-        <p
-          className={skipFeedback.type === "error" ? "field-error" : "text-muted"}
-          style={{ padding: "0 var(--space-4)", fontSize: 12 }}
-        >
-          {skipFeedback.text}
-        </p>
-      )}
 
       {sendMessage.isError && (
         <p className="field-error" style={{ padding: "0 var(--space-4)" }}>
@@ -449,7 +284,7 @@ export default function ChatPage() {
         <button
           type="button"
           className="btn btn-icon btn-secondary"
-          onClick={() => send("[Foto struk diunggah]", { bypassOnboarding: true })}
+          onClick={() => send("[Foto struk diunggah]")}
           title="Kirim foto struk"
           aria-label="Kirim foto struk"
         >

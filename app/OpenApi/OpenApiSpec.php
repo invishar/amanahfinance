@@ -401,14 +401,11 @@ class OpenApiSpec
                     'created_at' => ['type' => 'string', 'format' => 'date-time'],
                     'onboarding' => [
                         'type' => 'object', 'nullable' => true,
-                        'description' => 'null kecuali kind=onboarding.',
+                        'description' => 'null kecuali kind=onboarding. Wawancara awal dijalankan Amina sendiri lewat jalur chat biasa, bukan wizard berlangkah tetap -- karena itu tidak ada step/total/question_key.',
                         'properties' => [
-                            'step' => ['type' => 'integer', 'description' => 'Nomor pertanyaan yang sedang berjalan (1-based).'],
-                            'total' => ['type' => 'integer'],
-                            'done' => ['type' => 'boolean'],
-                            'question_key' => [
-                                'type' => 'string', 'nullable' => true,
-                                'description' => 'question_key pertanyaan yang belum terjawab saat ini -- kirim balik nilai ini ke POST /onboarding-answers (mis. tombol lewati). null kalau done.',
+                            'done' => [
+                                'type' => 'boolean',
+                                'description' => 'Cermin families.onboarding_done. false = Amina masih mode wawancara (system prompt-nya diberi briefing tambahan); dinyalakan server saat Amina memanggil tool finish_onboarding.',
                             ],
                         ],
                     ],

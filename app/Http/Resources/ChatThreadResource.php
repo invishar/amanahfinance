@@ -3,7 +3,6 @@
 namespace App\Http\Resources;
 
 use App\Models\ChatThread;
-use App\Models\OnboardingAnswer;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 
@@ -25,25 +24,18 @@ class ChatThreadResource extends JsonResource
     }
 
     /**
-     * @return array{step: int, total: int, done: bool, question_key: ?string}
+     * Sejak wawancara awal dijalankan Amina sendiri (bukan wizard berlangkah
+     * tetap), tidak ada lagi `step`/`total`/`question_key` yang bermakna --
+     * jumlah giliran tanya-jawab ditentukan percakapan, bukan naskah. Klien
+     * cukup tahu apakah mode wawancara masih berjalan; penandanya
+     * families.onboarding_done, yang dinyalakan tool finish_onboarding.
+     *
+     * @return array{done: bool}
      */
     private function onboardingProgress(): array
     {
-        $questions = config('amina.onboarding_questions');
-        $total = count($questions);
-        $answeredKeys = OnboardingAnswer::query()->where('family_id', $this->family_id)->pluck('question_key')->all();
-        $answered = count($answeredKeys);
-
-        // Klien butuh key ini untuk mengisi `question_key` saat POST
-        // /onboarding-answers (mis. tombol "Lewati") -- naskah pertanyaan
-        // sendiri tetap tidak pernah dikirim dari sini, cuma identitasnya.
-        $nextKey = collect($questions)->keys()->first(fn ($key) => ! in_array($key, $answeredKeys, true));
-
         return [
-            'step' => min($answered + 1, $total),
-            'total' => $total,
-            'done' => $answered >= $total,
-            'question_key' => $nextKey,
+            'done' => (bool) $this->family->onboarding_done,
         ];
     }
 }

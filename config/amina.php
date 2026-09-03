@@ -19,6 +19,27 @@ TEXT,
 
     'greeting' => 'Halo! Aku Amina, asisten keuangan keluargamu di AmanaFinance. Cerita aja soal pemasukan, pengeluaran, atau tabungan kamu -- nanti aku bantu catetin. Mau mulai dari mana?',
 
+    // Sapaan pembuka thread kind=onboarding. Beda dari 'greeting' (thread
+    // umum): ini langsung mengajak wawancara, karena tujuannya membangun
+    // pondasi data keuangan keluarga, bukan menunggu user punya keperluan.
+    'onboarding_greeting' => 'Halo! Aku Amina, asisten keuangan keluargamu. Sebelum mulai, aku mau kenalan dulu sama kondisi keuangan keluargamu supaya catatannya pas. Boleh cerita, pemasukan keluargamu datang dari mana aja?',
+
+    // Ditempel ke system prompt HANYA selama thread kind=onboarding dan
+    // families.onboarding_done masih false. Tujuannya mengubah Amina dari
+    // "asisten yang menunggu perintah" jadi "pewawancara yang membangun
+    // pondasi data" -- tanpa mengubah aturan main: dia tetap tidak menulis
+    // apa pun sendiri, cuma menyiapkan draft lewat tool yang sudah ada.
+    'onboarding_briefing' => <<<'TEXT'
+MODE WAWANCARA AWAL. Keluarga ini baru dibuat dan datanya masih kosong. Tugasmu sekarang: menggali pondasi keuangan mereka lalu menyiapkannya sebagai draft.
+
+- Gali empat hal ini, satu per satu, dengan bahasa mengobrol -- JANGAN diberondong sekaligus: (1) sumber pemasukan beserta perkiraan nominal per bulan, (2) kantong pengeluaran rutin beserta perkiraan budget bulanannya, (3) tempat uang disimpan (rekening bank, e-wallet, uang tunai), (4) target tabungan kalau ada.
+- Begitu satu hal cukup jelas, LANGSUNG panggil tool yang sesuai (create_income_source, create_wallet, create_account, create_savings_goal) untuk menyiapkan draftnya, lalu lanjut ke pertanyaan berikutnya. Jangan menunggu semua terkumpul dulu.
+- Kalau user menyebut beberapa hal sekaligus ("gaji 8 juta, istri jualan online 2 juta"), panggil tool sekali untuk MASING-MASING, jangan digabung jadi satu.
+- Nominal tidak wajib. Kalau user tidak tahu atau tidak mau sebut, tetap buat draftnya tanpa nominal -- jangan mengarang angka dan jangan memaksa.
+- Kalau user ingin melewati satu topik, hormati dan lanjut.
+- Setelah keempat hal selesai atau user bilang sudah cukup, panggil tool finish_onboarding SEKALI, lalu tutup dengan satu kalimat hangat yang mengingatkan bahwa kartu-kartu draft di atas perlu dikonfirmasi supaya tersimpan.
+TEXT,
+
     'onboarding_questions' => [
         'members' => 'Siapa aja yang bakal ikut ngatur keuangan keluarga ini bareng-bareng?',
         'income' => 'Sumber pemasukan keluarga sekarang apa aja?',
@@ -33,6 +54,21 @@ TEXT,
     'sse' => [
         'duration_seconds' => env('AMINA_SSE_DURATION_SECONDS', 20),
         'poll_interval_ms' => env('AMINA_SSE_POLL_INTERVAL_MS', 500),
+
+        // Siapa yang membangunkan worker. Tanpa ini, job LLM baru dikerjakan
+        // saat cron `schedule:run` berikutnya menyala -- artinya waktu tunggu
+        // balasan Amina = jarak antar-cron (pernah 8 menit di staging),
+        // padahal panggilan LLM-nya sendiri cuma 1-3 detik. Karena user yang
+        // menunggu SUDAH tersambung lewat stream ini, dia sekalian yang
+        // menjalankan worker-nya. Cron tetap dipasang, tapi turun peran jadi
+        // cadangan untuk job yang tidak ada lagi yang menungguinya (mis. tab
+        // keburu ditutup).
+        'inline_worker' => [
+            'enabled' => env('AMINA_SSE_INLINE_WORKER', true),
+            // Harus lebih pendek dari duration_seconds supaya masih tersisa
+            // waktu untuk mengirim event hasilnya di loop bawah.
+            'max_seconds' => env('AMINA_SSE_INLINE_WORKER_SECONDS', 15),
+        ],
     ],
 
     // Berkas mentah saja (foto struk, rekaman suara) -- OCR/STT belum

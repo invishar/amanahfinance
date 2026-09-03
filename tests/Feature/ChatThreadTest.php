@@ -2,7 +2,6 @@
 
 use App\Models\ChatThread;
 use App\Models\Family;
-use App\Models\OnboardingAnswer;
 
 test('store sets member id from current member not body', function () {
     [, $family, $member] = $this->actingAsFamilyMember('member');
@@ -35,29 +34,27 @@ test('index rejects an invalid kind filter', function () {
         ->assertJsonValidationErrors(['kind']);
 });
 
-test('onboarding progress exposes the next unanswered question key', function () {
+test('onboarding masih berjalan selama families.onboarding_done false', function () {
     [, $family, $member] = $this->actingAsFamilyMember('member');
+    $family->update(['onboarding_done' => false]);
     $thread = ChatThread::factory()->for($family)->for($member, 'member')->create(['kind' => 'onboarding']);
-    OnboardingAnswer::factory()->for($family)->create(['question_key' => 'members']);
-
-    $keys = array_keys(config('amina.onboarding_questions'));
 
     $this->getJson("/api/v1/chat-threads/{$thread->id}")
         ->assertOk()
-        ->assertJsonPath('data.onboarding.question_key', $keys[1])
         ->assertJsonPath('data.onboarding.done', false);
 });
 
-test('onboarding progress question key is null once all questions are answered', function () {
+// Wawancara awal tidak lagi wizard berlangkah tetap: jumlah giliran ditentukan
+// percakapan, dan yang menyalakan penanda selesai adalah tool
+// finish_onboarding (lihat AssistantService::buildTools), bukan hitungan
+// jawaban. Karena itu step/total/question_key sudah tidak ada di resource.
+test('onboarding selesai begitu families.onboarding_done menyala', function () {
     [, $family, $member] = $this->actingAsFamilyMember('member');
+    $family->update(['onboarding_done' => true]);
     $thread = ChatThread::factory()->for($family)->for($member, 'member')->create(['kind' => 'onboarding']);
-    foreach (array_keys(config('amina.onboarding_questions')) as $key) {
-        OnboardingAnswer::factory()->for($family)->create(['question_key' => $key]);
-    }
 
     $this->getJson("/api/v1/chat-threads/{$thread->id}")
         ->assertOk()
-        ->assertJsonPath('data.onboarding.question_key', null)
         ->assertJsonPath('data.onboarding.done', true);
 });
 

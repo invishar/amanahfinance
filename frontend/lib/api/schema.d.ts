@@ -4302,14 +4302,10 @@ export interface components {
             last_message_at?: string | null;
             /** Format: date-time */
             created_at?: string;
-            /** @description null kecuali kind=onboarding. */
+            /** @description null kecuali kind=onboarding. Wawancara awal dijalankan Amina sendiri lewat jalur chat biasa, bukan wizard berlangkah tetap -- karena itu tidak ada step/total/question_key. */
             onboarding?: {
-                /** @description Nomor pertanyaan yang sedang berjalan (1-based). */
-                step?: number;
-                total?: number;
+                /** @description Cermin families.onboarding_done. false = Amina masih mode wawancara (system prompt-nya diberi briefing tambahan); dinyalakan server saat Amina memanggil tool finish_onboarding. */
                 done?: boolean;
-                /** @description question_key pertanyaan yang belum terjawab saat ini -- kirim balik nilai ini ke POST /onboarding-answers (mis. tombol lewati). null kalau done. */
-                question_key?: string | null;
             } | null;
         };
         ChatMessage: {

@@ -129,7 +129,7 @@ Akar tenant. Tidak berada di bawah `X-Family-Id` — `store` dipakai untuk membu
 | Method | Path | Body | Catatan |
 | --- | --- | --- | --- |
 | GET | `/families` | — | List family milik user yang login saja. |
-| POST | `/families` | `name*` (string), `currency` (3 huruf, default `IDR`), `timezone` (default `Asia/Jakarta`) | User pembuat otomatis jadi `family_members.role=admin`. Server juga langsung membuat `ChatThread kind=onboarding` berisi sapaan + pertanyaan pertama Amina (lihat bagian Onboarding Answers) — naskahnya tidak pernah dikirim dari klien. |
+| POST | `/families` | `name*` (string), `currency` (3 huruf, default `IDR`), `timezone` (default `Asia/Jakarta`) | User pembuat otomatis jadi `family_members.role=admin`. Server juga langsung membuat `ChatThread kind=onboarding` berisi satu pesan sapaan Amina (`config('amina.onboarding_greeting')`) yang mengajak wawancara — pertanyaan lanjutannya tidak diskrip, Amina yang menentukan (lihat bagian Chat Threads). |
 | GET | `/families/{family}` | — | 403 jika user bukan member family ini. |
 | PUT/PATCH | `/families/{family}` | `name`, `currency`, `timezone`, `onboarding_done` (semua opsional) | Admin only. |
 | DELETE | `/families/{family}` | — | Admin only. Cascade ke seluruh data family (FK `cascadeOnDelete`). |
@@ -337,12 +337,19 @@ Response `data`: `id, family_id, type, amount, wallet_id, source_id, account_id,
 
 Response `data`: `id, family_id, member_id, title, kind, last_message_at, created_at, onboarding`.
 
-`onboarding` adalah `{ step, total, done, question_key }` (jumlah pertanyaan naskah
-onboarding & progres keluarga ini menjawabnya) untuk thread `kind=onboarding`, dan
-`null` untuk thread `kind=general`. `question_key` adalah identitas pertanyaan yang
-belum terjawab saat ini -- klien kirim balik nilai ini ke `POST /onboarding-answers`
-(mis. tombol "lewati") tanpa perlu tahu naskah/urutan pertanyaannya sendiri; `null`
-kalau `done`.
+`onboarding` adalah `{ done }` untuk thread `kind=onboarding`, dan `null` untuk
+thread `kind=general`. Tidak ada lagi `step`/`total`/`question_key`: wawancara awal
+bukan wizard berlangkah tetap, melainkan percakapan yang dipandu Amina sendiri —
+jumlah gilirannya ditentukan obrolan.
+
+Selama `done=false`, server menempelkan briefing wawancara
+(`config('amina.onboarding_briefing')`) ke system prompt dan mendaftarkan satu tool
+tambahan, `finish_onboarding`. Jadi jawaban user dikirim sebagai **pesan chat biasa**
+ke `POST /chat-threads/{id}/messages`, bukan ke `/onboarding-answers`. Amina yang
+menentukan pertanyaan berikutnya dan menyiapkan draft entitas (`create_wallet`,
+`create_account`, `create_income_source`, `create_savings_goal`) sebagai
+`ai_actions` berstatus `pending` — dikonfirmasi user satu per satu lewat kartu aksi
+seperti di chat biasa. `done` menyala saat Amina memanggil `finish_onboarding`.
 
 ---
 
@@ -424,18 +431,17 @@ Response `data` (`201`): `url, mime, size` (byte).
 
 Response `data`: `id, family_id, question_key, answer, skipped, answered_at`.
 
-Naskah pertanyaan (`question_key` yang valid & urutannya) hidup di server
-(`config('amina.onboarding_questions')`), **bukan** di klien. Setiap `POST` yang
-berhasil (baik `skipped=true` maupun jawaban asli) memicu server:
+> **Bukan lagi jalur wawancara awal.** Sejak wawancara dijalankan Amina lewat chat
+> biasa (lihat bagian Chat Threads), klien **tidak** memakai endpoint ini untuk
+> menjawab pertanyaan onboarding. Endpoint-nya tetap ada sebagai penyimpan catatan
+> profil keluarga berbentuk key-value bebas — isinya ikut dikirim ke system prompt
+> Amina sebagai `tentang_keluarga`.
 
-1. Cari `question_key` pertama di naskah yang belum ada di `onboarding_answers` family
-   ini.
-2. Kalau masih ada — tulis pesan `role=assistant` baru berisi pertanyaan itu ke
-   `ChatThread kind=onboarding` milik family (muncul di klien lewat SSE/polling
-   seperti balasan Amina lainnya).
-3. Kalau sudah tidak ada — tandai `families.onboarding_done = true`. Klien tidak
-   perlu (dan sebaiknya tidak) menyalakan `onboarding_done` sendiri lewat
-   `PUT /families/{family}`.
+`POST` yang berhasil masih memicu `OnboardingConversationActions::advance()` (naskah
+lama di `config('amina.onboarding_questions')`), yang menyisipkan pertanyaan
+berikutnya lalu menyalakan `families.onboarding_done` saat naskah habis. Jalur itu
+tidak dipakai klien lagi, tapi dipertahankan supaya integrasi lama tidak patah.
+`families.onboarding_done` untuk alur baru dinyalakan tool `finish_onboarding`.
 
 ---
 

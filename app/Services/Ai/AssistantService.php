@@ -50,15 +50,22 @@ class AssistantService
         $sources = $this->activeCandidates(IncomeSource::query()->where('family_id', $family->id)->where('is_archived', false), 'name');
         $goals = $this->activeCandidates(SavingsGoal::query()->where('family_id', $family->id)->where('status', 'active'), 'target_name');
 
+        // Wawancara awal: thread khusus yang dibuat FamilyActions saat family
+        // baru lahir, selama families.onboarding_done masih false. Bedanya
+        // dengan chat biasa cuma dua -- briefing tambahan di system prompt dan
+        // satu tool ekstra (finish_onboarding). Selebihnya jalur yang sama
+        // persis, termasuk staging draft ke ai_actions dan kartu konfirmasi.
+        $isOnboarding = $thread->kind === 'onboarding' && ! $family->onboarding_done;
+
         $model = $this->llmSettingsModel();
-        $systemPrompt = $this->buildSystemPrompt($family, $wallets, $accounts, $sources, $goals);
+        $systemPrompt = $this->buildSystemPrompt($family, $wallets, $accounts, $sources, $goals, $isOnboarding);
 
         try {
             $result = $this->runner->run(
                 model: $model,
                 system: $systemPrompt,
                 messages: $this->buildHistory($thread),
-                tools: $this->buildTools($family, $userMessage, $wallets, $accounts, $sources, $goals),
+                tools: $this->buildTools($family, $userMessage, $wallets, $accounts, $sources, $goals, $isOnboarding),
                 maxIterations: 4,
             );
         } catch (Throwable $e) {
@@ -231,6 +238,7 @@ class AssistantService
         Collection $accounts,
         Collection $sources,
         Collection $goals,
+        bool $isOnboarding = false,
     ): string {
         $answers = OnboardingAnswer::query()
             ->where('family_id', $family->id)
@@ -254,6 +262,7 @@ class AssistantService
         ];
 
         return config('amina.persona')
+            .($isOnboarding ? "\n\n".config('amina.onboarding_briefing') : '')
             ."\n\nKonteks keluarga (JANGAN mengarang di luar ini):\n"
             .json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     }
@@ -282,6 +291,7 @@ class AssistantService
         Collection $accounts,
         Collection $sources,
         Collection $goals,
+        bool $isOnboarding = false,
     ): array {
         $stageDraft = function (string $action, array $payload) use ($family, $userMessage): string {
             $aiAction = AiAction::create([
@@ -295,7 +305,23 @@ class AssistantService
             return "Draft {$action} tersimpan (id={$aiAction->id}), menunggu konfirmasi user lewat action card. Jangan menganggap datanya sudah tercatat.";
         };
 
+        $onboardingTools = $isOnboarding ? [
+            new BetaRunnableTool(
+                definition: ToolDefinitions::finishOnboarding(),
+                run: function () use ($family): string {
+                    // Satu-satunya penulisan langsung oleh tool. Aman terhadap
+                    // aturan #5 karena yang disentuh hanya penanda status UI --
+                    // draft keuangan yang sudah disiapkan tetap `pending` dan
+                    // baru ditulis oleh ConfirmAiAction saat user menyetujui.
+                    $family->update(['onboarding_done' => true]);
+
+                    return 'Wawancara awal ditandai selesai. Draft yang sudah disiapkan TETAP menunggu konfirmasi user -- jangan bilang datanya sudah tersimpan.';
+                },
+            ),
+        ] : [];
+
         return [
+            ...$onboardingTools,
             new BetaRunnableTool(
                 definition: ToolDefinitions::createTransaction(),
                 run: function (array $input) use ($accounts, $wallets, $sources, $goals, $stageDraft) {

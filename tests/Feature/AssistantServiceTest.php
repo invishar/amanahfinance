@@ -283,3 +283,81 @@ test('system prompt tidak lagi menyertakan detail per-wallet yang besar', functi
     // memicu satu putaran tool call tambahan.
     expect($system)->toContain('kas_bulan_ini');
 });
+
+// --- Mode wawancara awal -------------------------------------------------
+
+function onboardingThreadMessage(Family $family, bool $done = false): ChatMessage
+{
+    $family->update(['onboarding_done' => $done]);
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create(['kind' => 'onboarding']);
+
+    return ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+}
+
+test('thread onboarding mendapat briefing wawancara di system prompt', function () {
+    $userMessage = onboardingThreadMessage(Family::factory()->create());
+
+    expect(captureSystemPrompt($userMessage))->toContain('MODE WAWANCARA AWAL');
+});
+
+test('thread biasa tidak mendapat briefing wawancara', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create(['kind' => 'general']);
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    expect(captureSystemPrompt($userMessage))->not->toContain('MODE WAWANCARA AWAL');
+});
+
+test('briefing berhenti dikirim begitu onboarding_done menyala', function () {
+    $userMessage = onboardingThreadMessage(Family::factory()->create(), done: true);
+
+    expect(captureSystemPrompt($userMessage))->not->toContain('MODE WAWANCARA AWAL');
+});
+
+test('tool finish_onboarding menyalakan families.onboarding_done', function () {
+    $family = Family::factory()->create();
+    $userMessage = onboardingThreadMessage($family);
+
+    expect($family->fresh()->onboarding_done)->toBeFalse();
+
+    bindConversationRunner(toolCalls: [['tool' => 'finish_onboarding', 'input' => []]]);
+    app(AssistantService::class)->respond($userMessage);
+
+    expect($family->fresh()->onboarding_done)->toBeTrue();
+});
+
+test('finish_onboarding tidak terdaftar di luar mode wawancara', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create(['kind' => 'general']);
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    bindConversationRunner(toolCalls: [['tool' => 'finish_onboarding', 'input' => []]]);
+
+    // FakeConversationRunner melempar kalau tool yang diminta tidak terdaftar.
+    expect(fn () => app(AssistantService::class)->respond($userMessage))
+        ->toThrow(RuntimeException::class);
+});
+
+test('draft dari wawancara tetap pending, bukan langsung tersimpan', function () {
+    $family = Family::factory()->create();
+    $userMessage = onboardingThreadMessage($family);
+
+    bindConversationRunner(toolCalls: [
+        ['tool' => 'create_income_source', 'input' => ['name' => 'Gaji Kantor', 'expected_amount' => 8_000_000]],
+        ['tool' => 'create_wallet', 'input' => ['name' => 'Makan & Minum', 'monthly_budget' => 2_000_000]],
+        ['tool' => 'finish_onboarding', 'input' => []],
+    ]);
+    app(AssistantService::class)->respond($userMessage);
+
+    $actions = AiAction::query()->where('message_id', $userMessage->id)->get();
+    expect($actions)->toHaveCount(2);
+    expect($actions->pluck('status')->unique()->all())->toBe(['pending']);
+    expect($actions->pluck('action')->all())->toBe(['create_income_source', 'create_wallet']);
+
+    // Aturan #5: tidak ada baris bisnis yang ditulis sebelum user konfirmasi.
+    expect(IncomeSource::query()->where('family_id', $family->id)->count())->toBe(0);
+    expect(Wallet::query()->where('family_id', $family->id)->count())->toBe(0);
+});
