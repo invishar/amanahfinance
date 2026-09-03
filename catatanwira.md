@@ -257,3 +257,113 @@ tanggal ikut terkirim, satu memastikan rincian per-wallet **tidak**.
 - **Prompt caching Anthropic** (`cache_control`) untuk memangkas ~1.320 token
   definisi tool pada panggilan berulang. Setelah pemangkasan ini nilainya
   berkurang, dan jalur Groq tidak mendukungnya — tinjau lagi kalau volume naik.
+
+---
+
+## 7. Wawancara awal dipegang Amina (2 September 2026)
+
+Sebelumnya thread `kind=onboarding` **tidak lewat LLM sama sekali**: server
+menyisipkan 4 pertanyaan skrip dari `config('amina.onboarding_questions')`, dan
+jawabannya disimpan sebagai teks bebas di `onboarding_answers`. Tidak ada satu
+baris kode pun yang mengubahnya jadi wallet/akun/sumber pemasukan — jadi selesai
+wawancara, database keuangan keluarga masih kosong.
+
+Sekarang Amina yang mewawancarai, dan hasilnya masuk database setelah user
+konfirmasi.
+
+### Cara kerjanya
+
+Selama thread `kind=onboarding` dan `families.onboarding_done` masih false,
+server menempelkan `config('amina.onboarding_briefing')` ke system prompt dan
+mendaftarkan satu tool ekstra, `finish_onboarding`. Selebihnya jalur yang sama
+persis dengan chat biasa.
+
+Amina menggali empat hal satu per satu (sumber pemasukan, kantong pengeluaran +
+budget, tempat uang disimpan, target tabungan) dan **langsung menyiapkan draft
+begitu satu hal jelas** lewat tool `create_*` yang memang sudah ada. Draft itu
+muncul sebagai kartu aksi yang bisa diedit/dibatalkan satu per satu. Aturan #5
+tetap utuh: tidak ada baris bisnis ditulis sebelum user menekan konfirmasi.
+
+`finish_onboarding` adalah **satu-satunya tool yang menulis langsung** tanpa
+lewat `ai_actions` — pengecualian sadar, karena yang disentuh cuma penanda
+status UI (`onboarding_done`), bukan rupiah atau transaksi.
+
+### Kontrak API berubah
+
+`ChatThreadResource.onboarding` yang tadinya `{step, total, done, question_key}`
+kini **`{done}` saja**. Tidak ada lagi wizard berlangkah tetap — jumlah giliran
+ditentukan percakapan. Klien mengirim jawaban sebagai **pesan chat biasa** ke
+`POST /chat-threads/{id}/messages`, bukan lagi ke `/onboarding-answers`.
+
+Endpoint `/onboarding-answers` tetap ada sebagai penyimpan catatan profil
+keluarga (ikut dikirim ke prompt sebagai `tentang_keluarga`), tapi tidak dipakai
+klien untuk wawancara lagi.
+
+Halaman chat di frontend menyusut ~240 baris: jalur paralel onboarding (echo
+bubble lokal, tombol "Lewati", mesin penyisipan berbasis `anchor` untuk
+menangani beda jam client-server) semuanya tidak diperlukan lagi.
+
+### Risiko yang diterima sadar
+
+Onboarding kini **sepenuhnya bergantung LLM**. Kalau provider mati atau kena
+rate limit, user baru tidak bisa menyelesaikan setup sama sekali — mereka
+terjebak di chat yang tidak membalas. Groq free tier dibatasi 1.000 request/hari
+untuk seluruh pengguna. Kalau nanti terasa rawan, fallback bisa ditambahkan
+tanpa membongkar apa pun.
+
+---
+
+## 8. Balasan Amina tidak lagi menunggu cron (2 September 2026)
+
+### Masalahnya
+
+Panggilan LLM berjalan di job antrian (aturan `CLAUDE.md`: tidak pernah di
+request web). Tapi shared hosting tidak mengizinkan worker daemon, jadi job baru
+dikerjakan saat cron `schedule:run` berikutnya menyala. Di staging cron-nya tiap
+**8 menit**.
+
+Akibatnya, flow nyatanya begini: user kirim pesan pukul 20:00:00 → job masuk
+antrean → tidak ada siapa pun yang mengerjakannya → layar menampilkan "Amina
+sedang mengetik" selama 8 menit → 20:08:00 cron menyala → LLM menjawab dalam 2
+detik → balasan muncul.
+
+**Total tunggu 8 menit, yang benar-benar dipakai berpikir 2 detik.**
+
+Cron cocok untuk pekerjaan yang tidak ada orang menungguinya (mis.
+`amana:expire-subscriptions`, harian). Dipakai sebagai pemicu sesuatu yang
+sedang ditatap orang, itu salah tempat.
+
+### Perbaikannya
+
+Orang yang menunggu **sudah tersambung** lewat `GET /chat-threads/{id}/stream`.
+Sekarang stream itu sekalian menjalankan worker antreannya sendiri — worker yang
+sama persis dengan yang dipanggil scheduler, cuma pemicunya orang yang menunggu,
+bukan jadwal. Lihat `ChatStreamController::runQueuedWorkInline()`.
+
+Tiga pengaman:
+
+- **Urutan**: `thinking` dikirim & di-flush dulu, baru worker jalan. Kalau
+  dibalik, layar diam beberapa detik tanpa tanda apa pun.
+- **Lock cache**: hanya SATU stream menjalankan worker pada satu waktu. Tanpa
+  itu, sepuluh user membuka chat = sepuluh proses worker, berat untuk shared
+  hosting. Yang tidak kebagian lock cukup lanjut memantau — worker yang sedang
+  jalan menghabiskan seluruh antrean.
+- **Worker gagal tidak mematikan stream**: dibungkus try/catch, dicatat ke
+  channel `ai`. Ada test yang memastikan event penutup `retry` tetap terkirim,
+  karena tanpa itu klien kehilangan kursor `after` dan reconnect-nya kacau.
+
+Dilewati kalau driver antrean `sync` (job sudah jalan saat dispatch, jadi
+memanggil `queue:work` cuma buang waktu — efeknya test SSE dua kali lebih cepat).
+Bisa dimatikan lewat `AMINA_SSE_INLINE_WORKER=false`.
+
+**Cron tetap dipasang**, tapi turun peran jadi cadangan: untuk job yang tidak ada
+lagi yang menungguinya, misalnya user keburu menutup tab. Untuk itu `*/8` sudah
+memadai.
+
+### Diverifikasi nyata, bukan cuma test
+
+Worker cron dimatikan total, satu job dibiarkan menggantung di antrean, lalu
+stream dibuka. Hasilnya: `ai_provider_errors` bertambah dengan HTTP **401
+`invalid x-api-key`** pada detik yang sama stream berjalan — artinya request
+benar-benar sampai ke server provider dalam hitungan detik, tanpa cron. Yang
+tersisa cuma kunci API yang sah.

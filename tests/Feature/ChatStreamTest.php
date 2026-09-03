@@ -5,6 +5,7 @@ use App\Models\ChatMessage;
 use App\Models\ChatThread;
 use App\Models\Family;
 use App\Models\FamilyMember;
+use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function () {
     // Real duration/poll config would make every test wait ~20s of real
@@ -106,4 +107,64 @@ test('cannot stream another familys thread', function () {
     $otherThread = ChatThread::factory()->for($otherFamily)->for($otherMember, 'member')->create();
 
     $this->get("/api/v1/chat-threads/{$otherThread->id}/stream")->assertStatus(404);
+});
+
+// --- Worker inline: stream yang membangunkan antrean, bukan cron ----------
+//
+// Tanpa ini, balasan Amina baru dikerjakan saat `schedule:run` berikutnya
+// menyala -- di staging jaraknya sempat 8 menit, padahal panggilan LLM-nya
+// 1-3 detik. Test di sini memaksa driver non-sync supaya jalur itu benar-benar
+// dievaluasi (phpunit.xml memakai `sync`, yang sengaja dilewati).
+
+test('stream menjalankan worker antrean saat ada pesan user yang belum dijawab', function () {
+    config(['queue.default' => 'database']);
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    Artisan::shouldReceive('call')
+        ->once()
+        ->with('queue:work', Mockery::type('array'));
+
+    $this->get("/api/v1/chat-threads/{$thread->id}/stream")->streamedContent();
+});
+
+test('stream tidak menjalankan worker kalau tidak ada yang menunggu balasan', function () {
+    config(['queue.default' => 'database']);
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    // Pesan terakhir sudah dari Amina -- tidak ada giliran yang menggantung.
+    ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'assistant']);
+
+    Artisan::shouldReceive('call')->never();
+
+    $this->get("/api/v1/chat-threads/{$thread->id}/stream")->streamedContent();
+});
+
+test('worker inline bisa dimatikan lewat config', function () {
+    config(['queue.default' => 'database', 'amina.sse.inline_worker.enabled' => false]);
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    Artisan::shouldReceive('call')->never();
+
+    $this->get("/api/v1/chat-threads/{$thread->id}/stream")->streamedContent();
+});
+
+test('worker gagal tidak mematikan stream', function () {
+    config(['queue.default' => 'database']);
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    Artisan::shouldReceive('call')
+        ->once()
+        ->andThrow(new RuntimeException('worker meledak'));
+
+    $response = $this->get("/api/v1/chat-threads/{$thread->id}/stream");
+
+    // Stream harus tetap utuh sampai event penutup -- kalau tidak, klien
+    // kehilangan kursor `after` dan reconnect-nya kacau.
+    expect($response->streamedContent())->toContain('event: retry');
 });
