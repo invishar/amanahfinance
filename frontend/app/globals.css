@@ -7,42 +7,42 @@
    ========================================================================== */
 
 :root {
-  --color-bg: #fff9f4;
-  --color-surface: #fffdfb;
-  --color-text: #252a34;
-  --color-accent: #4f46e5;
-  --color-accent-2: #ff9f5a;
-  --color-divider: color-mix(in srgb, #252a34 10%, transparent);
+  --color-bg: #fbf6f0;
+  --color-surface: #fffdfa;
+  --color-text: #2b222d;
+  --color-accent: #75406f;
+  --color-accent-2: #dca85e;
+  --color-divider: color-mix(in srgb, #2b222d 10%, transparent);
 
-  --color-neutral-100: #faf9fb;
-  --color-neutral-200: #efedf2;
-  --color-neutral-300: #dedbe3;
-  --color-neutral-400: #c3beca;
-  --color-neutral-500: #a39da9;
-  --color-neutral-600: #807987;
-  --color-neutral-700: #625c69;
-  --color-neutral-800: #44404b;
-  --color-neutral-900: #2c2932;
+  --color-neutral-100: #fcf9f6;
+  --color-neutral-200: #f0e9e3;
+  --color-neutral-300: #e0d5ce;
+  --color-neutral-400: #c8b9b1;
+  --color-neutral-500: #aa9892;
+  --color-neutral-600: #897671;
+  --color-neutral-700: #695854;
+  --color-neutral-800: #493c3b;
+  --color-neutral-900: #302728;
 
-  --color-accent-100: #eeefff;
-  --color-accent-200: #dfe1ff;
-  --color-accent-300: #c3c6ff;
-  --color-accent-400: #9297ff;
-  --color-accent-500: #6366f1;
-  --color-accent-600: #4f46e5;
-  --color-accent-700: #4338ca;
-  --color-accent-800: #3730a3;
-  --color-accent-900: #292568;
+  --color-accent-100: #f5eaf2;
+  --color-accent-200: #ead4e5;
+  --color-accent-300: #d8b2d0;
+  --color-accent-400: #b979ae;
+  --color-accent-500: #94558b;
+  --color-accent-600: #75406f;
+  --color-accent-700: #5d315a;
+  --color-accent-800: #452442;
+  --color-accent-900: #2b172f;
 
-  --color-accent-2-100: #fff0e5;
-  --color-accent-2-200: #ffddc4;
-  --color-accent-2-300: #ffc89e;
-  --color-accent-2-400: #ffb36b;
-  --color-accent-2-500: #ff9f5a;
-  --color-accent-2-600: #e77d36;
-  --color-accent-2-700: #bd5d25;
-  --color-accent-2-800: #91451e;
-  --color-accent-2-900: #653019;
+  --color-accent-2-100: #fbf0dc;
+  --color-accent-2-200: #f5dfb9;
+  --color-accent-2-300: #edca8d;
+  --color-accent-2-400: #e4b66f;
+  --color-accent-2-500: #dca85e;
+  --color-accent-2-600: #bd8440;
+  --color-accent-2-700: #93622f;
+  --color-accent-2-800: #6d4726;
+  --color-accent-2-900: #49301d;
 
   --color-coral-bg: #ffe5df;
   --color-coral-fg: #c94d42;
@@ -72,9 +72,9 @@
   --radius-md: 16px;
   --radius-lg: 24px;
 
-  --shadow-sm: 0 3px 12px color-mix(in srgb, #4338ca 7%, transparent);
-  --shadow-md: 0 12px 32px color-mix(in srgb, #4338ca 10%, transparent);
-  --shadow-lg: 0 24px 60px color-mix(in srgb, #4338ca 15%, transparent);
+  --shadow-sm: 0 3px 12px color-mix(in srgb, #452442 7%, transparent);
+  --shadow-md: 0 12px 32px color-mix(in srgb, #452442 10%, transparent);
+  --shadow-lg: 0 24px 60px color-mix(in srgb, #452442 15%, transparent);
 
   /* Layout */
   --sidebar-width: 264px;
@@ -98,8 +98,9 @@ body {
   line-height: 1.6;
   font-weight: 400;
   background-image:
-    radial-gradient(circle at 8% 8%, color-mix(in srgb, var(--color-accent-2-100) 72%, transparent) 0, transparent 28%),
-    radial-gradient(circle at 92% 88%, color-mix(in srgb, var(--color-accent-100) 75%, transparent) 0, transparent 30%);
+    radial-gradient(circle at 8% 8%, color-mix(in srgb, var(--color-accent-2-100) 78%, transparent) 0, transparent 30%),
+    radial-gradient(circle at 92% 88%, color-mix(in srgb, var(--color-accent-200) 58%, transparent) 0, transparent 32%),
+    repeating-linear-gradient(125deg, transparent 0 26px, color-mix(in srgb, var(--color-accent-700) 2%, transparent) 27px 28px);
   background-attachment: fixed;
 }
 
@@ -655,6 +656,44 @@ textarea.input {
 }
 
 /* --- Warm Financial Companion ----------------------------------------- */
+
+.dashboard-hero {
+  position: relative;
+  isolation: isolate;
+  background:
+    radial-gradient(circle at 86% 18%, rgba(241, 202, 135, 0.34), transparent 24%),
+    radial-gradient(circle at 12% 110%, rgba(190, 112, 158, 0.42), transparent 38%),
+    linear-gradient(125deg, #28172f 0%, #51264e 48%, #7b405f 100%);
+  border: 1px solid rgba(245, 218, 166, 0.28);
+}
+.dashboard-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  opacity: 0.42;
+  background:
+    repeating-linear-gradient(115deg, transparent 0 18px, rgba(255, 255, 255, 0.035) 19px 20px),
+    repeating-linear-gradient(25deg, transparent 0 38px, rgba(241, 202, 135, 0.025) 39px 40px);
+}
+.dashboard-hero::after {
+  content: "";
+  position: absolute;
+  width: 210px;
+  height: 210px;
+  right: -72px;
+  top: -92px;
+  z-index: -1;
+  border: 1px solid rgba(247, 221, 174, 0.25);
+  border-radius: 50%;
+  box-shadow:
+    0 0 0 24px rgba(247, 221, 174, 0.035),
+    0 0 0 52px rgba(247, 221, 174, 0.025);
+}
+.dashboard-hero > div:last-child > div {
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
 
 .page-header {
   display: flex;

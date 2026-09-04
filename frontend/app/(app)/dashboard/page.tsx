@@ -79,6 +79,7 @@ export default function DashboardPage() {
           </h1>
         </div>
         <div
+          className="dashboard-hero"
           style={{
             width: 44,
             height: 44,
@@ -121,8 +122,6 @@ export default function DashboardPage() {
           style={{
             borderRadius: "var(--radius-lg)",
             padding: "var(--space-5)",
-            background:
-              "linear-gradient(135deg, var(--color-accent-700), var(--color-accent-500))",
             color: "#fff",
             display: "flex",
             flexDirection: "column",
