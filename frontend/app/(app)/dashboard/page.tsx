@@ -100,15 +100,15 @@ export default function DashboardPage() {
 
       <div className="quick-actions" aria-label="Aksi cepat">
         <Link href="/transactions" className="quick-action">
-          <span className="entity-icon coral"><Icon name="plus" size={18} /></span>
+          <span className="entity-icon" data-tone="coral"><Icon name="plus" size={18} /></span>
           <span><strong>Catat manual</strong><small>Tambah pemasukan atau pengeluaran</small></span>
         </Link>
         <Link href="/chat" className="quick-action">
-          <span className="entity-icon mint"><Icon name="sparkles" size={18} /></span>
+          <span className="entity-icon" data-tone="mint"><Icon name="sparkles" size={18} /></span>
           <span><strong>Tanya Amina</strong><small>Bantuan dari data keluargamu</small></span>
         </Link>
         <Link href="/wallets" className="quick-action">
-          <span className="entity-icon sky"><Icon name="wallet" size={18} /></span>
+          <span className="entity-icon" data-tone="sky"><Icon name="wallet" size={18} /></span>
           <span><strong>Atur anggaran</strong><small>Jaga pengeluaran tetap terarah</small></span>
         </Link>
       </div>
@@ -209,9 +209,9 @@ export default function DashboardPage() {
       )}
 
       <div className="metric-grid">
-        <div className="metric-card mint"><span>Pemasukan bulan ini</span><strong>{formatRupiah(cashflow?.total_income ?? 0)}</strong></div>
-        <div className="metric-card coral"><span>Pengeluaran bulan ini</span><strong>{formatRupiah(cashflow?.total_expense ?? 0)}</strong></div>
-        <div className="metric-card sky"><span>Selisih bulan ini</span><strong>{formatRupiah(cashflow?.net ?? 0)}</strong></div>
+        <div className="metric-card" data-tone="mint"><span>Pemasukan bulan ini</span><strong>{formatRupiah(cashflow?.total_income ?? 0)}</strong></div>
+        <div className="metric-card" data-tone="coral"><span>Pengeluaran bulan ini</span><strong>{formatRupiah(cashflow?.total_expense ?? 0)}</strong></div>
+        <div className="metric-card" data-tone="sky"><span>Selisih bulan ini</span><strong>{formatRupiah(cashflow?.net ?? 0)}</strong></div>
       </div>
 
       {/* Pengeluaran per wallet */}

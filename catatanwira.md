@@ -456,8 +456,9 @@ sudut keuangan.
 
 Redesign dikerjakan di branch `redesign/frontend-v2`, sehingga frontend lama
 tetap utuh di branch `main`. Arah visual baru memakai gaya minimal modern yang
-lebih hangat: hijau gelap sebagai warna utama, latar krem, lalu aksen amber,
-coral, dan biru untuk memberi energi tanpa membuat layar ramai.
+lebih hangat: indigo sebagai warna utama, latar krem, lalu aksen apricot,
+coral, mint, dan biru untuk memberi energi tanpa membuat layar ramai. Palet
+indigo-apricot dipilih agar tidak menyerupai identitas visual bank syariah.
 
 Perubahan utama:
 

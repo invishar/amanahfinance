@@ -7,42 +7,42 @@
    ========================================================================== */
 
 :root {
-  --color-bg: #fff9f1;
-  --color-surface: #fffefa;
-  --color-text: #24332d;
-  --color-accent: #176b55;
-  --color-accent-2: #f4a62a;
-  --color-divider: color-mix(in srgb, #24332d 10%, transparent);
+  --color-bg: #fff9f4;
+  --color-surface: #fffdfb;
+  --color-text: #252a34;
+  --color-accent: #4f46e5;
+  --color-accent-2: #ff9f5a;
+  --color-divider: color-mix(in srgb, #252a34 10%, transparent);
 
-  --color-neutral-100: #fefbf8;
-  --color-neutral-200: #f4ede4;
-  --color-neutral-300: #e8dccd;
-  --color-neutral-400: #d3c1a8;
-  --color-neutral-500: #b8a488;
-  --color-neutral-600: #94826a;
-  --color-neutral-700: #715f4a;
-  --color-neutral-800: #4d4032;
-  --color-neutral-900: #322a20;
+  --color-neutral-100: #faf9fb;
+  --color-neutral-200: #efedf2;
+  --color-neutral-300: #dedbe3;
+  --color-neutral-400: #c3beca;
+  --color-neutral-500: #a39da9;
+  --color-neutral-600: #807987;
+  --color-neutral-700: #625c69;
+  --color-neutral-800: #44404b;
+  --color-neutral-900: #2c2932;
 
-  --color-accent-100: #e3f3ed;
-  --color-accent-200: #bce1d5;
-  --color-accent-300: #86c8b4;
-  --color-accent-400: #4aa58c;
-  --color-accent-500: #176b55;
-  --color-accent-600: #115b47;
-  --color-accent-700: #0e493a;
-  --color-accent-800: #0b382d;
-  --color-accent-900: #07271f;
+  --color-accent-100: #eeefff;
+  --color-accent-200: #dfe1ff;
+  --color-accent-300: #c3c6ff;
+  --color-accent-400: #9297ff;
+  --color-accent-500: #6366f1;
+  --color-accent-600: #4f46e5;
+  --color-accent-700: #4338ca;
+  --color-accent-800: #3730a3;
+  --color-accent-900: #292568;
 
-  --color-accent-2-100: #fff1d2;
-  --color-accent-2-200: #ffdfa0;
-  --color-accent-2-300: #fbc768;
-  --color-accent-2-400: #f7b443;
-  --color-accent-2-500: #f4a62a;
-  --color-accent-2-600: #d78616;
-  --color-accent-2-700: #ad6412;
-  --color-accent-2-800: #81480f;
-  --color-accent-2-900: #56300c;
+  --color-accent-2-100: #fff0e5;
+  --color-accent-2-200: #ffddc4;
+  --color-accent-2-300: #ffc89e;
+  --color-accent-2-400: #ffb36b;
+  --color-accent-2-500: #ff9f5a;
+  --color-accent-2-600: #e77d36;
+  --color-accent-2-700: #bd5d25;
+  --color-accent-2-800: #91451e;
+  --color-accent-2-900: #653019;
 
   --color-coral-bg: #ffe5df;
   --color-coral-fg: #c94d42;
@@ -72,9 +72,9 @@
   --radius-md: 16px;
   --radius-lg: 24px;
 
-  --shadow-sm: 0 3px 12px color-mix(in srgb, #173e33 7%, transparent);
-  --shadow-md: 0 12px 32px color-mix(in srgb, #173e33 10%, transparent);
-  --shadow-lg: 0 24px 60px color-mix(in srgb, #173e33 15%, transparent);
+  --shadow-sm: 0 3px 12px color-mix(in srgb, #4338ca 7%, transparent);
+  --shadow-md: 0 12px 32px color-mix(in srgb, #4338ca 10%, transparent);
+  --shadow-lg: 0 24px 60px color-mix(in srgb, #4338ca 15%, transparent);
 
   /* Layout */
   --sidebar-width: 264px;
@@ -781,6 +781,7 @@ textarea.input {
 .metric-card[data-tone="mint"] { background: var(--color-accent-100); color: var(--color-accent-800); }
 .metric-card[data-tone="coral"] { background: var(--color-coral-bg); color: var(--color-coral-fg); }
 .metric-card[data-tone="amber"] { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
+.metric-card[data-tone="sky"] { background: var(--color-sky-bg); color: var(--color-sky-fg); }
 .transaction-list { gap: 0; padding-block: 6px; }
 .transaction-row {
   display: flex;
