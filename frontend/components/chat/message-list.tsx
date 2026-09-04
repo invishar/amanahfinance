@@ -3,6 +3,8 @@
 import { useEffect, useRef } from "react";
 
 import { AiActionCard } from "@/components/chat/ai-action-card";
+import { Icon } from "@/components/icon";
+import { Skeleton } from "@/components/ui";
 import type { Account, AiAction, IncomeSource, SavingsGoal, Wallet } from "@/lib/api/hooks";
 import { formatChatDayLabel, formatChatTimeLabel } from "@/lib/format";
 
@@ -15,6 +17,8 @@ export interface ChatItem {
   aiAction?: AiAction;
   /** Pesan optimistic yang belum dikonfirmasi server. */
   pending?: boolean;
+  /** Status pengiriman untuk bubble user terakhir. */
+  deliveryStatus?: "sending" | "read";
   /** Epoch ms, dipakai utk kelompok bubble per-hari (label "Hari ini"/"Kemarin", ala WA). Falsy = tidak diberi label. */
   at?: number;
 }
@@ -31,6 +35,7 @@ function isSameDay(a: number, b: number) {
 
 export function MessageList({
   items,
+  isLoading,
   isTyping,
   aiActionEntities,
   onConfirmAiAction,
@@ -40,6 +45,7 @@ export function MessageList({
   aiActionErrors,
 }: {
   items: ChatItem[];
+  isLoading: boolean;
   isTyping: boolean;
   aiActionEntities: {
     accounts: Account[];
@@ -84,6 +90,7 @@ export function MessageList({
         gap: "var(--space-4)",
       }}
     >
+      {isLoading && items.length === 0 ? <ChatLoading /> : null}
       {groups.map((group) => (
         <div key={group.key} style={{ display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
           {group.label && <DateSeparator label={group.label} />}
@@ -168,7 +175,21 @@ function MessageRow({
                 className={m.role === "system" ? undefined : "text-muted"}
                 style={{ fontSize: 10, marginTop: 4, textAlign: "right" }}
               >
-                {formatChatTimeLabel(m.at)}
+                <span>{formatChatTimeLabel(m.at)}</span>
+                {m.role === "user" && m.deliveryStatus ? (
+                  <span
+                    style={{
+                      marginLeft: 6,
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 3,
+                      color: m.deliveryStatus === "read" ? "var(--color-accent-2)" : undefined,
+                    }}
+                  >
+                    <Icon name={m.deliveryStatus === "read" ? "check-check" : "check"} size={12} />
+                    {m.deliveryStatus === "read" ? "Dibaca Amina" : "Mengirim…"}
+                  </span>
+                ) : null}
               </div>
             ) : null}
           </div>
@@ -231,7 +252,7 @@ function TypingIndicator() {
           display: "flex",
           gap: 4,
         }}
-        aria-label="Amina sedang mengetik"
+        aria-label="Amina sedang membaca dan menyiapkan jawaban"
       >
         {[0, 0.15, 0.3].map((delay) => (
           <span
@@ -246,7 +267,20 @@ function TypingIndicator() {
             }}
           />
         ))}
+        <span className="text-muted" style={{ fontSize: 11, marginLeft: 5 }}>
+          Amina sedang menyiapkan jawaban
+        </span>
       </div>
+    </div>
+  );
+}
+
+function ChatLoading() {
+  return (
+    <div aria-label="Memuat percakapan" style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+      <Skeleton height={52} style={{ width: "62%", borderRadius: "var(--radius-lg)" }} />
+      <Skeleton height={44} style={{ width: "48%", alignSelf: "flex-end", borderRadius: "var(--radius-lg)" }} />
+      <Skeleton height={68} style={{ width: "70%", borderRadius: "var(--radius-lg)" }} />
     </div>
   );
 }

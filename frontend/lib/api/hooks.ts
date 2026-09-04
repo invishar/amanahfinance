@@ -332,16 +332,24 @@ function parseSseFrame(frame: string): { event: string; data: unknown } | null {
   }
 }
 
-export function useChatStream(threadId: string | null, familyId: string | null) {
+export function useChatStream(
+  threadId: string | null,
+  familyId: string | null,
+  enabled = true,
+) {
   const queryClient = useQueryClient();
   const [isThinking, setIsThinking] = useState(false);
   const [streamError, setStreamError] = useState<ChatMessage | null>(null);
 
   useEffect(() => {
-    if (!threadId) return;
+    if (!threadId || !enabled) {
+      return;
+    }
 
     let cancelled = false;
+    let turnComplete = false;
     let after: string | null = null;
+    const controller = new AbortController();
 
     const appendMessage = (message: ChatMessage) => {
       // queryClient dari useQueryClient() stabil sepanjang hidup provider,
@@ -385,6 +393,7 @@ export function useChatStream(threadId: string | null, familyId: string | null) 
           const url = `${API_BASE_URL}/chat-threads/${threadId}/stream${after ? `?after=${encodeURIComponent(after)}` : ""}`;
           response = await fetch(url, {
             headers: { Authorization: `Bearer ${token}`, Accept: "text/event-stream" },
+            signal: controller.signal,
           });
         } catch {
           if (cancelled) return;
@@ -419,6 +428,7 @@ export function useChatStream(threadId: string | null, familyId: string | null) 
               } else if (frame.event === "message") {
                 setIsThinking(false);
                 appendMessage(frame.data as ChatMessage);
+                turnComplete = true;
               } else if (frame.event === "error") {
                 const data = frame.data as { id: string; content: string; created_at: string };
                 setIsThinking(false);
@@ -431,6 +441,7 @@ export function useChatStream(threadId: string | null, familyId: string | null) 
                 };
                 appendMessage(errorMessage);
                 setStreamError(errorMessage);
+                turnComplete = true;
               } else if (frame.event === "retry") {
                 after = (frame.data as { after: string }).after;
               } else if (frame.event === "action_card") {
@@ -444,6 +455,10 @@ export function useChatStream(threadId: string | null, familyId: string | null) 
                 );
               }
             }
+            if (turnComplete) {
+              await reader.cancel();
+              return;
+            }
           }
         } catch {
           // Koneksi putus di tengah jalan -- reconnect pakai cursor terakhir.
@@ -455,10 +470,11 @@ export function useChatStream(threadId: string | null, familyId: string | null) 
 
     return () => {
       cancelled = true;
+      controller.abort();
     };
-  }, [threadId, familyId, queryClient]);
+  }, [threadId, familyId, enabled, queryClient]);
 
-  return { isThinking, streamError };
+  return { isThinking: enabled && isThinking, streamError };
 }
 
 /* --- Ai actions (kartu aksi) ----------------------------------------------

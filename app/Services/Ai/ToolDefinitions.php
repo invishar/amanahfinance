@@ -3,8 +3,8 @@
 namespace App\Services\Ai;
 
 // Tool `name` values match ai_actions.action exactly (see ai_actions_action_ck
-// in 2026_01_01_001400_create_ai_actions_table.php) except get_financial_summary,
-// which is the one read tool (aturan #5) and never creates an ai_actions row.
+// in 2026_01_01_001400_create_ai_actions_table.php) except read tools, which
+// never create an ai_actions row.
 // Every draft tool asks for human-readable *names*, never ids -- Claude
 // doesn't know the family's UUIDs; NameResolver resolves them server-side.
 class ToolDefinitions
@@ -147,6 +147,28 @@ class ToolDefinitions
                     'month' => ['type' => 'string', 'description' => 'Format YYYY-MM, opsional. Default bulan berjalan.'],
                 ],
                 'required' => [],
+            ],
+        ];
+    }
+
+    public static function getFamilyFinancialData(): array
+    {
+        return [
+            'name' => 'get_family_financial_data',
+            'description' => 'Baca data nyata milik family aktif secara aman dan on-demand. WAJIB panggil sebelum menjawab pertanyaan tentang saldo akun, target tabungan, transaksi tertentu/terbaru, pemasukan atau pengeluaran historis, transaksi rutin, anggota/profil keluarga, atau status langganan. Jangan menebak data yang tidak dikembalikan tool.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'topic' => [
+                        'type' => 'string',
+                        'enum' => ['accounts', 'savings_goals', 'recent_transactions', 'recurring_rules', 'subscription', 'family_profile'],
+                        'description' => 'Jenis data yang diperlukan untuk menjawab pertanyaan.',
+                    ],
+                    'month' => ['type' => 'string', 'description' => 'Filter YYYY-MM untuk recent_transactions, opsional.'],
+                    'type' => ['type' => 'string', 'enum' => ['income', 'expense', 'transfer', 'savings'], 'description' => 'Filter jenis transaksi, opsional.'],
+                    'limit' => ['type' => 'integer', 'description' => 'Jumlah transaksi terbaru, 1-50; default 20.'],
+                ],
+                'required' => ['topic'],
             ],
         ];
     }

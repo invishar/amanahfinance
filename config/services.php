@@ -43,6 +43,7 @@ return [
     'llm' => [
         'key' => env('LLM_API_KEY'),
         'model' => env('LLM_MODEL', 'claude-sonnet-5'),
+        'max_tokens' => env('LLM_MAX_TOKENS', 768),
         'base_url' => env('LLM_BASE_URL'),
         // 'anthropic' (default, Anthropic Messages API wire format) or
         // 'openai_compatible' (Chat Completions wire format -- Groq, dst).

@@ -367,3 +367,87 @@ stream dibuka. Hasilnya: `ai_provider_errors` bertambah dengan HTTP **401
 `invalid x-api-key`** pada detik yang sama stream berjalan — artinya request
 benar-benar sampai ke server provider dalam hitungan detik, tanpa cron. Yang
 tersisa cuma kunci API yang sah.
+
+---
+
+## 9. Amina lebih cepat, faktual, dan fokus keuangan (4 September 2026)
+
+### Konfigurasi & performa lokal
+
+- Integrasi lokal diuji lewat endpoint 9Router OpenAI-compatible dengan model
+  `amana` (router/owner `combo`). Kredensial tetap hanya ada di `.env` lokal
+  dan baris `llm_settings` terenkripsi; tidak ada key yang masuk Git.
+- Output OpenAI-compatible sekarang dibatasi lewat `LLM_MAX_TOKENS` (default
+  768), sesuai gaya jawaban Amina yang hanya 1-2 kalimat.
+- Tes langsung tool calling model `amana` berhasil menjawab saldo dari payload
+  tool dalam sekitar 2,85 detik.
+
+Kelambatan aplikasi lokal ternyata bukan terutama dari login. SSE chat dahulu
+dibuka terus selama sekitar 20 detik walaupun tidak ada balasan yang ditunggu.
+PHP development server di Windows hanya melayani satu request pada satu waktu,
+sehingga stream itu menahan request login, navigasi, dan query halaman lain.
+
+Frontend sekarang hanya membuka SSE setelah pesan user sudah diterima server
+dan masih belum memiliki balasan. Stream langsung dibatalkan setelah menerima
+pesan/error atau saat halaman Chat ditinggalkan. Login API lokal setelah
+perubahan terukur sekitar 866 ms dan pemuatan family sekitar 223 ms.
+
+### Feedback chat
+
+- Percakapan awal menampilkan skeleton yang menyerupai bubble chat.
+- Pesan optimistic menampilkan status `Mengirim...`.
+- Pesan yang sudah diterima server menampilkan centang ganda dan `Dibaca Amina`.
+- Selama menunggu LLM, indikator titik dilengkapi teks
+  `Amina sedang menyiapkan jawaban`.
+- Tombol kirim dinonaktifkan selama request pengiriman masih berjalan agar
+  pesan tidak terkirim ganda.
+
+### Otak dan akses data Amina
+
+Sebelumnya Amina hanya selalu menerima katalog nama entitas dan ringkasan kas
+bulan berjalan. Pertanyaan tentang saldo, transaksi, target, jadwal rutin, atau
+langganan belum punya sumber data lengkap dan berisiko dijawab terlalu umum.
+
+Sekarang `FamilyFinancialData` menjadi gateway baca tunggal untuk AI. Tool
+`get_family_financial_data` mengambil data **hanya ketika diperlukan**, meliputi:
+
+- saldo akun aktif;
+- progres dan sisa target tabungan;
+- transaksi terbaru atau transaksi pada bulan/jenis tertentu;
+- transaksi rutin aktif;
+- profil dan anggota keluarga;
+- status langganan.
+
+Ringkasan arus kas, wallet, dan sumber pemasukan tetap melalui
+`get_financial_summary`. Setiap root query tool AI memakai filter `family_id`
+eksplisit karena job queue tidak melewati middleware `ResolveFamily`. Lookup
+nama relasi juga dibangun hanya dari family yang sama, sehingga data family
+lain tidak ikut ke prompt walaupun terdapat data referensi yang buruk.
+
+Persona Amina kini berperan sebagai asisten keuangan rumah tangga: membantu
+arus kas, budget, dana rutin/darurat, dan target tabungan secara realistis dan
+tidak menghakimi. Amina wajib membedakan fakta aplikasi, perkiraan hasil
+hitungan, dan saran; jika data tidak tersedia, ia harus mengakuinya atau
+bertanya satu hal, bukan mengarang.
+
+### Batas topik
+
+Amina hanya menjawab keuangan keluarga/pribadi, fitur AmanaFinance, serta
+pengetahuan ekonomi yang berdampak nyata pada keputusan keluarga (inflasi,
+suku bunga, cicilan, pajak, harga kebutuhan, atau nilai tukar). Pertanyaan
+random seperti sejarah, geografi, hiburan, olahraga, coding, resep, atau
+kesehatan ditolak halus dalam satu kalimat tanpa menjawab isi pertanyaan dan
+tanpa memanggil tool.
+
+Perilaku ini diuji langsung pada model `amana`: pertanyaan ibu kota Prancis
+ditolak, sedangkan dampak inflasi terhadap belanja keluarga tetap dijawab dari
+sudut keuangan.
+
+### Verifikasi
+
+- 244 test backend lulus dengan 860 assertion.
+- Test baru mencakup data akun/target/transaksi/rutin/langganan/profil,
+  read-only tool, aturan anti-halusinasi, batas topik, dan isolasi antar-family.
+- Laravel Pint, ESLint, TypeScript, dan build static Next.js lulus.
+- Environment test diisolasi dari konfigurasi LLM lokal melalui `phpunit.xml`,
+  sehingga key/provider developer tidak mengubah hasil test.

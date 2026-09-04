@@ -50,7 +50,10 @@ Dokumen wajib baca sebelum menulis kode:
 Pesan masuk → `AssistantService` → LLM tool calling → **payload disimpan sebagai `ai_actions.pending`** → SSE `action_card` ke klien → user konfirmasi → `ConfirmAiAction` menulis baris nyata dan mengisi `result_table` / `result_id`.
 
 - SSE `action_card` **berumur pendek** (server tutup stream sendiri sebelum ±20-25 detik) dengan auto-reconnect di klien — bukan koneksi yang ditahan tanpa batas, supaya aman dari `max_execution_time` shared hosting.
-- Tool tidak menulis apa pun. Satu-satunya tool baca adalah `get_financial_summary`.
+- Tool mutasi tidak menulis tabel bisnis. Tool baca `get_financial_summary` dan
+  `get_family_financial_data` hanya membaca data family aktif dengan filter
+  `family_id` eksplisit; yang kedua mengambil saldo, target, transaksi, aturan
+  rutin, profil keluarga, atau langganan secara on-demand agar prompt tetap kecil.
 - Resolusi nama → id ("gopay" → `accounts.id`) di server, fuzzy match pada data family. Ragu → kosongkan field agar user melengkapi lewat "Edit".
 - Konteks prompt: nama family, daftar wallet/akun/sumber pemasukan, ringkasan bulan berjalan, `onboarding_answers`. **Jangan** kirim seluruh riwayat transaksi.
 - Naskah pertanyaan onboarding dan sapaan Amina disimpan di server, bukan klien.

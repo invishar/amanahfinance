@@ -47,11 +47,9 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
                     'model' => $model,
                     'messages' => $chatMessages,
                     'tools' => $payloadTools,
-                    // Lebih tinggi dari batas Anthropic runner (1024) --
-                    // model reasoning ala gpt-oss (Groq) menghabiskan banyak
-                    // token buat `reasoning` sebelum `content` terisi; batas
-                    // terlalu rendah membuat balasan terpotong kosong.
-                    'max_tokens' => 2048,
+                    // Amina diminta menjawab 1-2 kalimat. Tetap configurable
+                    // untuk model reasoning yang mungkin butuh ruang lebih.
+                    'max_tokens' => (int) config('services.llm.max_tokens', 768),
                     // Eksplisit false: sebagian provider (mis. 9Router) kalau
                     // field ini tak dikirim, menempelkan literal `data:
                     // [DONE]` langsung setelah body JSON non-stream tanpa

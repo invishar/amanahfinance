@@ -284,6 +284,52 @@ test('system prompt tidak lagi menyertakan detail per-wallet yang besar', functi
     expect($system)->toContain('kas_bulan_ini');
 });
 
+test('system prompt requires factual household finance answers without guessing', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    $system = captureSystemPrompt($userMessage);
+
+    expect($system)
+        ->toContain('asisten keuangan rumah tangga')
+        ->toContain('Pisahkan fakta, perkiraan, dan saran')
+        ->toContain('jangan mengarang')
+        ->toContain('get_family_financial_data');
+});
+
+test('system prompt limits Amina to household finance and relevant economics', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    $system = captureSystemPrompt($userMessage);
+
+    expect($system)
+        ->toContain('BATAS TOPIK')
+        ->toContain('jangan jawab isi pertanyaannya')
+        ->toContain('dampak ekonomi yang jelas bagi keluarga');
+});
+
+test('family financial data tool is read only and does not create an ai action', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    Account::factory()->for($family)->create(['name' => 'Kas Rumah', 'current_balance' => 900_000]);
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    bindConversationRunner(toolCalls: [[
+        'tool' => 'get_family_financial_data',
+        'input' => ['topic' => 'accounts'],
+    ]]);
+
+    app(AssistantService::class)->respond($userMessage);
+
+    expect(AiAction::query()->where('message_id', $userMessage->id)->exists())->toBeFalse();
+});
+
 // --- Mode wawancara awal -------------------------------------------------
 
 function onboardingThreadMessage(Family $family, bool $done = false): ChatMessage

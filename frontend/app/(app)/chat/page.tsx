@@ -54,8 +54,12 @@ export default function ChatPage() {
   const threadId = threads.data?.[0]?.id ?? null;
   const messages = useMessages(threadId ?? null);
   const sendMessage = useSendMessage(threadId ?? null);
-  // Balasan Amina sungguhan (real LLM) datang lewat SSE.
-  const stream = useChatStream(threadId, familyId);
+  const lastServerMessage = messages.data?.at(-1);
+  const awaitingReply = messages.isSuccess && lastServerMessage?.role === "user";
+  // Jangan tahan koneksi SSE saat tidak ada balasan yang ditunggu. Selain
+  // menghemat koneksi produksi, ini mencegah PHP dev server yang single-thread
+  // memblokir seluruh request aplikasi selama stream 20 detik.
+  const stream = useChatStream(threadId, familyId, awaitingReply);
 
   /* --- Kartu aksi (AiAction) sungguhan ------------------------------------ */
   const pendingAiActions = usePendingAiActions();
@@ -160,6 +164,9 @@ export default function ChatPage() {
   // Pesan dari server digabung dengan kartu aksi yang masih pending, lalu
   // diurutkan berdasarkan waktu server.
   const items: SortableItem[] = useMemo(() => {
+    const lastUserId = [...(messages.data ?? [])]
+      .reverse()
+      .find((message) => message.role === "user")?.id;
     const fromServer = (messages.data ?? []).map((m) => ({
       id: m.id ?? "",
       role: (m.role === "user" || m.role === "system" ? m.role : "assistant") as
@@ -168,6 +175,10 @@ export default function ChatPage() {
         | "system",
       content: m.content ?? "",
       pending: (m.id ?? "").startsWith("optimistic-"),
+      deliveryStatus:
+        m.role === "user" && m.id === lastUserId
+          ? ((m.id ?? "").startsWith("optimistic-") ? "sending" as const : "read" as const)
+          : undefined,
       at: m.created_at ? Date.parse(m.created_at) : 0,
     }));
 
@@ -223,7 +234,8 @@ export default function ChatPage() {
 
       <MessageList
         items={items}
-        isTyping={stream.isThinking}
+        isLoading={threads.isPending || messages.isPending}
+        isTyping={awaitingReply || stream.isThinking}
         aiActionEntities={{
           accounts: accounts.data ?? [],
           wallets: wallets.data ?? [],
@@ -329,7 +341,7 @@ export default function ChatPage() {
           onClick={() => send(input)}
           title="Kirim"
           aria-label="Kirim"
-          disabled={!threadId}
+          disabled={!threadId || sendMessage.isPending}
         >
           <Icon name="send" size={18} />
         </button>

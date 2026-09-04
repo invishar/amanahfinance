@@ -32,6 +32,12 @@
         <env name="DB_DATABASE" value="afapi_testing"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
+        <!-- Isolate tests from each developer's local/provider credentials. -->
+        <env name="LLM_PROVIDER" value="anthropic" force="true"/>
+        <env name="LLM_MODEL" value="claude-sonnet-5" force="true"/>
+        <env name="LLM_BASE_URL" value="" force="true"/>
+        <env name="LLM_API_KEY" value="" force="true"/>
+        <env name="LLM_MAX_TOKENS" value="768" force="true"/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

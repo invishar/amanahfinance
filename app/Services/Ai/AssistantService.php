@@ -19,7 +19,6 @@ use App\Models\SavingsGoal;
 use App\Models\Wallet;
 use App\Services\Ai\Contracts\ConversationRunner;
 use Illuminate\Http\Client\RequestException;
-use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
@@ -38,6 +37,7 @@ class AssistantService
     public function __construct(
         private ConversationRunner $runner,
         private AnalyticsActions $analytics,
+        private FamilyFinancialData $financialData,
     ) {}
 
     public function respond(ChatMessage $userMessage): ChatMessage
@@ -385,13 +385,21 @@ class AssistantService
             ),
             new BetaRunnableTool(
                 definition: ToolDefinitions::getFinancialSummary(),
-                run: function (array $input) use ($family) {
-                    $period = filled($input['month'] ?? null)
-                        ? Carbon::createFromFormat('Y-m', $input['month'])->startOfMonth()
-                        : now()->startOfMonth();
-
-                    return json_encode($this->analytics->summary($family->id, $period), JSON_UNESCAPED_UNICODE);
-                },
+                run: fn (array $input) => json_encode(
+                    $this->financialData->read($family, 'summary', $input),
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+                ),
+            ),
+            new BetaRunnableTool(
+                definition: ToolDefinitions::getFamilyFinancialData(),
+                run: fn (array $input) => json_encode(
+                    $this->financialData->read(
+                        $family,
+                        (string) ($input['topic'] ?? ''),
+                        $input,
+                    ),
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+                ),
             ),
         ];
     }
