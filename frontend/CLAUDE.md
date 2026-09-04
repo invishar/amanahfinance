@@ -16,7 +16,7 @@ Next.js 16 App Router + React 19 + TypeScript. Tailwind v4 ikut terpasang, tapi 
 
 ```
 app/(auth)/{login,register,onboarding}   layar sebelum masuk aplikasi
-app/(app)/{chat,dashboard,wallets,accounts,income,goals,analysis,settings}
+app/(app)/{chat,dashboard,transactions,wallets,accounts,income,goals,analysis,settings}
 app/(app)/layout.tsx    -> <AppShell>          app/globals.css  token + kelas komponen
 components/app-shell.tsx  sidebar / tab bar / more sheet / modal
 components/chat/*         message list, action card
@@ -104,8 +104,9 @@ Selalu pakai `var(--*)`, jangan hard-code hex atau px yang sudah punya token.
 - Breakpoint tunggal **900px**, dipasang sebagai **media query** di `app/globals.css` (bukan listener JS, supaya bebas hydration mismatch). Listener `resize` hanya dipakai `lib/use-viewport.ts` untuk menghitung ulang path notch.
 - < 900px: bottom tab bar 78px dengan **notch SVG**, tombol chat 56px bulat di `top:-16px`, konten `padding-bottom: 82px`. Tab bar dan tombolnya butuh `position: relative` supaya tidak tertutup path SVG latar.
 - ≥ 900px: sidebar 240px fixed, konten `margin-left: 240px`.
-- Semua konten `max-width: 720px` dan berpusat (`.amana-container` / `.amana-chat-pane`).
-- Layar = route, bukan state: `/login`, `/register`, `/onboarding`, lalu `/chat` (default), `/dashboard`, `/wallets`, `/accounts`, `/income`, `/goals`, `/analysis`, `/settings`. Daftar tab & pembagian mobile/desktop ada di `lib/nav.ts` — ubah di situ, jangan hard-code per komponen.
+- Konten aplikasi berpusat dengan lebar maksimum melalui `.amana-container`; pane percakapan memakai `.amana-chat-pane` yang lebih sempit agar pesan mudah dibaca.
+- Layar = route, bukan state: `/login`, `/register`, `/onboarding`, lalu `/chat` (default), `/dashboard`, `/transactions`, `/wallets`, `/accounts`, `/income`, `/goals`, `/analysis`, `/settings`. Daftar tab & pembagian mobile/desktop ada di `lib/nav.ts` — ubah di situ, jangan hard-code per komponen.
+- `/transactions` adalah jalur CRUD manual lengkap (tambah, ubah, hapus). Jalur ini dan CRUD entitas lain harus tetap bisa dipakai ketika layanan AI/SSE bermasalah.
 
 ## Status interaksi (jangan restyle per halaman)
 

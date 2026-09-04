@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 
 import { Icon } from "@/components/icon";
-import { PageHeader, ProgressBar, RowActions, SkeletonList } from "@/components/ui";
+import { EmptyState, PageHeader, ProgressBar, RowActions, SkeletonList } from "@/components/ui";
 import { useDeleteFlow } from "@/components/use-delete-flow";
 import { useAnalytics, useWallets } from "@/lib/api/hooks";
 import { walletsView } from "@/lib/selectors";
@@ -22,16 +22,14 @@ export default function WalletsPage() {
 
   return (
     <div className="amana-container">
-      <PageHeader title="Wallets" onAdd={() => openModal("wallet")} />
+      <PageHeader eyebrow="Anggaran" title="Kantong keluarga" description="Bagi uang berdasarkan kebutuhan agar batas belanja mudah dipantau." addLabel="Buat anggaran" onAdd={() => openModal("wallet")} />
 
       {wallets.isPending ? (
         <SkeletonList count={4} height={122} />
       ) : wallets.isError ? (
         <p className="field-error">Gagal memuat wallet. Coba muat ulang halaman.</p>
       ) : list.length === 0 ? (
-        <p className="text-muted" style={{ fontSize: 13 }}>
-          Belum ada wallet. Tambah kantong anggaran pertamamu.
-        </p>
+        <EmptyState title="Belum ada anggaran" message="Mulai dengan kebutuhan rutin seperti belanja, transportasi, atau pendidikan." actionLabel="Buat anggaran" onAction={() => openModal("wallet")} />
       ) : (
         list.map((w) => (
           <div key={w.id} className="card elev-sm">

@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 
 import { Icon } from "@/components/icon";
-import { PageHeader, RowActions, SkeletonList } from "@/components/ui";
+import { EmptyState, PageHeader, RowActions, SkeletonList } from "@/components/ui";
 import { useDeleteFlow } from "@/components/use-delete-flow";
 import { useAccounts } from "@/lib/api/hooks";
 import { accountsView } from "@/lib/selectors";
@@ -18,16 +18,14 @@ export default function AccountsPage() {
 
   return (
     <div className="amana-container">
-      <PageHeader title="Akun Bank & E-Wallet" onAdd={() => openModal("account")} />
+      <PageHeader eyebrow="Tempat uang" title="Akun & e-wallet" description="Simpan saldo bank, uang tunai, dan dompet digital keluarga dalam satu tempat." addLabel="Tambah akun" onAdd={() => openModal("account")} />
 
       {accounts.isPending ? (
         <SkeletonList count={3} height={82} />
       ) : accounts.isError ? (
         <p className="field-error">Gagal memuat akun. Coba muat ulang halaman.</p>
       ) : list.length === 0 ? (
-        <p className="text-muted" style={{ fontSize: 13 }}>
-          Belum ada akun. Tambah tempat uangmu berada.
-        </p>
+        <EmptyState title="Belum ada akun" message="Tambahkan tempat uangmu berada untuk melihat total saldo keluarga." actionLabel="Tambah akun" onAction={() => openModal("account")} />
       ) : (
         list.map((a) => (
           <div

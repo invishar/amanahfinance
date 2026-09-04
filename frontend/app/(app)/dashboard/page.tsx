@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
@@ -58,7 +59,7 @@ export default function DashboardPage() {
   );
 
   const userName = me.data?.full_name ?? "";
-  const goToChat = () => router.push("/chat");
+  const cashflow = analytics.data?.cashflow;
 
   return (
     <div className="amana-container" style={{ gap: "var(--space-5)" }}>
@@ -97,6 +98,21 @@ export default function DashboardPage() {
         </div>
       </div>
 
+      <div className="quick-actions" aria-label="Aksi cepat">
+        <Link href="/transactions" className="quick-action">
+          <span className="entity-icon coral"><Icon name="plus" size={18} /></span>
+          <span><strong>Catat manual</strong><small>Tambah pemasukan atau pengeluaran</small></span>
+        </Link>
+        <Link href="/chat" className="quick-action">
+          <span className="entity-icon mint"><Icon name="sparkles" size={18} /></span>
+          <span><strong>Tanya Amina</strong><small>Bantuan dari data keluargamu</small></span>
+        </Link>
+        <Link href="/wallets" className="quick-action">
+          <span className="entity-icon sky"><Icon name="wallet" size={18} /></span>
+          <span><strong>Atur anggaran</strong><small>Jaga pengeluaran tetap terarah</small></span>
+        </Link>
+      </div>
+
       {/* Hero saldo */}
       {accounts.isPending ? (
         <Skeleton height={196} style={{ borderRadius: "var(--radius-lg)" }} />
@@ -106,7 +122,7 @@ export default function DashboardPage() {
             borderRadius: "var(--radius-lg)",
             padding: "var(--space-5)",
             background:
-              "linear-gradient(135deg, var(--color-accent-500), var(--color-accent-2-500))",
+              "linear-gradient(135deg, var(--color-accent-700), var(--color-accent-500))",
             color: "#fff",
             display: "flex",
             flexDirection: "column",
@@ -192,6 +208,12 @@ export default function DashboardPage() {
         </div>
       )}
 
+      <div className="metric-grid">
+        <div className="metric-card mint"><span>Pemasukan bulan ini</span><strong>{formatRupiah(cashflow?.total_income ?? 0)}</strong></div>
+        <div className="metric-card coral"><span>Pengeluaran bulan ini</span><strong>{formatRupiah(cashflow?.total_expense ?? 0)}</strong></div>
+        <div className="metric-card sky"><span>Selisih bulan ini</span><strong>{formatRupiah(cashflow?.net ?? 0)}</strong></div>
+      </div>
+
       {/* Pengeluaran per wallet */}
       <div>
         <div className="card-title" style={{ marginBottom: 10 }}>
@@ -209,9 +231,10 @@ export default function DashboardPage() {
           </div>
         ) : bars.length === 0 ? (
           <EmptyState
-            message="Belum ada wallet. Bikin kantong anggaran pertama lewat obrolan sama Amina."
-            actionLabel="Catat lewat chat"
-            onAction={goToChat}
+            title="Belum ada anggaran"
+            message="Buat kantong anggaran secara manual. Amina tetap bisa membantu kapan saja."
+            actionLabel="Buat anggaran"
+            onAction={() => router.push("/wallets")}
           />
         ) : (
           <div
@@ -325,7 +348,7 @@ export default function DashboardPage() {
             <SkeletonList count={6} height={54} />
           ) : recent.length === 0 ? (
             <p className="text-muted" style={{ margin: "8px 0 0", fontSize: 13 }}>
-              Belum ada transaksi — ceritakan pengeluaran pertamamu ke Amina.
+              Belum ada transaksi. Kamu bisa mencatatnya manual tanpa menunggu Amina.
             </p>
           ) : (
             recent.map((t) => (
@@ -381,6 +404,9 @@ export default function DashboardPage() {
             ))
           )}
         </div>
+        <Link href="/transactions" className="btn btn-secondary" style={{ alignSelf: "flex-start", marginTop: 12 }}>
+          Lihat dan kelola semua transaksi
+        </Link>
       </div>
 
       <TransactionEditDialog

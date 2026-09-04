@@ -65,7 +65,10 @@ function Sidebar() {
             fontSize: 16,
           }}
         >
-          AmanaFinance
+          <div>AmanaFinance</div>
+          <div style={{ fontFamily: "var(--font-body)", fontSize: 10, fontWeight: 500, opacity: 0.65 }}>
+            Keuangan keluarga
+          </div>
         </div>
       </div>
 
@@ -101,7 +104,6 @@ function Sidebar() {
       <button
         type="button"
         onClick={onLogout}
-        className="text-muted"
         style={{
           display: "flex",
           alignItems: "center",
@@ -112,6 +114,7 @@ function Sidebar() {
           border: "none",
           cursor: "pointer",
           font: "inherit",
+          color: "rgba(255,255,255,.7)",
         }}
       >
         <Icon name="log-out" size={16} />
@@ -142,7 +145,7 @@ function MobileTabBar() {
           }}
           aria-hidden
         >
-          <path d={tabBarPath(width)} fill="var(--color-bg)" />
+          <path d={tabBarPath(width)} fill="var(--color-surface)" />
         </svg>
       )}
 

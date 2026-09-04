@@ -2,7 +2,7 @@
 
 import { useMemo } from "react";
 
-import { PageHeader, RowActions, SkeletonList } from "@/components/ui";
+import { EmptyState, PageHeader, RowActions, SkeletonList } from "@/components/ui";
 import { useDeleteFlow } from "@/components/use-delete-flow";
 import { useIncomeSources } from "@/lib/api/hooks";
 import { incomeSourcesView } from "@/lib/selectors";
@@ -20,7 +20,7 @@ export default function IncomePage() {
 
   return (
     <div className="amana-container">
-      <PageHeader title="Sumber Pemasukan" onAdd={() => openModal("income")} />
+      <PageHeader eyebrow="Arus masuk" title="Sumber pemasukan" description="Catat sumber penghasilan rutin maupun tambahan milik keluarga." addLabel="Tambah sumber" onAdd={() => openModal("income")} />
 
       {sources.isPending ? (
         <SkeletonList count={2} height={74} />
@@ -29,9 +29,7 @@ export default function IncomePage() {
           Gagal memuat sumber pemasukan. Coba muat ulang halaman.
         </p>
       ) : list.length === 0 ? (
-        <p className="text-muted" style={{ fontSize: 13 }}>
-          Belum ada sumber pemasukan.
-        </p>
+        <EmptyState title="Belum ada sumber pemasukan" message="Tambahkan gaji, usaha, atau sumber pendapatan lain secara manual." actionLabel="Tambah sumber" onAction={() => openModal("income")} />
       ) : (
         list.map((src) => (
           <div

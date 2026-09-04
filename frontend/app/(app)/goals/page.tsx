@@ -3,7 +3,7 @@
 import { useMemo } from "react";
 
 import { Icon } from "@/components/icon";
-import { PageHeader, ProgressBar, RowActions, SkeletonList } from "@/components/ui";
+import { EmptyState, PageHeader, ProgressBar, RowActions, SkeletonList } from "@/components/ui";
 import { useDeleteFlow } from "@/components/use-delete-flow";
 import { useSavingsGoals } from "@/lib/api/hooks";
 import { goalsView } from "@/lib/selectors";
@@ -18,16 +18,14 @@ export default function GoalsPage() {
 
   return (
     <div className="amana-container">
-      <PageHeader title="Target Tabungan" onAdd={() => openModal("goal")} />
+      <PageHeader eyebrow="Rencana keluarga" title="Target tabungan" description="Ubah rencana besar menjadi target yang terasa dekat dan terukur." addLabel="Buat target" onAdd={() => openModal("goal")} />
 
       {goals.isPending ? (
         <SkeletonList count={3} height={128} />
       ) : goals.isError ? (
         <p className="field-error">Gagal memuat target. Coba muat ulang halaman.</p>
       ) : list.length === 0 ? (
-        <p className="text-muted" style={{ fontSize: 13 }}>
-          Belum ada target tabungan.
-        </p>
+        <EmptyState title="Belum ada target" message="Buat target seperti dana darurat, pendidikan, atau liburan keluarga." actionLabel="Buat target" onAction={() => openModal("goal")} />
       ) : (
         list.map((g) => (
           <div key={g.id} className="card elev-sm">

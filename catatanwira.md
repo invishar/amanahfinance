@@ -451,3 +451,29 @@ sudut keuangan.
 - Laravel Pint, ESLint, TypeScript, dan build static Next.js lulus.
 - Environment test diisolasi dari konfigurasi LLM lokal melalui `phpunit.xml`,
   sehingga key/provider developer tidak mengubah hasil test.
+
+## 10. Redesign frontend dan mode manual (4 September 2026)
+
+Redesign dikerjakan di branch `redesign/frontend-v2`, sehingga frontend lama
+tetap utuh di branch `main`. Arah visual baru memakai gaya minimal modern yang
+lebih hangat: hijau gelap sebagai warna utama, latar krem, lalu aksen amber,
+coral, dan biru untuk memberi energi tanpa membuat layar ramai.
+
+Perubahan utama:
+
+- navigasi menonjolkan Beranda, Transaksi, Amina, Anggaran, dan Lainnya;
+- dashboard memiliki aksi cepat, ringkasan arus kas berwarna, serta akses jelas
+  ke pengelolaan transaksi;
+- tersedia halaman `/transactions` untuk tambah, ubah, dan hapus transaksi
+  secara manual;
+- halaman akun, sumber pemasukan, wallet/anggaran, dan target tetap memiliki
+  CRUD manual lengkap;
+- layar Amina selalu menampilkan pintasan manual, dan ketika request AI/SSE
+  gagal pengguna diarahkan ke pencatatan manual tanpa kehilangan akses app;
+- komponen header, empty state, kartu, warna, jarak, sidebar desktop, dan bottom
+  navigation mobile diselaraskan dengan sistem visual baru.
+
+Frontend berhasil melewati ESLint, TypeScript, dan static production build,
+termasuk route baru `/transactions`. Pemeriksaan browser otomatis belum dapat
+dijalankan karena runtime Tabbit lokal gagal membuat tab; build dan pemeriksaan
+statis tetap berhasil.

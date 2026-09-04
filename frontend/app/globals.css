@@ -7,12 +7,12 @@
    ========================================================================== */
 
 :root {
-  --color-bg: #fdf8f3;
-  --color-surface: #fff;
-  --color-text: #3a332c;
-  --color-accent: #b8912b;
-  --color-accent-2: #1f4d3a;
-  --color-divider: color-mix(in srgb, #3a332c 12%, transparent);
+  --color-bg: #fff9f1;
+  --color-surface: #fffefa;
+  --color-text: #24332d;
+  --color-accent: #176b55;
+  --color-accent-2: #f4a62a;
+  --color-divider: color-mix(in srgb, #24332d 10%, transparent);
 
   --color-neutral-100: #fefbf8;
   --color-neutral-200: #f4ede4;
@@ -24,25 +24,32 @@
   --color-neutral-800: #4d4032;
   --color-neutral-900: #322a20;
 
-  --color-accent-100: #faf1dc;
-  --color-accent-200: #f0dfb0;
-  --color-accent-300: #e2c47d;
-  --color-accent-400: #cead54;
-  --color-accent-500: #b8912b;
-  --color-accent-600: #967322;
-  --color-accent-700: #75591b;
-  --color-accent-800: #543f13;
-  --color-accent-900: #33260b;
+  --color-accent-100: #e3f3ed;
+  --color-accent-200: #bce1d5;
+  --color-accent-300: #86c8b4;
+  --color-accent-400: #4aa58c;
+  --color-accent-500: #176b55;
+  --color-accent-600: #115b47;
+  --color-accent-700: #0e493a;
+  --color-accent-800: #0b382d;
+  --color-accent-900: #07271f;
 
-  --color-accent-2-100: #dfeae3;
-  --color-accent-2-200: #b4d0bf;
-  --color-accent-2-300: #86b494;
-  --color-accent-2-400: #4f8f68;
-  --color-accent-2-500: #1f4d3a;
-  --color-accent-2-600: #17402f;
-  --color-accent-2-700: #113322;
-  --color-accent-2-800: #0b2417;
-  --color-accent-2-900: #05140c;
+  --color-accent-2-100: #fff1d2;
+  --color-accent-2-200: #ffdfa0;
+  --color-accent-2-300: #fbc768;
+  --color-accent-2-400: #f7b443;
+  --color-accent-2-500: #f4a62a;
+  --color-accent-2-600: #d78616;
+  --color-accent-2-700: #ad6412;
+  --color-accent-2-800: #81480f;
+  --color-accent-2-900: #56300c;
+
+  --color-coral-bg: #ffe5df;
+  --color-coral-fg: #c94d42;
+  --color-sky-bg: #e1f2ff;
+  --color-sky-fg: #2877ad;
+  --color-violet-bg: #eee9ff;
+  --color-violet-fg: #6757c7;
 
   /* Pemasukan (hijau) — dipakai di ikon & nominal transaksi masuk. */
   --color-income-bg: oklch(90% 0.06 150);
@@ -65,15 +72,15 @@
   --radius-md: 16px;
   --radius-lg: 24px;
 
-  --shadow-sm: 0 2px 8px color-mix(in srgb, #543f13 8%, transparent);
-  --shadow-md: 0 8px 20px color-mix(in srgb, #543f13 10%, transparent);
-  --shadow-lg: 0 20px 48px color-mix(in srgb, #543f13 16%, transparent);
+  --shadow-sm: 0 3px 12px color-mix(in srgb, #173e33 7%, transparent);
+  --shadow-md: 0 12px 32px color-mix(in srgb, #173e33 10%, transparent);
+  --shadow-lg: 0 24px 60px color-mix(in srgb, #173e33 15%, transparent);
 
   /* Layout */
-  --sidebar-width: 240px;
+  --sidebar-width: 264px;
   --tabbar-height: 78px;
   --tabbar-offset: 82px;
-  --content-max: 720px;
+  --content-max: 1080px;
 }
 
 *,
@@ -90,6 +97,10 @@ body {
   font-size: 15px;
   line-height: 1.6;
   font-weight: 400;
+  background-image:
+    radial-gradient(circle at 8% 8%, color-mix(in srgb, var(--color-accent-2-100) 72%, transparent) 0, transparent 28%),
+    radial-gradient(circle at 92% 88%, color-mix(in srgb, var(--color-accent-100) 75%, transparent) 0, transparent 30%);
+  background-attachment: fixed;
 }
 
 h1,
@@ -342,9 +353,9 @@ textarea.input {
   flex-direction: column;
   gap: var(--space-2);
   padding: var(--space-4);
-  border-radius: var(--radius-md);
+  border-radius: 20px;
   background: var(--color-surface);
-  border: 1px solid var(--color-divider);
+  border: 1px solid color-mix(in srgb, var(--color-text) 8%, transparent);
 }
 .card-kicker {
   font-size: 10px;
@@ -485,7 +496,7 @@ textarea.input {
   max-width: var(--content-max);
   width: 100%;
   margin: 0 auto;
-  padding: var(--space-4);
+  padding: clamp(20px, 4vw, 44px);
   padding-bottom: var(--space-6);
   display: flex;
   flex-direction: column;
@@ -496,7 +507,7 @@ textarea.input {
   display: flex;
   flex-direction: column;
   height: calc(100vh - var(--tabbar-offset));
-  max-width: var(--content-max);
+  max-width: 840px;
   width: 100%;
   margin: 0 auto;
 }
@@ -643,6 +654,173 @@ textarea.input {
   animation: amanaShimmer 1.4s linear infinite;
 }
 
+/* --- Warm Financial Companion ----------------------------------------- */
+
+.page-header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4);
+  padding: 4px 2px var(--space-2);
+}
+.page-header h1 {
+  margin: 2px 0 0;
+  font-size: clamp(26px, 4vw, 36px);
+  letter-spacing: -0.035em;
+}
+.page-header p {
+  max-width: 620px;
+  margin: 7px 0 0;
+  color: color-mix(in srgb, var(--color-text) 62%, transparent);
+  font-size: 14px;
+}
+.page-eyebrow {
+  color: var(--color-accent);
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+.empty-state {
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  padding: var(--space-6);
+  border-style: dashed;
+}
+.empty-state-icon,
+.entity-icon {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: var(--color-accent);
+  background: var(--color-accent-100);
+  flex: none;
+}
+.entity-icon[data-tone="mint"] {
+  color: var(--color-income-fg);
+  background: var(--color-income-bg);
+}
+.entity-icon[data-tone="coral"] {
+  color: var(--color-coral-fg);
+  background: var(--color-coral-bg);
+}
+.entity-icon[data-tone="sky"] {
+  color: var(--color-sky-fg);
+  background: var(--color-sky-bg);
+}
+.entity-icon[data-tone="violet"] {
+  color: var(--color-violet-fg);
+  background: var(--color-violet-bg);
+}
+.notice {
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  font-size: 13px;
+  border: 1px solid var(--color-divider);
+  background: var(--color-sky-bg);
+  color: var(--color-sky-fg);
+}
+.notice-danger {
+  color: var(--color-coral-fg);
+  background: var(--color-coral-bg);
+  border-color: color-mix(in srgb, var(--color-coral-fg) 20%, transparent);
+}
+.quick-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.quick-action {
+  min-height: 82px;
+  padding: 14px;
+  border-radius: 18px;
+  border: 1px solid var(--color-divider);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-decoration: none;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 12px;
+  font-weight: 700;
+  box-shadow: var(--shadow-sm);
+  transition: transform 0.15s ease, border-color 0.15s ease;
+}
+.quick-action:hover {
+  color: var(--color-text);
+  transform: translateY(-2px);
+  border-color: var(--color-accent-300);
+}
+.metric-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+.metric-card {
+  padding: 16px;
+  border-radius: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  min-width: 0;
+}
+.metric-card span {
+  font-size: 11px;
+  font-weight: 700;
+  opacity: 0.72;
+}
+.metric-card strong {
+  font-family: var(--font-heading);
+  font-size: clamp(14px, 2.4vw, 19px);
+  overflow-wrap: anywhere;
+}
+.metric-card[data-tone="mint"] { background: var(--color-accent-100); color: var(--color-accent-800); }
+.metric-card[data-tone="coral"] { background: var(--color-coral-bg); color: var(--color-coral-fg); }
+.metric-card[data-tone="amber"] { background: var(--color-accent-2-100); color: var(--color-accent-2-800); }
+.transaction-list { gap: 0; padding-block: 6px; }
+.transaction-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 13px 0;
+  border-bottom: 1px solid var(--color-divider);
+}
+.transaction-row:last-child { border-bottom: 0; }
+.transaction-main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.transaction-main strong { font-size: 13px; }
+.transaction-main span { font-size: 11px; color: color-mix(in srgb, var(--color-text) 55%, transparent); }
+.transaction-amount { font-family: var(--font-heading); font-size: 13px; white-space: nowrap; }
+.row-actions { display: flex; gap: 6px; }
+.ai-fallback {
+  margin: 0 var(--space-4);
+  padding: 12px 14px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: var(--color-accent-2-100);
+  color: var(--color-accent-2-900);
+  font-size: 12px;
+}
+.ai-fallback-actions { display: flex; gap: 6px; flex: none; }
+
+@media (max-width: 560px) {
+  .page-header { align-items: flex-start; }
+  .page-header .btn { padding-inline: 13px; }
+  .quick-actions { grid-template-columns: repeat(3, minmax(90px, 1fr)); overflow-x: auto; padding-bottom: 4px; }
+  .metric-grid { grid-template-columns: 1fr; }
+  .transaction-row { align-items: flex-start; flex-wrap: wrap; }
+  .transaction-main { min-width: calc(100% - 60px); }
+  .transaction-amount { margin-left: 54px; }
+  .row-actions { margin-left: auto; }
+  .ai-fallback { align-items: flex-start; flex-direction: column; }
+}
+
 @media (min-width: 900px) {
   .amana-sidebar {
     position: fixed;
@@ -650,13 +828,40 @@ textarea.input {
     top: 0;
     bottom: 0;
     width: var(--sidebar-width);
-    background: var(--color-surface);
-    border-right: 1px solid var(--color-divider);
+    background: linear-gradient(180deg, var(--color-accent-900), var(--color-accent-700));
+    border-right: 0;
     display: flex;
     flex-direction: column;
     padding: var(--space-4);
     gap: var(--space-4);
     z-index: 10;
+    color: #fff;
+    box-shadow: var(--shadow-md);
+  }
+  .amana-sidebar .amana-brand-circle {
+    color: var(--color-accent-2-300);
+    border-color: var(--color-accent-2-300);
+    background: color-mix(in srgb, #fff 8%, transparent);
+  }
+  .amana-sidebar .amana-navlink {
+    color: color-mix(in srgb, #fff 78%, transparent);
+  }
+  .amana-sidebar .amana-navlink:hover,
+  .amana-sidebar .amana-navlink[data-active="true"] {
+    color: #fff;
+    background: color-mix(in srgb, #fff 12%, transparent);
+  }
+  .amana-sidebar .amana-navlink[data-active="true"] {
+    box-shadow: inset 3px 0 var(--color-accent-2-400);
+  }
+  .amana-sidebar .amana-navlink-chat {
+    color: var(--color-accent-900);
+    background: var(--color-accent-2-400);
+  }
+  .amana-sidebar .amana-navlink-chat:hover,
+  .amana-sidebar .amana-navlink-chat[data-active="true"] {
+    color: var(--color-accent-900);
+    background: var(--color-accent-2-300);
   }
   .amana-content {
     margin-left: var(--sidebar-width);

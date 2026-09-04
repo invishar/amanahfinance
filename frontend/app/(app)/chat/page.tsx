@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 
 import { Icon } from "@/components/icon";
@@ -232,6 +233,17 @@ export default function ChatPage() {
         </div>
       </div>
 
+      <div className="ai-fallback">
+        <div>
+          <strong>Kontrol manual selalu tersedia</strong>
+          <div className="text-muted">Amina membantu, tetapi pencatatan tidak bergantung pada AI.</div>
+        </div>
+        <div className="ai-fallback-actions">
+          <Link href="/transactions" className="btn btn-secondary">Catat transaksi</Link>
+          <Link href="/wallets" className="btn btn-secondary">Atur anggaran</Link>
+        </div>
+      </div>
+
       <MessageList
         items={items}
         isLoading={threads.isPending || messages.isPending}
@@ -277,10 +289,11 @@ export default function ChatPage() {
         ))}
       </div>
 
-      {sendMessage.isError && (
-        <p className="field-error" style={{ padding: "0 var(--space-4)" }}>
-          Pesan gagal terkirim. Coba lagi.
-        </p>
+      {(sendMessage.isError || stream.streamError) && (
+        <div className="notice notice-danger" style={{ margin: "0 var(--space-4)" }}>
+          <span>Amina sedang sulit dihubungi. Semua fitur tetap bisa dipakai secara manual.</span>
+          <Link href="/transactions" className="btn btn-secondary">Catat manual</Link>
+        </div>
       )}
 
       <div

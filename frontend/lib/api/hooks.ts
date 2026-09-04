@@ -171,6 +171,24 @@ export function useUpdateTransaction() {
   });
 }
 
+export function useCreateTransaction() {
+  const invalidate = useInvalidateAll();
+  return useMutation({
+    mutationFn: (body: Record<string, unknown>) =>
+      api.one<Transaction>("POST", "/transactions", body),
+    onSuccess: invalidate,
+  });
+}
+
+export function useDeleteTransaction() {
+  const invalidate = useInvalidateAll();
+  return useMutation({
+    mutationFn: (id: string) =>
+      api.request<void>("DELETE", `/transactions/${id}`),
+    onSuccess: invalidate,
+  });
+}
+
 /* --- Family & undangan ---------------------------------------------------- */
 
 export function useCreateFamily() {

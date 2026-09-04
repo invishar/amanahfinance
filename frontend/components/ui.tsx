@@ -6,24 +6,28 @@ import { Icon } from "@/components/icon";
 
 export function PageHeader({
   title,
+  eyebrow,
+  description,
   onAdd,
+  addLabel = "Tambah",
 }: {
   title: string;
+  eyebrow?: string;
+  description?: string;
   onAdd?: () => void;
+  addLabel?: string;
 }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        alignItems: "center",
-      }}
-    >
-      <h1 style={{ fontSize: 22, margin: 0 }}>{title}</h1>
+    <div className="page-header">
+      <div>
+        {eyebrow ? <div className="page-eyebrow">{eyebrow}</div> : null}
+        <h1>{title}</h1>
+        {description ? <p>{description}</p> : null}
+      </div>
       {onAdd && (
         <button type="button" className="btn btn-primary" onClick={onAdd}>
           <Icon name="plus" size={14} />
-          Tambah
+          {addLabel}
         </button>
       )}
     </div>
@@ -91,19 +95,22 @@ export function ProgressBar({
 }
 
 export function EmptyState({
+  icon = "sparkles",
+  title,
   message,
   actionLabel,
   onAction,
 }: {
+  icon?: string;
+  title?: string;
   message: string;
   actionLabel: string;
   onAction: () => void;
 }) {
   return (
-    <div
-      className="card elev-sm"
-      style={{ alignItems: "center", textAlign: "center", gap: "var(--space-3)" }}
-    >
+    <div className="card empty-state">
+      <div className="empty-state-icon"><Icon name={icon} size={22} /></div>
+      {title ? <div className="card-title">{title}</div> : null}
       <p className="text-muted" style={{ margin: 0, fontSize: 13 }}>
         {message}
       </p>

@@ -11,6 +11,7 @@ import { useEffect, useState } from "react";
 import { ApiError } from "@/lib/api/client";
 import {
   useAccounts,
+  useCreateTransaction,
   useIncomeSources,
   useSavingsGoals,
   useUpdateTransaction,
@@ -39,32 +40,34 @@ interface Draft {
   note: string;
 }
 
-function toDraft(t: Transaction): Draft {
+function toDraft(t?: Transaction | null): Draft {
   return {
-    type: t.type ?? "expense",
-    amount: t.amount ?? 0,
-    transaction_date: t.transaction_date ?? "",
-    account_id: t.account_id ?? "",
-    wallet_id: t.wallet_id ?? "",
-    source_id: t.source_id ?? "",
-    to_account_id: t.to_account_id ?? "",
-    goal_id: t.goal_id ?? "",
-    note: t.note ?? "",
+    type: t?.type ?? "expense",
+    amount: t?.amount ?? 0,
+    transaction_date: t?.transaction_date ?? new Date().toISOString().slice(0, 10),
+    account_id: t?.account_id ?? "",
+    wallet_id: t?.wallet_id ?? "",
+    source_id: t?.source_id ?? "",
+    to_account_id: t?.to_account_id ?? "",
+    goal_id: t?.goal_id ?? "",
+    note: t?.note ?? "",
   };
 }
 
 export function TransactionEditDialog({
   transaction,
+  open,
   onClose,
 }: {
   transaction: Transaction | null;
+  open?: boolean;
   onClose: () => void;
 }) {
-  if (!transaction) return null;
+  if (!(open ?? Boolean(transaction))) return null;
   // Key per transaksi: draft & error ikut ter-reset saat transaksi berganti.
   return (
     <TransactionEditDialogInner
-      key={transaction.id}
+      key={transaction?.id ?? "new"}
       transaction={transaction}
       onClose={onClose}
     />
@@ -75,7 +78,7 @@ function TransactionEditDialogInner({
   transaction,
   onClose,
 }: {
-  transaction: Transaction;
+  transaction: Transaction | null;
   onClose: () => void;
 }) {
   const accounts = useAccounts();
@@ -83,6 +86,7 @@ function TransactionEditDialogInner({
   const incomeSources = useIncomeSources();
   const goals = useSavingsGoals();
   const update = useUpdateTransaction();
+  const create = useCreateTransaction();
 
   const [draft, setDraft] = useState<Draft>(() => toDraft(transaction));
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -117,7 +121,11 @@ function TransactionEditDialogInner({
     if (draft.type === "savings") body.goal_id = draft.goal_id;
 
     try {
-      await update.mutateAsync({ id: transaction.id!, body });
+      if (transaction?.id) {
+        await update.mutateAsync({ id: transaction.id, body });
+      } else {
+        await create.mutateAsync(body);
+      }
       onClose();
     } catch (error) {
       if (error instanceof ApiError) {
@@ -147,9 +155,11 @@ function TransactionEditDialogInner({
         onSubmit={submit}
         role="dialog"
         aria-modal="true"
-        aria-label="Ubah Transaksi"
+        aria-label={transaction ? "Ubah Transaksi" : "Tambah Transaksi"}
       >
-        <div className="dialog-title">Ubah Transaksi</div>
+        <div className="dialog-title">
+          {transaction ? "Ubah Transaksi" : "Tambah Transaksi"}
+        </div>
 
         <div className="field">
           <label htmlFor="tx-type">Jenis</label>
@@ -320,8 +330,12 @@ function TransactionEditDialogInner({
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Batal
           </button>
-          <button type="submit" className="btn btn-primary" disabled={update.isPending}>
-            {update.isPending ? "Menyimpan…" : "Simpan"}
+          <button
+            type="submit"
+            className="btn btn-primary"
+            disabled={update.isPending || create.isPending}
+          >
+            {update.isPending || create.isPending ? "Menyimpan…" : "Simpan"}
           </button>
         </div>
       </form>
