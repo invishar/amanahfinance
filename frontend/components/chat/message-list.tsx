@@ -81,6 +81,7 @@ export function MessageList({
 
   return (
     <div
+      className="chat-messages"
       style={{
         flex: 1,
         overflowY: "auto",

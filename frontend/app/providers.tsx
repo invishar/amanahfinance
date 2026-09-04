@@ -13,7 +13,10 @@ export function Providers({ children }: { children: ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            staleTime: 30_000,
+            // Data finansial tetap di-invalidasi segera setelah setiap mutasi.
+            // Cache lebih panjang membuat perpindahan halaman tidak memanggil
+            // ulang endpoint yang sama berulang kali di shared hosting.
+            staleTime: 120_000,
             refetchOnWindowFocus: false,
             // 4xx tidak akan membaik dengan diulang.
             retry: (failureCount, error) =>

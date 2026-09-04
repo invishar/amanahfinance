@@ -56,11 +56,26 @@ class ChatStreamController extends Controller
                     return;
                 }
 
+                $messageCursorBefore = $lastMessageAt;
+                $actionCursorBefore = $lastActionAt;
+                $errorCursorBefore = $lastErrorAt;
                 $lastMessageAt = $this->emitNewMessages($chatThread, $lastMessageAt);
                 $lastActionAt = $this->emitNewActionCards($chatThread, $lastActionAt);
                 $lastErrorAt = $this->emitNewErrors($chatThread, $lastErrorAt);
 
                 $this->flushBuffer();
+
+                // Pesan, kartu aksi, atau error adalah hasil terminal untuk
+                // satu giliran. Tutup stream segera sesudah hasil terkirim;
+                // jangan menahan proses PHP shared hosting sampai deadline
+                // 20 detik karena itu memperlambat request halaman lain.
+                $terminalEventEmitted = ! $lastMessageAt->equalTo($messageCursorBefore)
+                    || ! $lastActionAt->equalTo($actionCursorBefore)
+                    || ! $lastErrorAt->equalTo($errorCursorBefore);
+
+                if ($terminalEventEmitted) {
+                    break;
+                }
 
                 if (now()->gte($deadline)) {
                     break;

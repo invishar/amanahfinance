@@ -203,6 +203,7 @@ export default function ChatPage() {
   return (
     <div className="amana-chat-pane">
       <div
+        className="chat-header"
         style={{
           display: "flex",
           alignItems: "center",
@@ -269,6 +270,7 @@ export default function ChatPage() {
       )}
 
       <div
+        className="chat-quick-prompts"
         style={{
           padding: "var(--space-2) var(--space-4)",
           display: "flex",
@@ -297,6 +299,7 @@ export default function ChatPage() {
       )}
 
       <div
+        className="chat-composer"
         style={{
           padding: "var(--space-3) var(--space-4)",
           borderTop: "1px solid var(--color-divider)",

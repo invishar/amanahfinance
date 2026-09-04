@@ -479,3 +479,20 @@ Frontend berhasil melewati ESLint, TypeScript, dan static production build,
 termasuk route baru `/transactions`. Pemeriksaan browser otomatis belum dapat
 dijalankan karena runtime Tabbit lokal gagal membuat tab; build dan pemeriksaan
 statis tetap berhasil.
+
+## 11. Stabilitas layout mobile dan performa staging (5 September 2026)
+
+- Class tekstur hero yang sempat salah menempel pada avatar dipindahkan ke kartu
+  Total Saldo sehingga background hero selalu tampil.
+- Bottom navigation dibuat fixed dengan z-index eksplisit, safe-area perangkat,
+  lebar adaptif, dan proteksi overflow horizontal.
+- Chat memakai tinggi `100dvh`; hanya daftar pesan yang bergulir, sedangkan
+  header, quick prompts, dan composer tetap berada di dalam viewport. Composer
+  selalu berhenti di atas bottom navigation.
+- Cache TanStack Query dinaikkan menjadi dua menit. Mutasi tetap langsung
+  menginvalidasi data terkait, tetapi perpindahan halaman tidak meminta ulang
+  data yang sama secara berlebihan.
+- SSE kini menutup koneksi segera setelah pesan, kartu aksi, atau error terkirim,
+  sehingga proses PHP shared hosting tidak tertahan sampai deadline 20 detik.
+- Deploy membangun `config`, `route`, dan `view` cache Laravel setelah clear,
+  bukan hanya menghapus cache seperti sebelumnya.

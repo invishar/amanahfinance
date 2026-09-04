@@ -79,7 +79,6 @@ export default function DashboardPage() {
           </h1>
         </div>
         <div
-          className="dashboard-hero"
           style={{
             width: 44,
             height: 44,
@@ -119,6 +118,7 @@ export default function DashboardPage() {
         <Skeleton height={196} style={{ borderRadius: "var(--radius-lg)" }} />
       ) : (
         <div
+          className="dashboard-hero"
           style={{
             borderRadius: "var(--radius-lg)",
             padding: "var(--space-5)",

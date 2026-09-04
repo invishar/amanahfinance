@@ -112,8 +112,8 @@ if [ "$FRONTEND_ONLY" -eq 0 ]; then
   say "Backend: composer install (kalau dependency berubah)"
   run remote "cd '$REMOTE_APP' && composer install --no-dev --optimize-autoloader --no-interaction --no-scripts && php artisan package:discover --ansi"
 
-  say "Backend: bersihkan & bangun ulang cache config/route"
-  run remote "cd '$REMOTE_APP' && php artisan config:clear && php artisan route:clear && php artisan view:clear"
+  say "Backend: bangun cache config, route, dan view"
+  run remote "cd '$REMOTE_APP' && php artisan optimize:clear && php artisan config:cache && php artisan route:cache && php artisan view:cache"
 fi
 
 # ---------------------------------------------------------------------------
