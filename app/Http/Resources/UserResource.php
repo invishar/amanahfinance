@@ -20,6 +20,7 @@ class UserResource extends JsonResource
             'email' => $this->email,
             'phone' => $this->phone,
             'avatar_url' => $this->avatar_url,
+            'locale' => $this->locale,
             'is_admin' => $this->isAdmin(),
             // Klien pakai ini buat nunjukin/nyembunyiin menu admin yang cuma
             // berguna kalau API-nya sendiri jalan dengan APP_ENV=local (mis.

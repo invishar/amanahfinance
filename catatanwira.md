@@ -531,3 +531,59 @@ statis tetap berhasil.
   check dashboard, chat, login, admin login, dan OpenAPI semuanya memberi 200.
 - Verifikasi terakhir: halaman dashboard sekitar 188 ms, halaman chat 28 ms,
   dan satu balasan Amina end-to-end sekitar 7,3 detik.
+
+## 12. Halaman kebijakan minimum (5 September 2026)
+
+Tiga halaman publik ditambahkan untuk kebutuhan awal komersialisasi aplikasi
+pencatatan keuangan:
+
+- `/privacy`: Kebijakan Privasi yang menjelaskan data akun, keluarga, catatan
+  keuangan, chat, unggahan, data teknis, tujuan pemrosesan, akses anggota
+  keluarga, penyedia layanan, penyimpanan, keamanan, dan hak pengguna;
+- `/terms`: Syarat & Ketentuan penggunaan, tanggung jawab akun, larangan
+  penyalahgunaan, ketentuan dasar paket berbayar, ketersediaan layanan, dan
+  penegasan bahwa AmanaFinance bukan bank atau penyelenggara pembayaran;
+- `/ai-disclaimer`: penjelasan cara Amina memproses konteks, risiko jawaban AI,
+  data sensitif yang tidak boleh dikirim, kontrol/konfirmasi pengguna, mode
+  manual saat AI gagal, serta batas topik Amina.
+
+Kebijakan menyatakan data tidak dijual dan tidak digunakan untuk iklan
+tertarget. Teks tetap menjelaskan bahwa data yang relevan dapat diproses oleh
+hosting dan penyedia AI untuk menjalankan fitur yang diminta pengguna.
+
+Tautan ketiga halaman tersedia di halaman awal, login, pendaftaran, dan
+Pengaturan. Pendaftaran mewajibkan checkbox persetujuan Syarat & Ketentuan dan
+konfirmasi telah membaca Kebijakan Privasi. Alamat kontak sementara yang
+dicantumkan adalah `support@amanafinance.id`; mailbox ini harus dipastikan aktif
+sebelum peluncuran komersial.
+
+Frontend lint dan static production build lulus. Ketiga route legal berhasil
+diprerender tanpa menambah dependency runtime. Teks ini merupakan dokumen awal
+produk dan tetap perlu dilengkapi identitas badan usaha serta ditinjau pihak
+hukum ketika badan usaha dan proses pembayaran final sudah ditetapkan.
+
+## 13. Pilihan bahasa akun (5 September 2026)
+
+- Bahasa awal yang tersedia adalah Bahasa Indonesia (`id`) dan English (`en`).
+- Preferensi disimpan di kolom nullable `users.locale`; nilai null menandakan
+  user belum pernah menentukan bahasa.
+- Setelah login/registrasi pertama, user yang belum punya preferensi diarahkan
+  ke `/language` sebelum onboarding atau chat. Login berikutnya langsung masuk
+  aplikasi menggunakan bahasa yang tersimpan.
+- Pengaturan Keluarga memiliki bagian Bahasa aplikasi untuk mengganti pilihan
+  kapan saja. Perubahan tersimpan melalui `PUT /auth/preferences`, sehingga
+  berlaku pada perangkat lain setelah login.
+- Provider bahasa menerjemahkan teks, label, placeholder, title, aria-label,
+  pesan status, halaman kebijakan, serta konten yang muncul setelah request.
+  Format tanggal dan angka juga mengikuti locale, sedangkan mata uang tetap IDR.
+- Preferensi pemilik thread ditambahkan ke system prompt. Amina menjawab dalam
+  English untuk locale `en` dan Bahasa Indonesia untuk locale `id`, tanpa
+  menerjemahkan nama akun, wallet, target, atau catatan buatan user.
+- Global error page membaca preferensi lokal agar pesan pemulihan tetap memakai
+  bahasa yang terakhir digunakan.
+
+Frontend ESLint dan static production build lulus, termasuk route baru
+`/language`. Test backend baru mencakup validasi preferensi serta instruksi
+bahasa Amina. Test backend lokal memerlukan MySQL test pada `127.0.0.1:3306`;
+pada pemeriksaan ini service tersebut tidak aktif sehingga test tidak dapat
+menyelesaikan koneksi database.

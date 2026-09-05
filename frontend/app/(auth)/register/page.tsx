@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { AuthHeader } from "@/components/auth-header";
 import { Icon } from "@/components/icon";
+import { LegalLinks } from "@/components/legal-links";
 import { ApiError } from "@/lib/api/client";
 import { useSession } from "@/lib/auth";
 
@@ -16,6 +17,7 @@ export default function RegisterPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [pending, setPending] = useState(false);
@@ -38,7 +40,7 @@ export default function RegisterPage() {
         // konfirmasi. Lihat TaskProject.md — perlu keputusan desain/backend.
         password_confirmation: password,
       });
-      router.replace("/onboarding");
+      router.replace("/language");
     } catch (error) {
       if (error instanceof ApiError) {
         const perField: Record<string, string> = {};
@@ -130,13 +132,26 @@ export default function RegisterPage() {
           )}
         </div>
 
+        <label className="legal-consent">
+          <input
+            type="checkbox"
+            checked={acceptedTerms}
+            onChange={(event) => setAcceptedTerms(event.target.checked)}
+            required
+          />
+          <span>
+            Saya menyetujui <Link href="/terms">Syarat & Ketentuan</Link> dan telah membaca{" "}
+            <Link href="/privacy">Kebijakan Privasi</Link>.
+          </span>
+        </label>
+
         {formError && <p className="field-error">{formError}</p>}
 
         <button
           type="submit"
           className="btn btn-primary btn-block"
           style={{ height: 44, fontSize: 15 }}
-          disabled={pending}
+          disabled={pending || !acceptedTerms}
         >
           {pending ? "Mendaftar…" : "Daftar"}
         </button>
@@ -144,6 +159,7 @@ export default function RegisterPage() {
         <p style={{ textAlign: "center", fontSize: 13, margin: 0 }}>
           Sudah punya akun? <Link href="/login">Masuk</Link>
         </p>
+        <LegalLinks compact />
       </form>
     </div>
   );

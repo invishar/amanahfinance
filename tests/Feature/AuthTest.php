@@ -118,6 +118,28 @@ test('me returns current user', function () {
         ->assertJsonPath('data.full_name', 'Siti Aminah');
 });
 
+test('user can choose and change interface language', function () {
+    $user = User::factory()->create(['locale' => null]);
+    $token = $user->createToken('test')->plainTextToken;
+
+    $this->withHeader('Authorization', "Bearer {$token}")
+        ->putJson('/api/v1/auth/preferences', ['locale' => 'en'])
+        ->assertOk()
+        ->assertJsonPath('data.locale', 'en');
+
+    $this->assertDatabaseHas('users', ['id' => $user->id, 'locale' => 'en']);
+});
+
+test('user preference rejects an unsupported language', function () {
+    $user = User::factory()->create();
+    $token = $user->createToken('test')->plainTextToken;
+
+    $this->withHeader('Authorization', "Bearer {$token}")
+        ->putJson('/api/v1/auth/preferences', ['locale' => 'fr'])
+        ->assertUnprocessable()
+        ->assertJsonValidationErrors(['locale']);
+});
+
 test('me reports is_local matching APP_ENV', function () {
     app()['env'] = 'local';
     $user = User::factory()->create();

@@ -10,6 +10,7 @@ use App\Models\Family;
 use App\Models\FamilyMember;
 use App\Models\IncomeSource;
 use App\Models\SavingsGoal;
+use App\Models\User;
 use App\Models\Wallet;
 use App\Services\Ai\AssistantService;
 use App\Services\Ai\Contracts\ConversationRunner;
@@ -311,6 +312,17 @@ test('system prompt limits Amina to household finance and relevant economics', f
         ->toContain('BATAS TOPIK')
         ->toContain('jangan jawab isi pertanyaannya')
         ->toContain('dampak ekonomi yang jelas bagi keluarga');
+});
+
+test('system prompt follows the language selected by the thread owner', function () {
+    $family = Family::factory()->create();
+    $user = User::factory()->create(['locale' => 'en']);
+    $member = FamilyMember::factory()->for($family)->for($user)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    expect(captureSystemPrompt($userMessage))
+        ->toContain('Reply to the user in natural, concise English');
 });
 
 test('family financial data tool is read only and does not create an ai action', function () {

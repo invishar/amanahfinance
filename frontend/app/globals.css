@@ -910,6 +910,154 @@ textarea.input {
   .chat-composer .btn-icon { width: 38px; height: 38px; flex: none; }
 }
 
+.legal-shell {
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: clamp(18px, 4vw, 48px);
+  background:
+    radial-gradient(circle at 10% 0%, var(--color-accent-100), transparent 32%),
+    var(--color-bg);
+}
+.legal-nav,
+.legal-card,
+.legal-footer {
+  width: min(100%, 820px);
+  margin-inline: auto;
+}
+.legal-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.legal-brand {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--color-text);
+  font-family: var(--font-heading);
+  font-weight: 700;
+  text-decoration: none;
+}
+.legal-brand .amana-brand-circle {
+  width: 36px;
+  height: 36px;
+  font-size: 13px;
+}
+.legal-card {
+  padding: clamp(22px, 5vw, 54px);
+  border: 1px solid var(--color-divider);
+  border-radius: 28px;
+  background: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+.legal-header {
+  padding-bottom: clamp(22px, 4vw, 34px);
+  border-bottom: 1px solid var(--color-divider);
+}
+.legal-header h1 {
+  margin: 8px 0 10px;
+  font-size: clamp(30px, 6vw, 48px);
+  letter-spacing: -0.045em;
+}
+.legal-header p {
+  max-width: 660px;
+  margin: 0 0 12px;
+  color: color-mix(in srgb, var(--color-text) 68%, transparent);
+  font-size: clamp(14px, 2vw, 17px);
+  line-height: 1.7;
+}
+.legal-header small { color: color-mix(in srgb, var(--color-text) 58%, transparent); }
+.legal-content { padding-top: 8px; }
+.legal-content section { padding-top: 24px; }
+.legal-content h2 { margin: 0 0 8px; font-size: 18px; }
+.legal-content p,
+.legal-content li {
+  color: color-mix(in srgb, var(--color-text) 76%, transparent);
+  font-size: 14px;
+  line-height: 1.8;
+}
+.legal-content p { margin: 0 0 10px; }
+.legal-content ul { margin: 6px 0 12px; padding-left: 22px; }
+.legal-content a,
+.legal-footer a,
+.legal-links a,
+.legal-consent a { color: var(--color-accent); }
+.legal-footer,
+.legal-links {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+}
+.legal-footer { padding: 22px 0; color: color-mix(in srgb, var(--color-text) 58%, transparent); }
+.legal-links { justify-content: flex-start; }
+.legal-links-compact { justify-content: center; color: color-mix(in srgb, var(--color-text) 58%, transparent); }
+.legal-consent {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  color: color-mix(in srgb, var(--color-text) 68%, transparent);
+  font-size: 12px;
+  line-height: 1.55;
+  cursor: pointer;
+}
+.legal-consent input { width: 16px; height: 16px; margin-top: 2px; flex: none; accent-color: var(--color-accent); }
+.language-card {
+  width: min(100%, 520px);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+.language-options { display: grid; gap: 10px; }
+.language-option {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 46px 1fr 22px;
+  align-items: center;
+  gap: 12px;
+  padding: 15px;
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text);
+  text-align: left;
+  cursor: pointer;
+  box-shadow: var(--shadow-sm);
+}
+.language-option[data-active="true"] {
+  border-color: var(--color-accent);
+  background: var(--color-accent-100);
+}
+.language-code {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: var(--color-accent-900);
+  color: #fff;
+  font-family: var(--font-heading);
+  font-size: 12px;
+}
+.language-option strong,
+.language-option small { display: block; }
+.language-option strong { font-size: 14px; }
+.language-option small { margin-top: 3px; color: color-mix(in srgb, var(--color-text) 60%, transparent); line-height: 1.45; }
+.settings-language-row { display: flex; gap: 10px; align-items: center; }
+.settings-language-row .input { flex: 1; }
+.settings-saved { margin: 9px 0 0; color: var(--color-income-fg); font-size: 12px; }
+
+@media (max-width: 560px) {
+  .legal-shell { padding-inline: 12px; }
+  .legal-nav .btn { padding-inline: 12px; font-size: 12px; }
+  .legal-card { border-radius: 22px; }
+  .settings-language-row { align-items: stretch; flex-direction: column; }
+}
+
 @media (min-width: 900px) {
   .amana-sidebar {
     position: fixed;

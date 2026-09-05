@@ -6,6 +6,7 @@ import { useEffect, useState } from "react";
 
 import { AuthHeader } from "@/components/auth-header";
 import { Icon } from "@/components/icon";
+import { LegalLinks } from "@/components/legal-links";
 import { ApiError } from "@/lib/api/client";
 import { useSession } from "@/lib/auth";
 
@@ -29,8 +30,8 @@ export default function LoginPage() {
     setFormError(null);
     setPending(true);
     try {
-      await login(email.trim(), password);
-      router.replace("/chat");
+      const user = await login(email.trim(), password);
+      router.replace(user.locale ? "/chat" : "/language");
     } catch (error) {
       if (error instanceof ApiError) {
         const perField: Record<string, string> = {};
@@ -120,6 +121,7 @@ export default function LoginPage() {
         <p style={{ textAlign: "center", fontSize: 13, margin: 0 }}>
           Belum punya akun? <Link href="/register">Daftar</Link>
         </p>
+        <LegalLinks compact />
       </form>
     </div>
   );

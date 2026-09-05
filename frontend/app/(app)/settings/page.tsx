@@ -4,10 +4,12 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { Icon } from "@/components/icon";
+import { LegalLinks } from "@/components/legal-links";
 import { SkeletonList } from "@/components/ui";
 import { ApiError } from "@/lib/api/client";
 import { useActiveFamily, useCreateInvite, useFamilyMembers } from "@/lib/api/hooks";
 import { useSession } from "@/lib/auth";
+import { type Locale, useLanguage } from "@/lib/i18n";
 
 const ROLE_LABEL: Record<string, string> = {
   admin: "Admin",
@@ -20,6 +22,7 @@ export default function SettingsPage() {
   const { family } = useActiveFamily();
   const members = useFamilyMembers();
   const { logout } = useSession();
+  const { locale, setLocale } = useLanguage();
 
   const createInvite = useCreateInvite();
   const [inviteOpen, setInviteOpen] = useState(false);
@@ -28,6 +31,9 @@ export default function SettingsPage() {
   const [inviteToken, setInviteToken] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [language, setLanguage] = useState<Locale>(locale);
+  const [savingLanguage, setSavingLanguage] = useState(false);
+  const [languageSaved, setLanguageSaved] = useState(false);
 
   const submitInvite = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,6 +203,53 @@ export default function SettingsPage() {
             </button>
           </div>
         )}
+      </div>
+
+      <div className="card elev-sm">
+        <div className="card-title">Bahasa aplikasi</div>
+        <p className="text-muted" style={{ margin: "6px 0 12px", fontSize: 13 }}>
+          Bahasa tampilan aplikasi dan jawaban Amina mengikuti pilihan ini.
+        </p>
+        <div className="settings-language-row">
+          <select
+            className="input"
+            value={language}
+            onChange={(event) => {
+              setLanguage(event.target.value as Locale);
+              setLanguageSaved(false);
+            }}
+            aria-label="Bahasa aplikasi"
+          >
+            <option value="id">Bahasa Indonesia</option>
+            <option value="en">English</option>
+          </select>
+          <button
+            type="button"
+            className="btn btn-primary"
+            disabled={savingLanguage || language === locale}
+            onClick={async () => {
+              setSavingLanguage(true);
+              setLanguageSaved(false);
+              try {
+                await setLocale(language);
+                setLanguageSaved(true);
+              } finally {
+                setSavingLanguage(false);
+              }
+            }}
+          >
+            {savingLanguage ? "Menyimpan…" : "Simpan bahasa"}
+          </button>
+        </div>
+        {languageSaved && <p className="settings-saved">Bahasa berhasil disimpan.</p>}
+      </div>
+
+      <div className="card elev-sm">
+        <div className="card-title">Informasi & kebijakan</div>
+        <p className="text-muted" style={{ margin: "6px 0 12px", fontSize: 13 }}>
+          Pelajari cara data dan fitur Amina digunakan di AmanaFinance.
+        </p>
+        <LegalLinks />
       </div>
 
       <button

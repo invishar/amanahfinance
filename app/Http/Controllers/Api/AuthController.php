@@ -6,6 +6,7 @@ use App\Actions\Auth\AuthActions;
 use App\Http\Controllers\Controller;
 use App\Http\Requests\LoginRequest;
 use App\Http\Requests\RegisterRequest;
+use App\Http\Requests\UpdateUserPreferencesRequest;
 use App\Http\Resources\UserResource;
 use App\Models\User;
 use Illuminate\Http\Request;
@@ -37,6 +38,15 @@ class AuthController extends Controller
         $user = $request->user();
 
         return new UserResource($user);
+    }
+
+    public function updatePreferences(UpdateUserPreferencesRequest $request)
+    {
+        /** @var User $user */
+        $user = $request->user();
+        $user->update($request->validated());
+
+        return new UserResource($user->fresh());
     }
 
     private function tokenResponse(array $result, int $status)

@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { AuthHeader } from "@/components/auth-header";
+import { LegalLinks } from "@/components/legal-links";
 
 export default function Home() {
   return (
@@ -26,6 +27,7 @@ export default function Home() {
         >
           Masuk
         </Link>
+        <LegalLinks compact />
       </div>
     </div>
   );

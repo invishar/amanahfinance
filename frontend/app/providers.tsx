@@ -5,6 +5,7 @@ import { useState, type ReactNode } from "react";
 
 import { ApiError } from "@/lib/api/client";
 import { AuthProvider } from "@/lib/auth";
+import { LanguageProvider } from "@/lib/i18n";
 import { UiProvider } from "@/lib/ui-store";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -32,7 +33,9 @@ export function Providers({ children }: { children: ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
-        <UiProvider>{children}</UiProvider>
+        <LanguageProvider>
+          <UiProvider>{children}</UiProvider>
+        </LanguageProvider>
       </AuthProvider>
     </QueryClientProvider>
   );

@@ -42,7 +42,7 @@ class AssistantService
 
     public function respond(ChatMessage $userMessage): ChatMessage
     {
-        $thread = $userMessage->thread()->withoutGlobalScope('family')->with('family')->firstOrFail();
+        $thread = $userMessage->thread()->withoutGlobalScope('family')->with(['family', 'member.user'])->firstOrFail();
         $family = $thread->family;
 
         $wallets = $this->activeCandidates(Wallet::query()->where('family_id', $family->id)->where('is_archived', false), 'name');
@@ -58,7 +58,15 @@ class AssistantService
         $isOnboarding = $thread->kind === 'onboarding' && ! $family->onboarding_done;
 
         $model = $this->llmSettingsModel();
-        $systemPrompt = $this->buildSystemPrompt($family, $wallets, $accounts, $sources, $goals, $isOnboarding);
+        $systemPrompt = $this->buildSystemPrompt(
+            $family,
+            $wallets,
+            $accounts,
+            $sources,
+            $goals,
+            $isOnboarding,
+            $thread->member?->user?->locale ?? 'id',
+        );
 
         try {
             $result = $this->runner->run(
@@ -239,6 +247,7 @@ class AssistantService
         Collection $sources,
         Collection $goals,
         bool $isOnboarding = false,
+        string $locale = 'id',
     ): string {
         $answers = OnboardingAnswer::query()
             ->where('family_id', $family->id)
@@ -261,10 +270,15 @@ class AssistantService
             'tentang_keluarga' => $answers,
         ];
 
+        $languageInstruction = $locale === 'en'
+            ? 'IMPORTANT: Reply to the user in natural, concise English. Keep Indonesian entity names and user-entered notes unchanged.'
+            : 'PENTING: Balas pengguna dalam Bahasa Indonesia yang alami dan ringkas.';
+
         return config('amina.persona')
             .($isOnboarding ? "\n\n".config('amina.onboarding_briefing') : '')
             ."\n\nKonteks keluarga (JANGAN mengarang di luar ini):\n"
-            .json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            .json_encode($context, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+            ."\n\n{$languageInstruction}";
     }
 
     /**

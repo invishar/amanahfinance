@@ -1,6 +1,7 @@
 "use client";
 
 import "./globals.css";
+import { useState } from "react";
 
 export default function GlobalError({
   reset,
@@ -8,8 +9,11 @@ export default function GlobalError({
   error: Error & { digest?: string };
   reset: () => void;
 }) {
+  const [english] = useState(() =>
+    typeof window !== "undefined" && window.localStorage.getItem("amanafinance-locale") === "en",
+  );
   return (
-    <html lang="id">
+    <html lang={english ? "en" : "id"}>
       <body>
         <div
           style={{
@@ -25,9 +29,11 @@ export default function GlobalError({
             color: "var(--color-text, #3a332c)",
           }}
         >
-          <h1 style={{ fontSize: 20, fontWeight: 600 }}>Terjadi kesalahan</h1>
+          <h1 style={{ fontSize: 20, fontWeight: 600 }}>
+            {english ? "Something went wrong" : "Terjadi kesalahan"}
+          </h1>
           <p style={{ fontSize: 15, lineHeight: 1.6, maxWidth: 320 }}>
-            Amina lagi ada gangguan. Coba muat ulang halamannya.
+            {english ? "Amina is having trouble. Please reload the page." : "Amina lagi ada gangguan. Coba muat ulang halamannya."}
           </p>
           <button
             onClick={() => reset()}
@@ -41,7 +47,7 @@ export default function GlobalError({
               cursor: "pointer",
             }}
           >
-            Coba lagi
+            {english ? "Try again" : "Coba lagi"}
           </button>
         </div>
       </body>

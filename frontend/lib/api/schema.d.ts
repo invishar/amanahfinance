@@ -164,6 +164,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Ubah preferensi user yang sedang login */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        locale: "id" | "en";
+                    };
+                };
+            };
+            responses: {
+                /** @description Preferensi tersimpan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["User"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -4023,6 +4070,11 @@ export interface components {
             email?: string | null;
             phone?: string | null;
             avatar_url?: string | null;
+            /**
+             * @description Bahasa antarmuka pilihan user. Null sampai pilihan pertama disimpan.
+             * @enum {string|null}
+             */
+            locale?: "id" | "en" | null;
             /** @description Selalu self-view (register/login/me) -- tidak pernah dipakai untuk profil user lain. */
             is_admin?: boolean;
             /** @description True kalau server API jalan dengan APP_ENV=local. Klien pakai ini untuk menampilkan/menyembunyikan menu admin yang cuma berguna di dev (mis. GET /admin/ai-logs). */

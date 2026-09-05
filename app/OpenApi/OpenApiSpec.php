@@ -160,6 +160,7 @@ class OpenApiSpec
                     'email' => ['type' => 'string', 'format' => 'email', 'nullable' => true],
                     'phone' => ['type' => 'string', 'nullable' => true],
                     'avatar_url' => ['type' => 'string', 'nullable' => true],
+                    'locale' => ['type' => 'string', 'enum' => ['id', 'en'], 'nullable' => true, 'description' => 'Bahasa antarmuka pilihan user. Null sampai pilihan pertama disimpan.'],
                     'is_admin' => ['type' => 'boolean', 'description' => 'Selalu self-view (register/login/me) -- tidak pernah dipakai untuk profil user lain.'],
                     'is_local' => ['type' => 'boolean', 'description' => 'True kalau server API jalan dengan APP_ENV=local. Klien pakai ini untuk menampilkan/menyembunyikan menu admin yang cuma berguna di dev (mis. GET /admin/ai-logs).'],
                     'created_at' => ['type' => 'string', 'format' => 'date-time'],
@@ -980,6 +981,24 @@ class OpenApiSpec
                     'responses' => [
                         '200' => self::jsonResponse('OK', self::envelope('User')),
                         '401' => self::refResponse('Unauthorized'),
+                    ],
+                ],
+            ],
+            '/auth/preferences' => [
+                'put' => [
+                    'tags' => ['Auth'],
+                    'summary' => 'Ubah preferensi user yang sedang login',
+                    'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [
+                        'type' => 'object',
+                        'required' => ['locale'],
+                        'properties' => [
+                            'locale' => ['type' => 'string', 'enum' => ['id', 'en']],
+                        ],
+                    ]]]],
+                    'responses' => [
+                        '200' => self::jsonResponse('Preferensi tersimpan.', self::envelope('User')),
+                        '401' => self::refResponse('Unauthorized'),
+                        '422' => self::refResponse('ValidationError'),
                     ],
                 ],
             ],

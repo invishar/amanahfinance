@@ -51,6 +51,7 @@ Route::prefix('v1')->group(function () {
     Route::middleware('auth:sanctum')->group(function () {
         Route::post('/auth/logout', [AuthController::class, 'logout']);
         Route::get('/auth/me', [AuthController::class, 'me']);
+        Route::put('/auth/preferences', [AuthController::class, 'updatePreferences']);
 
         // Family is the tenant root itself, so it lives outside resolve.family --
         // a user may have zero families (first login) or be choosing among several.

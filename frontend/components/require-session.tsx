@@ -5,6 +5,7 @@ import { useEffect, type ReactNode } from "react";
 
 import { useActiveFamily } from "@/lib/api/hooks";
 import { useSession } from "@/lib/auth";
+import { useLanguage } from "@/lib/i18n";
 
 /**
  * Penjaga seluruh route di grup (app):
@@ -13,6 +14,7 @@ import { useSession } from "@/lib/auth";
 export function RequireSession({ children }: { children: ReactNode }) {
   const router = useRouter();
   const { status } = useSession();
+  const { savedLocale, loading: languageLoading } = useLanguage();
   const { familyId, isLoading, isError } = useActiveFamily();
 
   useEffect(() => {
@@ -20,12 +22,18 @@ export function RequireSession({ children }: { children: ReactNode }) {
   }, [status, router]);
 
   useEffect(() => {
-    if (status === "authenticated" && !isLoading && !isError && !familyId) {
+    if (status === "authenticated" && !languageLoading && !savedLocale) {
+      router.replace("/language");
+    }
+  }, [status, languageLoading, savedLocale, router]);
+
+  useEffect(() => {
+    if (status === "authenticated" && savedLocale && !isLoading && !isError && !familyId) {
       router.replace("/onboarding");
     }
-  }, [status, isLoading, isError, familyId, router]);
+  }, [status, savedLocale, isLoading, isError, familyId, router]);
 
-  if (status !== "authenticated" || isLoading || !familyId) {
+  if (status !== "authenticated" || languageLoading || !savedLocale || isLoading || !familyId) {
     return (
       <div
         style={{

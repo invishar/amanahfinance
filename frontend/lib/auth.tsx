@@ -21,6 +21,7 @@ import { qk } from "@/lib/api/keys";
 import { hydratedStore, tokenStore } from "@/lib/token-store";
 
 type AuthPayload = Schemas["AuthPayload"];
+type AuthUser = AuthPayload["user"] & { locale?: "id" | "en" | null };
 
 export interface RegisterInput {
   full_name: string;
@@ -33,8 +34,8 @@ interface SessionValue {
   token: string | null;
   /** `loading` selama token belum terbaca dari localStorage (pra-hidrasi). */
   status: "loading" | "authenticated" | "anonymous";
-  login: (email: string, password: string) => Promise<void>;
-  register: (input: RegisterInput) => Promise<void>;
+  login: (email: string, password: string) => Promise<AuthUser>;
+  register: (input: RegisterInput) => Promise<AuthUser>;
   logout: () => Promise<void>;
 }
 
@@ -70,18 +71,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [clearSession, router]);
 
   const applyToken = useCallback(
-    (payload: AuthPayload) => {
+    (payload: AuthPayload): AuthUser => {
       const next = payload.token ?? null;
       if (!next) throw new Error("Server tidak mengirim token.");
       tokenStore.set(next);
       queryClient.clear();
+      return payload.user as AuthUser;
     },
     [queryClient],
   );
 
   const login = useCallback(
     async (email: string, password: string) => {
-      applyToken(
+      return applyToken(
         await api.one<AuthPayload>("POST", "/auth/login", { email, password }),
       );
     },
@@ -90,7 +92,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(
     async (input: RegisterInput) => {
-      applyToken(await api.one<AuthPayload>("POST", "/auth/register", input));
+      return applyToken(await api.one<AuthPayload>("POST", "/auth/register", input));
     },
     [applyToken],
   );
