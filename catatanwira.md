@@ -454,9 +454,10 @@ sudut keuangan.
 
 ## 10. Redesign frontend dan mode manual (4 September 2026)
 
-Redesign dikerjakan di branch `redesign/frontend-v2`, sehingga frontend lama
-tetap utuh di branch `main`. Arah visual baru memakai gaya minimal modern yang
-lebih hangat: midnight plum sebagai warna utama, latar ivory, lalu aksen
+Redesign awalnya dikerjakan aman di branch `redesign/frontend-v2`, lalu setelah
+disetujui di-fast-forward ke `main` dan menjadi frontend aktif. Riwayat frontend
+lama tetap dapat dipulihkan dari commit sebelum merge (`a177348`). Arah visual
+baru memakai gaya minimal modern yang lebih hangat: midnight plum sebagai warna utama, latar ivory, lalu aksen
 champagne, coral, mint, dan biru untuk memberi energi tanpa membuat layar
 ramai. Hero memakai tekstur satin geometris dari CSS agar terasa lebih mewah
 tanpa menambah aset gambar atau beban unduhan.
@@ -496,3 +497,34 @@ statis tetap berhasil.
   sehingga proses PHP shared hosting tidak tertahan sampai deadline 20 detik.
 - Deploy membangun `config`, `route`, dan `view` cache Laravel setelah clear,
   bukan hanya menghapus cache seperti sebelumnya.
+
+### Perbaikan khusus mobile
+
+- Root shell memakai `100dvh` sebagai pelengkap `100vh`, sehingga tinggi layout
+  mengikuti address bar dan keyboard virtual browser mobile.
+- Bottom navigation memiliki `z-index` tetap, lebar maksimum satu viewport,
+  tab yang fleksibel, dan padding `safe-area` untuk perangkat ber-notch.
+- Shell memotong overflow horizontal agar navigation bar tidak terdorong keluar
+  layar saat konten lebar atau viewport berubah.
+- Composer chat bersifat sticky, memiliki background blur dan shadow pemisah,
+  serta ukuran tombol yang dipadatkan pada layar sempit.
+- Panel bantuan manual disembunyikan pada layar sangat kecil agar ruang pesan
+  dan input tidak terjepit; jalur manual tetap tersedia melalui bottom nav.
+
+### 9Router dan deployment staging
+
+- 9Router di VPS berjalan melalui PM2 pada port internal `20127`. NAT provider
+  memetakan endpoint publik `103.168.148.18:20128` ke port internal tersebut;
+  keduanya tidak boleh disamakan tanpa mengubah aturan NAT.
+- Open Tunnel bawaan 9Router diaktifkan melalui klien lokal karena endpoint
+  aktivasinya menolak browser publik dengan pesan `Local only: CLI token required`.
+- Default target tunnel disesuaikan ke port internal `20127`. Endpoint tunnel
+  stabil yang dipakai AmanaFinance adalah `https://r62dmm3.abc-tunnel.us/v1`.
+- Konfigurasi staging memakai provider `openai_compatible` dan model combo
+  `amana`. Uji end-to-end menghasilkan balasan berbasis data keluarga.
+- Staging dijalankan dengan `APP_ENV=production`, `APP_DEBUG=false`, serta cache
+  konfigurasi, route, dan view aktif.
+- Commit `b081fc3` sudah di-push ke `main` dan di-deploy ke Domainesia. Health
+  check dashboard, chat, login, admin login, dan OpenAPI semuanya memberi 200.
+- Verifikasi terakhir: halaman dashboard sekitar 188 ms, halaman chat 28 ms,
+  dan satu balasan Amina end-to-end sekitar 7,3 detik.
