@@ -504,6 +504,9 @@ statis tetap berhasil.
   mengikuti address bar dan keyboard virtual browser mobile.
 - Bottom navigation memiliki `z-index` tetap, lebar maksimum satu viewport,
   tab yang fleksibel, dan padding `safe-area` untuk perangkat ber-notch.
+- SVG notch dinamis kemudian dilepas: bottom navigation sekarang berupa bidang
+  penuh dari tepi kiri ke kanan viewport. Ini mencegah bar terpotong maupun bisa
+  digeser horizontal saat lebar viewport browser mobile berubah.
 - Shell memotong overflow horizontal agar navigation bar tidak terdorong keluar
   layar saat konten lebar atau viewport berubah.
 - Composer chat bersifat sticky, memiliki background blur dan shadow pemisah,

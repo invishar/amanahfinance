@@ -102,7 +102,7 @@ Selalu pakai `var(--*)`, jangan hard-code hex atau px yang sudah punya token.
 ## Layout & navigasi
 
 - Breakpoint tunggal **900px**, dipasang sebagai **media query** di `app/globals.css` (bukan listener JS, supaya bebas hydration mismatch). Listener `resize` hanya dipakai `lib/use-viewport.ts` untuk menghitung ulang path notch.
-- < 900px: bottom tab bar 78px dengan **notch SVG**, tombol chat 56px bulat di `top:-16px`, konten `padding-bottom: 82px`. Tab bar dan tombolnya butuh `position: relative` supaya tidak tertutup path SVG latar.
+- < 900px: bottom tab bar penuh selebar viewport, tombol chat 56px bulat di `top:-16px`, dan konten memakai offset tab bar. Jangan memakai SVG berbasis `window.innerWidth` atau horizontal scroll untuk navigation bar karena viewport mobile berubah saat address bar/keyboard bergerak.
 - ≥ 900px: sidebar 240px fixed, konten `margin-left: 240px`.
 - Konten aplikasi berpusat dengan lebar maksimum melalui `.amana-container`; pane percakapan memakai `.amana-chat-pane` yang lebih sempit agar pesan mudah dibaca.
 - Layar = route, bukan state: `/login`, `/register`, `/onboarding`, lalu `/chat` (default), `/dashboard`, `/transactions`, `/wallets`, `/accounts`, `/income`, `/goals`, `/analysis`, `/settings`. Daftar tab & pembagian mobile/desktop ada di `lib/nav.ts` — ubah di situ, jangan hard-code per komponen.

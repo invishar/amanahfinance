@@ -15,7 +15,6 @@ import {
 } from "@/lib/nav";
 import { useSession } from "@/lib/auth";
 import { useUi } from "@/lib/ui-store";
-import { tabBarPath, useViewportWidth } from "@/lib/use-viewport";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
@@ -129,26 +128,9 @@ function Sidebar() {
 function MobileTabBar() {
   const isActive = useIsActive();
   const { moreSheetOpen, setMoreSheetOpen } = useUi();
-  const width = useViewportWidth();
 
   return (
     <div className="amana-tabbar">
-      {width !== null && (
-        <svg
-          viewBox={`0 0 ${width} 78`}
-          style={{
-            position: "absolute",
-            inset: 0,
-            width: "100%",
-            height: "100%",
-            pointerEvents: "none",
-          }}
-          aria-hidden
-        >
-          <path d={tabBarPath(width)} fill="var(--color-surface)" />
-        </svg>
-      )}
-
       <Link
         href={CHAT_NAV.href}
         className="amana-tab-chat"
