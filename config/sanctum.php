@@ -18,11 +18,19 @@ return [
     |
     */
 
+    // currentRequestHost() sengaja diaktifkan: frontend aplikasi ini dilayani
+    // Laravel sendiri, jadi "datang dari frontend" selalu berarti same-origin
+    // dengan request-nya. Tanpa ini daftarnya harus ditebak per host — dan
+    // `php artisan serve` di http://localhost:8000 saja sudah tidak cocok
+    // (yang terdaftar `127.0.0.1:8000` dan `localhost:3000`), sehingga login
+    // berhasil tapi sesi cookie tidak pernah dibuka. Aman karena Origin
+    // dipasang browser: request lintas situs tetap tidak akan cocok dengan
+    // host aplikasi sendiri.
     'stateful' => explode(',', env('SANCTUM_STATEFUL_DOMAINS', sprintf(
-        '%s%s',
+        '%s%s%s',
         'localhost,localhost:3000,127.0.0.1,127.0.0.1:8000,::1',
         Sanctum::currentApplicationUrlWithPort(),
-        // Sanctum::currentRequestHost(),
+        Sanctum::currentRequestHost(),
     ))),
 
     /*

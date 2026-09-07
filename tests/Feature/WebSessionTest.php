@@ -33,6 +33,13 @@ test('api login opens a cookie session for a same-origin request', function () {
 });
 
 test('the api accepts that cookie on its own, with no bearer token', function () {
+    // Driver `database`, bukan `array` bawaan phpunit.xml: driver array hidup
+    // di memori proses test, jadi ia lolos bahkan ketika penyimpanan sesi
+    // sebenarnya rusak. Persis itu yang menyembunyikan `sessions.user_id`
+    // bertipe bigint sementara `users.id` UUID — sesi user login gagal
+    // ditulis dan DatabaseSessionHandler menelan errornya.
+    config(['session.driver' => 'database']);
+
     $member = FamilyMember::factory()->create();
 
     $login = $this->postJson('/api/v1/auth/login', [
@@ -104,4 +111,20 @@ test('a token client can still log out without a session', function () {
         ->assertNoContent();
 
     $this->assertDatabaseCount('personal_access_tokens', 0);
+});
+
+test('a logged-in session is really persisted, not silently dropped on write', function () {
+    config(['session.driver' => 'database']);
+
+    $user = User::factory()->create(['email' => 'siti@example.test']);
+
+    $this->postJson('/api/v1/auth/login', [
+        'email' => 'siti@example.test',
+        'password' => 'password',
+    ], fromFrontend())->assertOk();
+
+    // Assert langsung ke baris sesinya: `user_id` harus muat UUID. Kalau
+    // kolomnya bigint lagi, insert-nya gagal dan ditelan handler — tidak ada
+    // exception yang bisa ditangkap, hanya baris yang tidak pernah ada.
+    $this->assertDatabaseHas('sessions', ['user_id' => $user->id]);
 });
