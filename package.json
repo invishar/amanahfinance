@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && vite build --ssr",
+    "build:ssr": "vite build --ssr",
+    "ssr": "node bootstrap/ssr/ssr.js",
     "types": "tsc --noEmit",
     "api:types": "openapi-typescript http://127.0.0.1:8000/api/v1/openapi.json -o resources/js/lib/api/schema.d.ts"
   },

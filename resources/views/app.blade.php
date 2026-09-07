@@ -6,7 +6,15 @@
     <meta name="theme-color" content="#fbf6f0">
     <meta name="description" content="Asisten keuangan keluarga yang ngerti obrolan sehari-hari">
 
-    <title inertia>{{ config('app.name') }}</title>
+    {{-- Dengan SSR hidup, isi <head> (termasuk <title> per halaman dari
+         komponen <Head> Inertia) datang dari hasil render Node dan menggantikan
+         seluruh slot ini. Slot dipakai hanya saat SSR mati atau gagal — kalau
+         judul statis ini ditulis di luar komponen, ia akan berdampingan dengan
+         judul hasil SSR dan browser memakai yang pertama (judul per halaman
+         jadi percuma). --}}
+    <x-inertia::head>
+        <title inertia>{{ config('app.name') }}</title>
+    </x-inertia::head>
 
     {{-- Di aplikasi Next font ini di-self-host oleh next/font. Di sini dimuat
          dari Google Fonts; nama family-nya dipetakan ke --font-sora /
@@ -17,7 +25,6 @@
 
     @viteReactRefresh
     @vite(['resources/css/app.css', 'resources/js/app.tsx'])
-    @inertiaHead
 </head>
 <body>
     @inertia
