@@ -2,6 +2,7 @@
 
 use App\Exceptions\ConflictException;
 use App\Exceptions\InvalidCredentialsException;
+use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveFamily;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
@@ -17,6 +18,11 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withMiddleware(function (Middleware $middleware): void {
+        // Inertia hanya relevan untuk route web (halaman), bukan /api/*.
+        $middleware->web(append: [
+            HandleInertiaRequests::class,
+        ]);
+
         $middleware->alias([
             'resolve.family' => ResolveFamily::class,
         ]);
