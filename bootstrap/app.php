@@ -2,6 +2,7 @@
 
 use App\Exceptions\ConflictException;
 use App\Exceptions\InvalidCredentialsException;
+use App\Http\Middleware\EnsureUserIsAdmin;
 use App\Http\Middleware\HandleInertiaRequests;
 use App\Http\Middleware\ResolveFamily;
 use Illuminate\Foundation\Application;
@@ -23,7 +24,18 @@ return Application::configure(basePath: dirname(__DIR__))
             HandleInertiaRequests::class,
         ]);
 
+        // Klien SPA sekarang satu origin dengan API-nya, jadi /api/v1/*
+        // menerima sesi cookie milik Laravel (plus CSRF) untuk request yang
+        // datang dari halaman sendiri. Bearer token Sanctum tetap jalan
+        // berdampingan untuk klien lain -- statefulApi() tidak mematikannya,
+        // hanya menambahkan jalur sesi untuk request same-origin.
+        $middleware->statefulApi();
+
+        $middleware->redirectGuestsTo('/login');
+        $middleware->redirectUsersTo('/chat');
+
         $middleware->alias([
+            'admin' => EnsureUserIsAdmin::class,
             'resolve.family' => ResolveFamily::class,
         ]);
 

@@ -1,33 +1,67 @@
 <?php
 
-use App\Http\Controllers\Web\AuthenticatedSessionController;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
 Route::get('/docs', function () {
     return view('docs');
 });
 
-// Halaman Inertia + React. Sejak fallback static export di bawah
-// dinonaktifkan, route di sini yang melayani seluruh halaman web.
-Route::get('/', function () {
-    return Inertia::render('Welcome');
-})->name('home');
+/*
+|--------------------------------------------------------------------------
+| Halaman Inertia
+|--------------------------------------------------------------------------
+|
+| Satu route per halaman, menggantikan routing berbasis folder Next
+| (tiap `page.tsx` di bawah `frontend/app`). Nama komponen di argumen kedua
+| menunjuk file di resources/js/Pages, dan awalannya juga yang menentukan
+| layout - `App/*` memakai shell aplikasi, `Admin/*` memakai shell admin
+| (lihat resolve() di resources/js/app.tsx).
+|
+| Inertia di sini HANYA lapisan frontend: tidak ada satu pun route di bawah
+| yang mengirim data lewat props atau menulis apa pun. Seluruh baca/tulis
+| tetap lewat /api/v1 dari klien (TanStack Query di resources/js/lib/api).
+| Yang dikerjakan server cuma dua: memilih komponen mana yang dirender, dan
+| menutup halaman yang butuh sesi. Auth sendiri tetap milik API - login,
+| daftar, dan keluar semuanya memanggil /api/v1/auth/*, yang sekaligus
+| membuka sesi cookie untuk request same-origin (lihat AuthController).
+|
+*/
 
-// Auth berbasis sesi cookie. Terpisah dari /api/v1/auth/* yang stateless
-// (Bearer token Sanctum) dan tetap dipakai klien lain.
+Route::inertia('/', 'Home')->name('home');
+
+// Halaman auth hanya dirender di sini; form-nya sendiri menembak API.
+// Middleware `guest` mencegah user yang sudah punya sesi membuka ulang
+// halaman login.
 Route::middleware('guest')->group(function () {
-    Route::get('/login', [AuthenticatedSessionController::class, 'create'])->name('login');
-    Route::post('/login', [AuthenticatedSessionController::class, 'store'])
-        ->middleware('throttle:10,1');
+    Route::inertia('/login', 'Auth/Login')->name('login');
+    Route::inertia('/register', 'Auth/Register')->name('register');
+    Route::inertia('/admin/login', 'Admin/Login')->name('admin.login');
 });
 
 Route::middleware('auth')->group(function () {
-    Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
+    // Di luar grup aplikasi: user yang belum punya family justru diarahkan
+    // ke sini oleh RequireSession, jadi halaman ini tidak boleh ikut
+    // mensyaratkan family.
+    Route::inertia('/onboarding', 'Auth/Onboarding')->name('onboarding');
 
-    Route::get('/dashboard', function () {
-        return Inertia::render('Dashboard');
-    })->name('dashboard');
+    Route::inertia('/chat', 'App/Chat')->name('chat');
+    Route::inertia('/dashboard', 'App/Dashboard')->name('dashboard');
+    Route::inertia('/transactions', 'App/Transactions')->name('transactions');
+    Route::inertia('/wallets', 'App/Wallets')->name('wallets');
+    Route::inertia('/accounts', 'App/Accounts')->name('accounts');
+    Route::inertia('/income', 'App/Income')->name('income');
+    Route::inertia('/goals', 'App/Goals')->name('goals');
+    Route::inertia('/analysis', 'App/Analysis')->name('analysis');
+    Route::inertia('/settings', 'App/Settings')->name('settings');
+
+    Route::middleware('admin')->prefix('admin')->name('admin.')->group(function () {
+        Route::inertia('/', 'Admin/Dashboard')->name('dashboard');
+        Route::inertia('/users', 'Admin/Users')->name('users');
+        Route::inertia('/payments', 'Admin/Payments')->name('payments');
+        Route::inertia('/llm-settings', 'Admin/LlmSettings')->name('llm-settings');
+        Route::inertia('/ai-errors', 'Admin/AiErrors')->name('ai-errors');
+        Route::inertia('/ai-logs', 'Admin/AiLogs')->name('ai-logs');
+    });
 });
 
 // =====================================================================

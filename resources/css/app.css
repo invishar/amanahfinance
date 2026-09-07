@@ -1,4 +1,13 @@
-@import 'tailwindcss';
+/* Entry CSS Vite. Seluruh tema ada di globals.css, diadopsi apa adanya dari
+   aplikasi Next (`frontend/app/globals.css`) — jangan tulis ulang token di
+   sini, ubah di globals.css supaya kedua salinan tidak berbeda diam-diam. */
+@import "./globals.css";
 
-@source '../../resources/js/**/*.jsx';
-@source '../../resources/views/**/*.blade.php';
+/* Di Next, dua variabel ini diisi `next/font/google` yang men-self-host
+   fontnya. Di sini fontnya dimuat lewat <link> di resources/views/app.blade.php,
+   jadi nama family-nya yang diisikan manual. Nilai fallback tetap dipegang
+   globals.css (`--font-heading`/`--font-body`). */
+:root {
+  --font-sora: "Sora";
+  --font-plus-jakarta-sans: "Plus Jakarta Sans";
+}
