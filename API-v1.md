@@ -8,20 +8,24 @@ Versi mesin-terbaca (OpenAPI 3.0.3) dari kontrak yang sama tersedia publik di `G
 
 ## Autentikasi
 
-Semua endpoint di bawah `/api/v1`, kecuali `POST /auth/register`, `POST /auth/login`, `GET /subscription-plans`, dan `GET /subscription-plans/{subscription_plan}`, memerlukan Sanctum bearer token:
+Semua endpoint di bawah `/api/v1`, kecuali `POST /auth/register`, `POST /auth/login`, `GET /subscription-plans`, dan `GET /subscription-plans/{subscription_plan}`, memerlukan sesi Sanctum. Ada dua cara membawanya, dan keduanya berlaku di semua endpoint:
+
+**1. Bearer token** — untuk klien mana pun (mobile, skrip, integrasi):
 
 ```
 Authorization: Bearer <token>
 ```
 
+**2. Cookie sesi** — khusus request yang datang dari frontend aplikasi ini sendiri (same-origin). `POST /auth/login` dan `POST /auth/register` **juga** membuka sesi cookie `httpOnly` kalau request-nya berasal dari frontend, ditentukan Sanctum dari `Origin`/`Referer` yang cocok dengan `SANCTUM_STATEFUL_DOMAINS`. Klien seperti itu tidak perlu menyimpan `token` di response sama sekali — cukup kirim cookie (`credentials: "same-origin"`) plus header `X-XSRF-TOKEN` dari cookie `XSRF-TOKEN` untuk request non-`GET`. Request tanpa `Origin`/`Referer` yang cocok tetap diperlakukan stateless seperti sebelumnya, dan `token` di response tetap dikirim untuk keduanya.
+
 ### Auth endpoints
 
 | Method | Path | Body | Auth |
 | --- | --- | --- | --- |
-| POST | `/auth/register` | `full_name*`, `email` atau `phone` (salah satu wajib), `password*` (min 8), `password_confirmation` (opsional — kalau dikirim harus cocok dengan `password`, kalau tidak dikirim tidak diwajibkan) | Publik, throttle 10/menit |
-| POST | `/auth/login` | `email` atau `phone` (salah satu wajib), `password*` | Publik, throttle 10/menit |
-| GET | `/auth/me` | — | Bearer token |
-| POST | `/auth/logout` | — | Bearer token — mencabut token yang dipakai di request ini saja (device lain tetap login) |
+| POST | `/auth/register` | `full_name*`, `email` atau `phone` (salah satu wajib), `password*` (min 8), `password_confirmation` (opsional — kalau dikirim harus cocok dengan `password`, kalau tidak dikirim tidak diwajibkan) | Publik, throttle 10/menit. Membuka sesi cookie kalau request same-origin |
+| POST | `/auth/login` | `email` atau `phone` (salah satu wajib), `password*` | Publik, throttle 10/menit. Membuka sesi cookie kalau request same-origin |
+| GET | `/auth/me` | — | Token atau cookie sesi |
+| POST | `/auth/logout` | — | Token atau cookie sesi. Dengan token: mencabut token yang dipakai di request ini saja (device lain tetap login). Dengan cookie: menghancurkan sesi (tidak ada token yang dicabut, karena sesi tidak punya baris di `personal_access_tokens`) |
 
 Response `register`/`login` (`201`/`200`):
 

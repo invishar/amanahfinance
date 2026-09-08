@@ -17,7 +17,67 @@ Monorepo backend + frontend AmanaFinance:
   dari repo `amanahfinance_front` lewat `git subtree`. Aturan sisi klien ada di
   [`frontend/CLAUDE.md`](frontend/CLAUDE.md). `npm run build` di `frontend/`
   menghasilkan `frontend/out/` yang di-deploy ke `public/` supaya diserve same-origin
-  oleh Laravel — tidak ada Node server terpisah saat runtime produksi.
+  oleh Laravel.
+- `resources/js/` — halaman Inertia (React) yang menggantikan klien Next di atas;
+  dibangun oleh Vite ke `public/build/`, plus satu bundle Node untuk SSR (di bawah).
+
+## Inertia SSR
+
+Halaman Inertia dirender lebih dulu di server supaya HTML pertama sudah berisi
+markup, bukan `<div id="app"></div>` kosong. Yang dirender hanya kerangka —
+shell aplikasi, halaman auth, dan shared prop `auth`; seluruh angka keuangan
+tetap datang dari `/api/v1` setelah hidrasi (lihat `HandleInertiaRequests`).
+
+Potongan-potongannya:
+
+| Berkas | Perannya |
+| --- | --- |
+| `resources/js/ssr.tsx` | Entry Node; dibangun `vite build --ssr` → `bootstrap/ssr/ssr.js` |
+| `resources/js/lib/inertia-pages.tsx` | Resolusi halaman + layout, dipakai bersama entry browser dan Node |
+| `resources/js/app.tsx` | `hydrateRoot` kalau markup SSR ada, `createRoot` kalau tidak |
+| `config/inertia.php` | `ssr.enabled`, `ssr.url`, jalur bundle |
+| `AppServiceProvider::boot()` | Matikan SSR saat Vite hot; catat kegagalan SSR ke log |
+
+Build + jalankan:
+
+```bash
+npm run build                    # klien (public/build) + SSR (bootstrap/ssr)
+php artisan inertia:start-ssr    # proses Node di 127.0.0.1:13714
+php artisan inertia:check-ssr    # sehat atau tidak
+php artisan inertia:stop-ssr
+```
+
+Saat `npm run dev`, SSR sengaja dilewati (`Inertia::disableSsr` mengecek hot
+file Vite) — dev server di repo ini tidak menyediakan endpoint `/__inertia_ssr`,
+jadi tanpa itu tiap halaman akan mencoba lalu gagal dulu.
+
+### SSR di hPanel
+
+SSR **butuh proses Node yang hidup terus**, sesuatu yang sepanjang repo ini
+justru dihindari (lihat CLAUDE.md: tidak ada daemon, queue pakai burst cron).
+Karena itu SSR di produksi bersifat *best effort*:
+
+- Kalau proses SSR tidak jalan, Inertia jatuh balik ke render sisi klien.
+  Halaman tetap hidup dan tidak ada error ke user — cuma kembali seperti
+  sebelum SSR ada. Kejadiannya dicatat sebagai `warning` di `storage/logs`
+  ("Inertia SSR gagal"), supaya tidak mati diam-diam.
+- `php artisan inertia:start-ssr` memakai Symfony Process, jadi ia **butuh
+  `proc_open`** — fungsi yang di beberapa paket hPanel ada di
+  `disable_functions` (masalah yang sama dengan `schedule:run`, lihat
+  CLAUDE.md). Kalau begitu, jalankan bundle-nya langsung:
+  `node bootstrap/ssr/ssr.js`.
+- Cara paling realistis menjaganya tetap hidup di hPanel adalah mendaftarkan
+  `bootstrap/ssr/ssr.js` sebagai aplikasi di Node.js Selector (Passenger),
+  yang me-restart proses sendiri kalau mati. Kalau host tidak menyediakan itu
+  sama sekali, set `INERTIA_SSR_ENABLED=false` — lebih baik mematikan SSR
+  secara eksplisit daripada membayar satu percobaan koneksi gagal per request.
+- Bundle SSR self-contained (`ssr.noExternal` di `vite.config.js`), jadi
+  proses Node-nya tidak ikut mati kalau `node_modules` dibersihkan setelah
+  build. `bootstrap/ssr/` gitignored — dibangun di server, sama seperti
+  `public/build/`.
+
+> Setiap deploy yang mengubah `resources/js/` wajib membangun ulang bundle SSR
+> **dan** me-restart prosesnya; proses lama memegang kode lama di memori.
 
 ## About Laravel
 

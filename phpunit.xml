@@ -23,6 +23,10 @@
         <env name="BCRYPT_ROUNDS" value="4"/>
         <env name="BROADCAST_CONNECTION" value="null"/>
         <env name="CACHE_STORE" value="array"/>
+        <!-- Test tidak boleh menembak proses SSR: kalau kebetulan hidup di
+             mesin dev, assertInertia jadi tergantung state di luar test; kalau
+             mati, tiap render halaman rugi satu percobaan koneksi. -->
+        <env name="INERTIA_SSR_ENABLED" value="false"/>
         <!-- sqlite can't run this schema's migrations: check constraints are
              added via raw "alter table ... add constraint ... check (...)"
              DB::statement calls, which SQLite's ALTER TABLE doesn't support.

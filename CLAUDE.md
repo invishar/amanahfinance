@@ -32,6 +32,11 @@ Dokumen wajib baca sebelum menulis kode:
 - Semua panggilan LLM / OCR / STT berjalan di **job antrian**, tidak pernah di request web.
 - Dashboard & analitik memakai view `v_wallet_month` / `v_cashflow_month`, bukan query ad-hoc.
 - Queue pakai driver `database`, bukan `redis` — shared hosting jarang sediakan Redis. Tidak ada worker daemon; job diproses lewat burst singkat yang dipicu scheduler (lihat "Perintah").
+- **Halaman Inertia harus aman dirender tanpa DOM.** SSR aktif (`resources/js/ssr.tsx`,
+  lihat README "Inertia SSR"), jadi `window`/`document`/`localStorage`/`EventSource`
+  hanya boleh disentuh di dalam `useEffect` atau event handler — tidak pernah di badan
+  komponen atau di module scope. Render pertama di server dan render pertama di klien
+  wajib menghasilkan markup yang sama, kalau tidak hidrasi pecah.
 - Config LLM (`model`, `key`, `base_url`) selalu lewat `config('services.llm')` / `.env` (`LLM_*`, bukan `ANTHROPIC_*` — nama generik supaya provider bisa ganti) — jangan hardcode model string di kode.
 
 ## Constraint transaksi (replikasi di DB *dan* FormRequest)
@@ -68,6 +73,8 @@ php artisan test                       # Pest/PHPUnit
 php artisan schedule:run                # dipanggil cron hPanel tiap menit (* * * * *)
 php artisan queue:work --stop-when-empty --max-time=50   # burst worker, bukan daemon; lihat routes/console.php
 php artisan amana:reconcile-balances   # hitung ulang cache saldo
+npm run build                          # aset klien (public/build) + bundle SSR (bootstrap/ssr)
+php artisan inertia:start-ssr          # proses Node SSR; opsional, ada fallback ke render klien
 ```
 
 Tidak ada `php artisan horizon` — Horizon butuh `pcntl`/`posix` yang tidak tersedia di target deploy (hPanel shared hosting) maupun di dev Windows lokal.
