@@ -1,0 +1,100 @@
+import { Link } from "@inertiajs/react";
+import { usePathname, useRouter } from "@/lib/navigation";
+
+import { Icon } from "@/components/icon";
+import { useMe, useSession } from "@/lib/auth";
+
+interface AdminNavItem {
+  href:
+    | "/admin/users"
+    | "/admin/payments"
+    | "/admin/llm-settings"
+    | "/admin/ai-errors"
+    | "/admin/ai-logs";
+  label: string;
+  icon: string;
+  // Menu ini datanya cuma pernah ada kalau server API jalan dengan
+  // APP_ENV=local (lihat AssistantService::logLocalDebug()) -- disembunyikan
+  // di luar itu lewat User.is_local (GET /auth/me), bukan NEXT_PUBLIC_*,
+  // supaya server yang menentukan, bukan build klien yang salah deploy.
+  localOnly?: boolean;
+}
+
+const ADMIN_NAV: AdminNavItem[] = [
+  { href: "/admin/users", label: "User", icon: "users" },
+  { href: "/admin/payments", label: "Pembayaran", icon: "credit-card" },
+  { href: "/admin/llm-settings", label: "LLM Setting", icon: "sparkles" },
+  { href: "/admin/ai-errors", label: "Log AI", icon: "alert-triangle" },
+  { href: "/admin/ai-logs", label: "Log Prompt", icon: "message-circle", localOnly: true },
+];
+
+export function AdminShell({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { logout } = useSession();
+  const me = useMe();
+  const navItems = ADMIN_NAV.filter((item) => !item.localOnly || me.data?.is_local);
+
+  return (
+    <div style={{ minHeight: "100vh", display: "flex", flexDirection: "column" }}>
+      <header
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+          padding: "var(--space-3) var(--space-4)",
+          borderBottom: "1px solid var(--color-divider)",
+          background: "var(--color-surface)",
+          gap: "var(--space-4)",
+          flexWrap: "wrap",
+        }}
+      >
+        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+          <div className="amana-brand-circle" style={{ width: 34, height: 34, fontSize: 14 }}>
+            AF
+          </div>
+          <div
+            style={{
+              fontFamily: "var(--font-heading)",
+              fontWeight: "var(--font-heading-weight)",
+              fontSize: 16,
+            }}
+          >
+            Admin Platform
+          </div>
+        </div>
+
+        <nav style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
+          {navItems.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="amana-navlink"
+              data-active={pathname === item.href}
+              style={{ padding: "8px 14px" }}
+            >
+              <Icon name={item.icon} size={16} />
+              {item.label}
+            </Link>
+          ))}
+        </nav>
+
+        <button
+          type="button"
+          className="btn btn-ghost"
+          onClick={async () => {
+            await logout();
+            router.replace("/admin/login");
+          }}
+        >
+          <Icon name="log-out" size={14} />
+          Keluar
+        </button>
+      </header>
+
+      <div className="amana-container" style={{ maxWidth: 960 }}>
+        {children}
+      </div>
+    </div>
+  );
+}

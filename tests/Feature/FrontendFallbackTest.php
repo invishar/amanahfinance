@@ -13,7 +13,7 @@ test('fallback serves a flat html file for a clean url', function () {
     $this->get('/__test-fallback')
         ->assertStatus(200)
         ->assertSee('flat', false);
-});
+})->skip('Route::fallback() static export dinonaktifkan sejak pindah ke Inertia — lihat blok komentar di routes/web.php. Hidupkan lagi bareng route-nya.');
 
 test('fallback serves dir/index.html for a clean url', function () {
     File::makeDirectory(public_path('__test-fallback-dir'));
@@ -22,7 +22,7 @@ test('fallback serves dir/index.html for a clean url', function () {
     $this->get('/__test-fallback-dir')
         ->assertStatus(200)
         ->assertSee('dir', false);
-});
+})->skip('Route::fallback() static export dinonaktifkan sejak pindah ke Inertia — lihat blok komentar di routes/web.php. Hidupkan lagi bareng route-nya.');
 
 test('fallback does not intercept unknown api paths', function () {
     $this->getJson('/api/v1/this-route-does-not-exist')

@@ -80,11 +80,18 @@ if changed "frontend/"; then
     # left out of the exclude list on purpose — the Next build's favicon is
     # meant to win over Laravel's placeholder (decided in
     # PLAN-PENGGABUNGAN-FRONTEND.md).
+    #
+    # "build" wajib ada di daftar exclude: itu output `npm run build` Vite
+    # (aset Inertia + manifest.json). Tanpa exclude ini, satu deploy yang
+    # menyentuh frontend/ akan menghapus seluruh aset Inertia dan bikin
+    # semua halaman web mati dengan ViteManifestNotFoundException — gagal
+    # diam-diam, karena hook sendiri tetap exit 0.
     rsync -a --delete \
       --exclude "index.php" \
       --exclude ".htaccess" \
       --exclude "robots.txt" \
       --exclude "storage" \
+      --exclude "build" \
       frontend/out/ public/
 
     echo "post-merge: frontend build deployed to public/"
