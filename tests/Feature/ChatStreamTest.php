@@ -5,6 +5,7 @@ use App\Models\ChatMessage;
 use App\Models\ChatThread;
 use App\Models\Family;
 use App\Models\FamilyMember;
+use App\Services\Ai\ChatProgress;
 use Illuminate\Support\Facades\Artisan;
 
 beforeEach(function () {
@@ -124,7 +125,7 @@ test('stream menjalankan worker antrean saat ada pesan user yang belum dijawab',
 
     Artisan::shouldReceive('call')
         ->once()
-        ->with('queue:work', Mockery::type('array'));
+        ->with('queue:work', Mockery::on(fn ($options) => $options['--once'] === true && $options['--sleep'] === 0));
 
     $this->get("/api/v1/chat-threads/{$thread->id}/stream")->streamedContent();
 });
@@ -167,4 +168,46 @@ test('worker gagal tidak mematikan stream', function () {
     // Stream harus tetap utuh sampai event penutup -- kalau tidak, klien
     // kehilangan kursor `after` dan reconnect-nya kacau.
     expect($response->streamedContent())->toContain('event: retry');
+});
+
+test('turn stream recovers same-second reply and excludes older cards', function () {
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $old = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+    $oldCard = AiAction::factory()->for($family)->for($old, 'message')->create(['status' => 'pending']);
+    ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'assistant', 'content' => 'Jawaban lama']);
+    $turn = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+    $card = AiAction::factory()->for($family)->for($turn, 'message')->create(['status' => 'pending']);
+    ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'assistant', 'content' => 'Jawaban terbaru']);
+    ChatProgress::report($turn, 'drafting');
+
+    $content = $this->get("/api/v1/chat-threads/{$thread->id}/stream?message_id={$turn->id}")->streamedContent();
+    expect($content)->toContain('Jawaban terbaru')->toContain($card->id)
+        ->toContain('event: progress')->toContain('drafting')->toContain('"message_id":"'.$turn->id.'"')
+        ->not->toContain('Jawaban lama')->not->toContain($oldCard->id);
+});
+
+test('turn stream rejects a message from another thread and malformed cursor', function () {
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $other = ChatMessage::factory()->create(['role' => 'user']);
+    $this->getJson("/api/v1/chat-threads/{$thread->id}/stream?message_id={$other->id}")->assertNotFound();
+    $this->getJson("/api/v1/chat-threads/{$thread->id}/stream?after=broken")->assertUnprocessable();
+});
+
+test('inline worker progress is relayed before its final result', function () {
+    config(['queue.default' => 'database']);
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $turn = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+    Artisan::shouldReceive('call')->once()->andReturnUsing(function () use ($turn, $thread) {
+        ChatProgress::report($turn, 'drafting');
+        ChatProgress::report($turn, 'composing');
+        ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'assistant', 'content' => 'Selesai']);
+
+        return 0;
+    });
+    $content = $this->get("/api/v1/chat-threads/{$thread->id}/stream?message_id={$turn->id}")->streamedContent();
+    expect(strpos($content, 'drafting'))->toBeLessThan(strpos($content, 'composing'));
+    expect(strpos($content, 'composing'))->toBeLessThan(strpos($content, 'event: message'));
 });

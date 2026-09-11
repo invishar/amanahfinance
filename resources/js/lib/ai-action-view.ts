@@ -52,7 +52,7 @@ const ACTION_ICON: Record<string, string> = {
 
 const ACTION_TITLE: Record<string, string> = {
   create_transaction: "Catat Transaksi",
-  create_wallet: "Buat Wallet Baru",
+  create_wallet: "Buat Budget Baru",
   create_account: "Tambah Akun Baru",
   create_income_source: "Tambah Sumber Pemasukan",
   create_savings_goal: "Buat Target Tabungan",
@@ -124,7 +124,7 @@ export function editableFieldsForAiAction(
       { key: "account_id", label: "Sumber Dana", type: "entity-select", entities: entities.accounts, entityKind: "account", required: true },
     ];
     if (type === "expense") {
-      fields.push({ key: "wallet_id", label: "Wallet", type: "entity-select", entities: entities.wallets, entityKind: "wallet", required: true });
+      fields.push({ key: "wallet_id", label: "Budget", type: "entity-select", entities: entities.wallets, entityKind: "wallet", required: true });
     }
     if (type === "income") {
       fields.push({ key: "source_id", label: "Sumber Pemasukan", type: "entity-select", entities: entities.incomeSources, entityKind: "income", required: true });
@@ -142,7 +142,7 @@ export function editableFieldsForAiAction(
 
   if (action === "create_wallet") {
     return [
-      { key: "name", label: "Nama Wallet", type: "text", required: true },
+      { key: "name", label: "Nama Budget", type: "text", required: true },
       { key: "monthly_budget", label: "Budget Bulanan (Rp)", type: "number" },
     ];
   }
@@ -198,7 +198,7 @@ export function describeAiAction(aiAction: AiAction, entities: Entities): AiActi
       field("Nominal", typeof p.amount === "number" ? formatRupiah(p.amount) : MISSING),
       field("Sumber Dana", nameOf(p.account_id, entities.accounts)),
     ];
-    if (type === "expense") fields.push(field("Wallet", nameOf(p.wallet_id, entities.wallets)));
+    if (type === "expense") fields.push(field("Budget", nameOf(p.wallet_id, entities.wallets)));
     if (type === "income") fields.push(field("Sumber Pemasukan", nameOf(p.source_id, entities.incomeSources)));
     if (type === "transfer") fields.push(field("Akun Tujuan", nameOf(p.to_account_id, entities.accounts)));
     if (type === "savings") fields.push(field("Target Tabungan", nameOf(p.goal_id, entities.savingsGoals)));
@@ -211,7 +211,7 @@ export function describeAiAction(aiAction: AiAction, entities: Entities): AiActi
       icon,
       title,
       fields: [
-        field("Nama Wallet", typeof p.name === "string" ? p.name : MISSING),
+        field("Nama Budget", typeof p.name === "string" ? p.name : MISSING),
         field(
           "Budget Bulanan",
           typeof p.monthly_budget === "number" ? formatRupiah(p.monthly_budget) : "Tanpa budget",

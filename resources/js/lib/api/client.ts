@@ -8,7 +8,7 @@ export type Schemas = components["schemas"];
 
 // Klien sekarang satu origin dengan API (Laravel yang melayani halamannya),
 // jadi path relatif sudah cukup dan tidak ada lagi konfigurasi lintas domain.
-const BASE_URL = (import.meta.env.VITE_API_URL ?? "/api/v1").replace(/\/+$/, "");
+const BASE_URL = (import.meta.env?.VITE_API_URL ?? "/api/v1").replace(/\/+$/, "");
 
 /** Dipakai di luar `request()` sendiri, mis. SSE (`fetch` manual, bukan lewat sini). */
 export const API_BASE_URL = BASE_URL;

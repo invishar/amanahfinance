@@ -9,6 +9,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -35,59 +36,84 @@ class ChatStreamController extends Controller
     {
         $this->authorize('view', $chatThread);
 
-        $start = $request->query('after') ? Carbon::parse($request->query('after')) : now();
+        $request->validate(['after' => ['nullable', 'date'], 'message_id' => ['nullable', 'uuid']]);
+        $turn = $request->query('message_id')
+            ? $chatThread->messages()->where('role', 'user')->findOrFail($request->query('message_id'))
+            : null;
+
+        $start = $request->query('after') ? Carbon::parse($request->query('after')) : ($turn?->created_at->copy()->subSecond() ?? now());
         $deadline = now()->addSeconds((int) config('amina.sse.duration_seconds', 20));
         $pollMicroseconds = (int) config('amina.sse.poll_interval_ms', 500) * 1000;
 
-        return response()->stream(function () use ($chatThread, $start, $deadline, $pollMicroseconds) {
-            // Urutannya penting: `thinking` dikirim & di-flush DULU supaya
-            // indikator mengetik muncul seketika, baru worker dijalankan --
-            // kalau dibalik, layar user diam beberapa detik tanpa tanda apa pun.
-            if ($this->emitThinkingIfPending($chatThread)) {
-                $this->runQueuedWorkInline();
-            }
-
-            $lastMessageAt = $start;
-            $lastActionAt = $start;
-            $lastErrorAt = $start;
-
-            do {
-                if (connection_aborted()) {
-                    return;
+        return response()->stream(function () use ($chatThread, $turn, $start, $deadline, $pollMicroseconds) {
+            $lastProgress = null;
+            $sendProgress = function (array $progress) use (&$lastProgress) {
+                if ($lastProgress !== $progress) {
+                    $lastProgress = $progress;
+                    $this->emit('progress', $progress);
+                    $this->flushBuffer();
+                }
+            };
+            Event::listen('amina.progress', function (string $threadId, array $progress) use ($chatThread, $turn, $sendProgress) {
+                if ($threadId === $chatThread->id && (! $turn || $turn->id === $progress['message_id'])) {
+                    $sendProgress($progress);
+                }
+            });
+            try {
+                // Urutannya penting: `thinking` dikirim & di-flush DULU supaya
+                // indikator mengetik muncul seketika, baru worker dijalankan --
+                // kalau dibalik, layar user diam beberapa detik tanpa tanda apa pun.
+                if ($this->emitThinkingIfPending($chatThread)) {
+                    $this->runQueuedWorkInline();
                 }
 
-                $messageCursorBefore = $lastMessageAt;
-                $actionCursorBefore = $lastActionAt;
-                $errorCursorBefore = $lastErrorAt;
-                $lastMessageAt = $this->emitNewMessages($chatThread, $lastMessageAt);
-                $lastActionAt = $this->emitNewActionCards($chatThread, $lastActionAt);
-                $lastErrorAt = $this->emitNewErrors($chatThread, $lastErrorAt);
+                $lastMessageAt = $start;
+                $lastActionAt = $start;
+                $lastErrorAt = $start;
 
+                do {
+                    if (connection_aborted()) {
+                        return;
+                    }
+
+                    $messageCursorBefore = $lastMessageAt;
+                    $actionCursorBefore = $lastActionAt;
+                    $errorCursorBefore = $lastErrorAt;
+                    if ($turn && ($progress = Cache::get('amina:progress:'.$turn->id))) {
+                        $sendProgress($progress);
+                    }
+                    $lastMessageAt = $this->emitNewMessages($chatThread, $lastMessageAt, $turn?->id);
+                    $lastActionAt = $this->emitNewActionCards($chatThread, $lastActionAt, $turn?->id);
+                    $lastErrorAt = $this->emitNewErrors($chatThread, $lastErrorAt, $turn?->id);
+
+                    $this->flushBuffer();
+
+                    // Pesan, kartu aksi, atau error adalah hasil terminal untuk
+                    // satu giliran. Tutup stream segera sesudah hasil terkirim;
+                    // jangan menahan proses PHP shared hosting sampai deadline
+                    // 20 detik karena itu memperlambat request halaman lain.
+                    $terminalEventEmitted = ! $lastMessageAt->equalTo($messageCursorBefore)
+                        || ! $lastActionAt->equalTo($actionCursorBefore)
+                        || ! $lastErrorAt->equalTo($errorCursorBefore);
+
+                    if ($terminalEventEmitted) {
+                        break;
+                    }
+
+                    if (now()->gte($deadline)) {
+                        break;
+                    }
+
+                    usleep($pollMicroseconds);
+                } while (true);
+
+                $this->emit('retry', [
+                    'after' => $lastMessageAt->min($lastActionAt)->min($lastErrorAt)->toIso8601String(),
+                ]);
                 $this->flushBuffer();
-
-                // Pesan, kartu aksi, atau error adalah hasil terminal untuk
-                // satu giliran. Tutup stream segera sesudah hasil terkirim;
-                // jangan menahan proses PHP shared hosting sampai deadline
-                // 20 detik karena itu memperlambat request halaman lain.
-                $terminalEventEmitted = ! $lastMessageAt->equalTo($messageCursorBefore)
-                    || ! $lastActionAt->equalTo($actionCursorBefore)
-                    || ! $lastErrorAt->equalTo($errorCursorBefore);
-
-                if ($terminalEventEmitted) {
-                    break;
-                }
-
-                if (now()->gte($deadline)) {
-                    break;
-                }
-
-                usleep($pollMicroseconds);
-            } while (true);
-
-            $this->emit('retry', [
-                'after' => $lastMessageAt->min($lastActionAt)->min($lastErrorAt)->toIso8601String(),
-            ]);
-            $this->flushBuffer();
+            } finally {
+                Event::forget('amina.progress');
+            }
         }, 200, [
             'Content-Type' => 'text/event-stream',
             'Cache-Control' => 'no-cache',
@@ -105,7 +131,7 @@ class ChatStreamController extends Controller
     // gets an immediate signal instead of guessing with a timer.
     private function emitThinkingIfPending(ChatThread $chatThread): bool
     {
-        $latest = $chatThread->messages()->orderByDesc('created_at')->first(['id', 'role']);
+        $latest = $chatThread->messages()->orderByDesc('created_at')->orderByDesc('id')->first(['id', 'role']);
 
         if ($latest === null || $latest->role !== 'user') {
             return false;
@@ -130,8 +156,8 @@ class ChatStreamController extends Controller
      * yang menjalankan worker pada satu waktu. Tanpa itu, sepuluh user yang
      * sedang membuka chat berarti sepuluh proses worker sekaligus -- berat
      * untuk shared hosting. Yang tidak dapat lock cukup lanjut ke loop
-     * polling: worker yang sedang jalan menghabiskan SELURUH antrean, jadi
-     * job mereka tetap ikut terkerjakan.
+     * polling: worker hanya mengambil satu job. Stream lain akan mencoba lagi
+     * saat reconnect; cron tetap menguras antrean sebagai cadangan.
      */
     private function runQueuedWorkInline(): void
     {
@@ -158,6 +184,8 @@ class ChatStreamController extends Controller
             // penting, karena apa pun yang ter-echo di sini akan merusak
             // format event-stream yang sedang berjalan.
             Artisan::call('queue:work', [
+                '--once' => true,
+                '--sleep' => 0,
                 '--stop-when-empty' => true,
                 '--max-time' => $maxSeconds,
                 '--tries' => 3,
@@ -178,11 +206,12 @@ class ChatStreamController extends Controller
         }
     }
 
-    private function emitNewMessages(ChatThread $chatThread, Carbon $cursor): Carbon
+    private function emitNewMessages(ChatThread $chatThread, Carbon $cursor, ?string $messageId = null): Carbon
     {
         $messages = $chatThread->messages()
             ->where('role', 'assistant')
             ->where('created_at', '>', $cursor)
+            ->when($messageId, fn ($query) => $query->where('id', '>', $messageId))
             ->orderBy('created_at')
             ->get(['id', 'content', 'created_at']);
 
@@ -198,11 +227,12 @@ class ChatStreamController extends Controller
         return $cursor;
     }
 
-    private function emitNewActionCards(ChatThread $chatThread, Carbon $cursor): Carbon
+    private function emitNewActionCards(ChatThread $chatThread, Carbon $cursor, ?string $messageId = null): Carbon
     {
         $actions = AiAction::query()
             ->whereHas('message', fn ($query) => $query->where('thread_id', $chatThread->id))
             ->where('status', 'pending')
+            ->when($messageId, fn ($query) => $query->where('message_id', $messageId))
             ->where('created_at', '>', $cursor)
             ->orderBy('created_at')
             ->get();
@@ -210,6 +240,8 @@ class ChatStreamController extends Controller
         foreach ($actions as $action) {
             $this->emit('action_card', [
                 'id' => $action->id,
+                'message_id' => $action->message_id,
+                'status' => $action->status,
                 'action' => $action->action,
                 'payload' => $action->payload,
                 'created_at' => $action->created_at->toIso8601String(),
@@ -224,11 +256,12 @@ class ChatStreamController extends Controller
     // job ultimately fails (see ProcessAssistantMessage::failed()) -- kept
     // as a distinct event so the client can style it as an error bubble
     // instead of a normal assistant reply.
-    private function emitNewErrors(ChatThread $chatThread, Carbon $cursor): Carbon
+    private function emitNewErrors(ChatThread $chatThread, Carbon $cursor, ?string $messageId = null): Carbon
     {
         $messages = $chatThread->messages()
             ->where('role', 'system')
             ->where('created_at', '>', $cursor)
+            ->when($messageId, fn ($query) => $query->where('id', '>', $messageId))
             ->orderBy('created_at')
             ->get(['id', 'content', 'created_at']);
 

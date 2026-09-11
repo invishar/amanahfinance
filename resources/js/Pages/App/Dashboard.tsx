@@ -107,7 +107,7 @@ export default function DashboardPage() {
         </Link>
         <Link href="/wallets" className="quick-action">
           <span className="entity-icon" data-tone="sky"><Icon name="wallet" size={18} /></span>
-          <span><strong>Atur anggaran</strong><small>Jaga pengeluaran tetap terarah</small></span>
+          <span><strong>Atur budgeting</strong><small>Jaga pengeluaran tetap terarah</small></span>
         </Link>
       </div>
 
@@ -214,7 +214,7 @@ export default function DashboardPage() {
       {/* Pengeluaran per wallet */}
       <div>
         <div className="card-title" style={{ marginBottom: 10 }}>
-          Pengeluaran per Wallet
+          Pengeluaran per Budget
         </div>
         {wallets.isPending || analytics.isPending ? (
           <div
@@ -228,9 +228,9 @@ export default function DashboardPage() {
           </div>
         ) : bars.length === 0 ? (
           <EmptyState
-            title="Belum ada anggaran"
-            message="Buat kantong anggaran secara manual. Amina tetap bisa membantu kapan saja."
-            actionLabel="Buat anggaran"
+            title="Belum ada budget"
+            message="Buat budget secara manual. Amina tetap bisa membantu kapan saja."
+            actionLabel="Buat budget"
             onAction={() => router.push("/wallets")}
           />
         ) : (

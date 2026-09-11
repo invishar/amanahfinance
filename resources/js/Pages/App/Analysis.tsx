@@ -37,7 +37,7 @@ export default function AnalysisPage() {
       </div>
 
       <div className="card elev-sm">
-        <div className="card-title">Breakdown per Wallet</div>
+        <div className="card-title">Rincian per Budget</div>
         <div
           style={{
             display: "flex",
@@ -50,7 +50,7 @@ export default function AnalysisPage() {
             <SkeletonList count={4} height={30} />
           ) : bars.length === 0 ? (
             <p className="text-muted" style={{ margin: 0, fontSize: 13 }}>
-              Belum ada wallet untuk dianalisa.
+              Belum ada budget untuk dianalisa.
             </p>
           ) : (
             bars.map((w) => (

@@ -33,9 +33,9 @@ const num = (v: unknown, fallback = 0) =>
 
 export const ENTITY_FORMS: Record<EntityKind, EntityForm> = {
   wallet: {
-    title: "Wallet",
+    title: "Budget",
     fields: [
-      { name: "name", label: "Nama wallet", type: "text" },
+      { name: "name", label: "Nama budget", type: "text" },
       { name: "monthly_budget", label: "Budget bulanan (Rp)", type: "number" },
     ],
     toDraft: (e) => ({

@@ -79,6 +79,39 @@ Karena itu SSR di produksi bersifat *best effort*:
 > Setiap deploy yang mengubah `resources/js/` wajib membangun ulang bundle SSR
 > **dan** me-restart prosesnya; proses lama memegang kode lama di memori.
 
+## Proses chat Amina
+
+Chat berjalan dari `ChatSessionProvider` dalam layout Inertia yang persisten.
+Mengirim pesan, menunggu SSE, dan konfirmasi tetap berjalan saat pengguna
+berpindah halaman aplikasi. Tahap dari server ditampilkan di chat maupun
+notifikasi aktivitas pada halaman lain. Menutup/reload tab tidak mempertahankan
+koneksi browser; job yang sudah masuk database tetap membutuhkan cron worker.
+
+Stream hanya dibuka setelah POST mengembalikan ID pesan server. Klien membaca
+sampai EOF lalu mengambil pesan terbaru dan status kartu, sehingga kartu yang
+menyusul balasan tidak terpotong. Pesan diambil dengan `latest=1` (50 terbaru),
+dan status resolved tidak boleh mundur ke pending karena respons lama. Riwayat
+untuk model menyertakan status formulir, dan tool yang diulang dalam pesan yang
+sama memakai draft yang sudah ada. Konfirmasi/reject mengunci baris draft.
+
+Fallback worker inline mengambil maksimal satu job per koneksi, bukan menguras
+seluruh antrean sebelum mengirim hasil. Worker tetap memakai antrean database
+dan lock bersama; cron burst pada `routes/console.php` harus tetap aktif.
+Batas `--max-time` bukan timeout untuk job yang sedang berjalan: provider yang
+lambat masih bisa membuat koneksi lebih panjang daripada jendela polling SSE.
+Runner OpenAI-compatible dapat menjalankan sampai empat putaran, masing-masing
+dengan timeout HTTP 60 detik. Retry job memakai jeda 10/30 detik.
+
+Log channel `ai` mencatat `Amina response timing` (`message_id`, `queue_wait_ms`,
+`processing_ms`, token usage) dan `Amina provider round timing` (`model`,
+`iteration`, `duration_ms`) untuk protokol OpenAI-compatible. Log timing tidak
+menyimpan isi chat. Gunakan waktu antrean dan waktu tiap putaran untuk membedakan
+kepadatan worker dari lambatnya provider; angka produksi harus diukur di server.
+
+Validasi frontend: `npm run test:chat`, `npm run types`, `npm run build`.
+Pengujian chat mencakup navigasi Inertia dengan stream aktif, frame terpisah,
+konfirmasi, replay kartu, dan kegagalan POST. LLM di test backend selalu dimock.
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

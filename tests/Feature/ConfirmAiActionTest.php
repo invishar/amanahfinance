@@ -1,5 +1,6 @@
 <?php
 
+use App\Actions\AiActions\ConfirmAiAction;
 use App\Models\Account;
 use App\Models\AiAction;
 use App\Models\ChatMessage;
@@ -10,6 +11,7 @@ use App\Models\IncomeSource;
 use App\Models\SavingsGoal;
 use App\Models\Transaction;
 use App\Models\Wallet;
+use Illuminate\Validation\ValidationException;
 
 function draftMessage(Family $family, FamilyMember $member, string $inputMode = 'text'): ChatMessage
 {
@@ -255,4 +257,16 @@ test('cannot confirm or reject another familys draft', function () {
 
     $this->postJson("/api/v1/ai-actions/{$otherAction->id}/confirm")->assertStatus(404);
     $this->postJson("/api/v1/ai-actions/{$otherAction->id}/reject")->assertStatus(404);
+});
+
+test('a stale pending model cannot confirm or reject an action already saved by another request', function () {
+    [, $family] = $this->actingAsFamilyMember('member');
+    $draft = AiAction::factory()->for($family)->create(['action' => 'create_wallet', 'status' => 'pending', 'payload' => ['name' => 'Budget Jajan', 'monthly_budget' => 50000]]);
+    $stale = $draft->fresh();
+    $action = app(ConfirmAiAction::class);
+    $action->confirm($draft);
+    expect(fn () => $action->confirm($stale))->toThrow(ValidationException::class);
+    expect(fn () => $action->reject($stale))->toThrow(ValidationException::class);
+    expect(Wallet::query()->where('family_id', $family->id)->where('name', 'Budget Jajan')->count())->toBe(1);
+    expect($draft->fresh()->status)->toBe('confirmed');
 });

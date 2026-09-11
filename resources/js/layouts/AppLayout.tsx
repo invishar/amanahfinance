@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/app-shell";
 import { RequireSession } from "@/components/require-session";
+import { ChatSessionProvider } from "@/lib/chat-session";
 
 /**
  * Padanan `app/(app)/layout.tsx` di aplikasi Next. Dipasang sekali sebagai
@@ -11,7 +12,7 @@ import { RequireSession } from "@/components/require-session";
 export function AppLayout({ children }: { children: ReactNode }) {
   return (
     <RequireSession>
-      <AppShell>{children}</AppShell>
+      <ChatSessionProvider><AppShell>{children}</AppShell></ChatSessionProvider>
     </RequireSession>
   );
 }

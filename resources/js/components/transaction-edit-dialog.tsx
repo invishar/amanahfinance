@@ -226,14 +226,14 @@ function TransactionEditDialogInner({
 
         {draft.type === "expense" && (
           <div className="field">
-            <label htmlFor="tx-wallet">Wallet</label>
+            <label htmlFor="tx-wallet">Budget</label>
             <select
               id="tx-wallet"
               className="input"
               value={draft.wallet_id}
               onChange={(e) => set("wallet_id", e.target.value)}
             >
-              <option value="">Pilih wallet</option>
+              <option value="">Pilih budget</option>
               {(wallets.data ?? []).map((w) => (
                 <option key={w.id} value={w.id}>
                   {w.name}

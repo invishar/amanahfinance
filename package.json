@@ -8,25 +8,28 @@
     "build:ssr": "vite build --ssr",
     "ssr": "node bootstrap/ssr/ssr.js",
     "types": "tsc --noEmit",
+    "test:chat": "node --import tsx --test tests/frontend/chat-state.test.mjs tests/frontend/chat-session.test.mjs",
     "api:types": "openapi-typescript http://127.0.0.1:8000/api/v1/openapi.json -o resources/js/lib/api/schema.d.ts"
   },
   "dependencies": {
     "@inertiajs/react": "^3.7.0",
-    "react": "^19.2.8",
-    "react-dom": "^19.2.8",
     "@tanstack/react-query": "^5.101.4",
-    "lucide-react": "^1.31.0"
+    "lucide-react": "^1.31.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",
-    "@vitejs/plugin-react": "^6.1.1",
-    "concurrently": "^9.2.4",
-    "laravel-vite-plugin": "^3.2.0",
-    "tailwindcss": "^4.3.3",
-    "vite": "^8.2.1",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^6.1.1",
+    "concurrently": "^9.2.4",
+    "jsdom": "^29.1.1",
+    "laravel-vite-plugin": "^3.2.0",
+    "openapi-typescript": "^7.13.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.13",
     "typescript": "^5",
-    "openapi-typescript": "^7.13.0"
+    "vite": "^8.2.1"
   }
 }

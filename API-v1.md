@@ -359,6 +359,8 @@ seperti di chat biasa. `done` menyala saat Amina memanggil `finish_onboarding`.
 
 ## Chat Messages
 
+`GET /chat-threads/{chat_thread}/messages?latest=1` mengambil halaman 50 pesan terbaru, dengan isi tiap halaman tetap urut lama ke baru (timestamp lalu UUIDv7). Parameter `page` dapat dipakai untuk halaman sebelumnya. Tanpa `latest`, urutan pagination lama tetap berlaku. Klien chat memakai `latest=1` agar balasan setelah pesan ke-50 tetap terlihat.
+
 Nested di bawah thread; **read-only setelah dibuat** (tidak ada `update`/`destroy` — riwayat chat tidak bisa diedit).
 
 | Method | Path | Body | Role |
@@ -379,24 +381,29 @@ Server-Sent Events **berumur pendek** (CLAUDE.md "Alur AI"): server menutup kone
 
 | Method | Path | Query | Role |
 | --- | --- | --- | --- |
-| GET | `/chat-threads/{chat_thread}/stream` | `after` (opsional, ISO-8601; default waktu koneksi dibuka) | `viewer` |
+| GET | `/chat-threads/{chat_thread}/stream` | `after` (opsional, ISO-8601), `message_id` (opsional, UUID pesan user dalam thread ini) | `viewer` |
 
 Event yang dikirim (`Content-Type: text/event-stream`):
 
 | Event | `data` | Kapan |
 | --- | --- | --- |
+| `progress` | `message_id, stage` | Tahap nyata: `queued`, `context`, `thinking`, `drafting`, `reading_data`, `composing`, `retrying`. Worker inline meneruskan langsung; worker cron dipantau lewat cache. |
 | `thinking` | `message_id` | Sekali di awal koneksi/reconnect, kalau pesan terbaru di thread ini masih `role=user` yang belum dibalas |
 | `message` | `id, content, created_at` | Ada balasan baru `role=assistant` di thread ini sejak cursor |
-| `action_card` | `id, action, payload, created_at` | Ada `ai_actions` baru berstatus `pending` dari pesan di thread ini sejak cursor |
+| `action_card` | `id, message_id, status, action, payload, created_at` | Ada `ai_actions` baru berstatus `pending` dari pesan di thread ini sejak cursor |
 | `error` | `id, content, created_at` | Ada pesan baru `role=system` di thread ini sejak cursor — ditulis `ProcessAssistantMessage::failed()` saat job LLM gagal total (habis retry) |
 | `retry` | `after` | Selalu dikirim tepat sebelum stream ditutup — pakai nilai ini sebagai `?after=` saat reconnect |
 
 Tidak ada event `token` (balasan LLM ditulis sekali jadi, bukan streaming token-by-token —
 `ProcessAssistantMessage` memanggil LLM satu kali dalam job, bukan di request web) maupun
 `done` terpisah — `message` dan `error` **adalah** sinyal selesainya satu giliran; hentikan
-indikator "sedang mengetik" begitu salah satunya (atau `retry` tanpa keduanya) diterima.
+indikator menunggu setelah hasil terminal telah direkonsiliasi. `retry` saja bukan tanda selesai. Baca stream sampai EOF sebelum memperbarui daftar pesan agar kartu setelah event `message` tidak terpotong.
 `error` juga tetap muncul di riwayat biasa (`GET .../messages`) kalau klien melewatkan
 event live-nya (mis. reconnect terlambat).
+
+Dengan `message_id`, server memvalidasi pesan itu milik thread yang diotorisasi. Kartu dibatasi ke pesan tersebut dan balasan ke pesan sesudahnya. Tanpa `after`, cursor dimulai satu detik sebelum pesan user agar hasil dalam detik yang sama atau sebelum koneksi dibuka tetap terkirim.
+
+Klien melakukan rekonsiliasi `messages?latest=1` dan `ai-actions` setiap EOF/reconnect. Status kartu yang sudah resolved tidak boleh ditimpa event/list lama berstatus pending. Pemantauan dan mutasi chat hidup dalam layout persisten agar tetap berjalan saat navigasi internal; menutup tab tetap bergantung pada worker cron.
 
 Klien **wajib dedupe berdasarkan `id`**: cursor resume di event `retry` adalah yang **paling lama** di antara kedua cursor internal (`message` dan `action_card`), jadi reconnect bisa mengirim ulang satu event yang sudah pernah diterima di stream sebelumnya.
 

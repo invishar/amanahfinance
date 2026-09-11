@@ -42,6 +42,8 @@ class AssistantService
 
     public function respond(ChatMessage $userMessage): ChatMessage
     {
+        $startedAt = microtime(true);
+        ChatProgress::report($userMessage, 'context');
         $thread = $userMessage->thread()->withoutGlobalScope('family')->with(['family', 'member.user'])->firstOrFail();
         $family = $thread->family;
 
@@ -69,10 +71,11 @@ class AssistantService
         );
 
         try {
+            ChatProgress::report($userMessage, 'thinking');
             $result = $this->runner->run(
                 model: $model,
                 system: $systemPrompt,
-                messages: $this->buildHistory($thread),
+                messages: $this->buildHistory($thread, $userMessage),
                 tools: $this->buildTools($family, $userMessage, $wallets, $accounts, $sources, $goals, $isOnboarding),
                 maxIterations: 4,
             );
@@ -83,6 +86,15 @@ class AssistantService
         }
 
         $this->logLocalDebug($family, $userMessage, $model, $systemPrompt, $result);
+
+        Log::channel('ai')->info('Amina response timing', [
+            'message_id' => $userMessage->id,
+            'model' => $model,
+            'queue_wait_ms' => max(0, (int) (($startedAt - $userMessage->created_at->getTimestamp()) * 1000)),
+            'processing_ms' => (int) ((microtime(true) - $startedAt) * 1000),
+            'input_tokens' => $result->inputTokens,
+            'output_tokens' => $result->outputTokens,
+        ]);
 
         return $thread->messages()->create([
             'role' => 'assistant',
@@ -196,7 +208,7 @@ class AssistantService
     /**
      * @return array<int, array{role: string, content: string}>
      */
-    private function buildHistory(ChatThread $thread): array
+    private function buildHistory(ChatThread $thread, ChatMessage $userMessage): array
     {
         // Isi tiap pesan dipotong: satu pesan panjang (user menempel struk,
         // daftar belanja, dsb) bisa sendirian menghabiskan anggaran token
@@ -204,15 +216,24 @@ class AssistantService
         // sehari-hari, jadi praktis hanya kasus ekstrem yang kena.
         return $thread->messages()
             ->whereIn('role', ['user', 'assistant'])
+            ->where('id', '<=', $userMessage->id)
+            ->with('aiActions:id,message_id,action,status')
             ->orderByDesc('created_at')
+            ->orderByDesc('id')
             ->limit(20)
-            ->get(['role', 'content'])
+            ->get(['id', 'role', 'content'])
             ->reverse()
             ->values()
             ->filter(fn (ChatMessage $m) => filled($m->content))
             ->map(fn (ChatMessage $m) => [
                 'role' => $m->role,
-                'content' => Str::limit((string) $m->content, 1000),
+                'content' => Str::limit((string) $m->content, 1000)
+                    .($m->aiActions->isEmpty() ? '' : "\n[Status formulir dari sistem: "
+                        .$m->aiActions->map(fn (AiAction $action) => json_encode([
+                            'action' => $action->action,
+                            'status' => $action->status,
+                        ], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES))->implode('; ')
+                        .'. Jangan membuat ulang formulir untuk pesan lama ini.]'),
             ])
             ->all();
     }
@@ -308,6 +329,15 @@ class AssistantService
         bool $isOnboarding = false,
     ): array {
         $stageDraft = function (string $action, array $payload) use ($family, $userMessage): string {
+            ChatProgress::report($userMessage, 'drafting');
+            // A provider retry may repeat tools already completed in this turn.
+            // Scope by message so an intentional identical NEW expense remains valid.
+            $existing = AiAction::query()->where('message_id', $userMessage->id)
+                ->where('action', $action)->get()
+                ->first(fn (AiAction $draft) => $draft->payload == $payload);
+            if ($existing) {
+                return "Formulir sudah ada dengan status {$existing->status}. Jangan buat ulang.";
+            }
             $aiAction = AiAction::create([
                 'message_id' => $userMessage->id,
                 'family_id' => $family->id,
@@ -334,7 +364,7 @@ class AssistantService
             ),
         ] : [];
 
-        return [
+        $tools = [
             ...$onboardingTools,
             new BetaRunnableTool(
                 definition: ToolDefinitions::createTransaction(),
@@ -416,6 +446,19 @@ class AssistantService
                 ),
             ),
         ];
+
+        return array_map(fn (BetaRunnableTool $tool) => new BetaRunnableTool(
+            definition: $tool->definition,
+            run: function (array $input) use ($tool, $userMessage) {
+                if (str_starts_with($tool->name(), 'get_')) {
+                    ChatProgress::report($userMessage, 'reading_data');
+                }
+                $result = $tool->run($input);
+                ChatProgress::report($userMessage, 'composing');
+
+                return $result;
+            },
+        ), $tools);
     }
 
     private function llmSettingsModel(): string

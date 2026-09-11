@@ -7,21 +7,17 @@ import { ApiError } from "@/lib/api/client";
 import {
   useAccounts,
   useActiveFamily,
-  useChatStream,
-  useChatThreads,
-  useConfirmAiAction,
   useCreateThread,
   useIncomeSources,
-  useMessages,
   usePendingAiActions,
-  useRejectAiAction,
   useSavingsGoals,
-  useSendMessage,
   useWallets,
 } from "@/lib/api/hooks";
+import { useChatSession } from "@/lib/chat-session";
+
 const QUICK_PROMPTS: { label: string; text: string }[] = [
   { label: "Catat pengeluaran", text: "Tadi beli kopi sama snack 45rb pakai GoPay" },
-  { label: "Buat wallet baru", text: "Aku mau bikin wallet baru buat Kesehatan" },
+  { label: "Buat budget baru", text: "Aku mau bikin budget baru buat Kesehatan" },
   { label: "Tambah akun baru", text: "Tolong tambahin akun Dana sebagai e-wallet" },
   { label: "Minta saran keuangan", text: "Gimana kondisi keuangan bulan ini?" },
 ];
@@ -42,28 +38,16 @@ interface SortableItem extends ChatItem {
 }
 
 export default function ChatPage() {
-  const { family, familyId } = useActiveFamily();
-  const threads = useChatThreads();
+  const { family } = useActiveFamily();
+  const { threads, threadId, messages, sendMessage, awaitingReply, stream, confirmAiAction, rejectAiAction } = useChatSession();
   const createThread = useCreateThread();
   const wallets = useWallets();
   const accounts = useAccounts();
   const incomeSources = useIncomeSources();
   const savingsGoals = useSavingsGoals();
 
-  const threadId = threads.data?.[0]?.id ?? null;
-  const messages = useMessages(threadId ?? null);
-  const sendMessage = useSendMessage(threadId ?? null);
-  const lastServerMessage = messages.data?.at(-1);
-  const awaitingReply = messages.isSuccess && lastServerMessage?.role === "user";
-  // Jangan tahan koneksi SSE saat tidak ada balasan yang ditunggu. Selain
-  // menghemat koneksi produksi, ini mencegah PHP dev server yang single-thread
-  // memblokir seluruh request aplikasi selama stream 20 detik.
-  const stream = useChatStream(threadId, familyId, awaitingReply);
-
   /* --- Kartu aksi (AiAction) sungguhan ------------------------------------ */
   const pendingAiActions = usePendingAiActions();
-  const confirmAiAction = useConfirmAiAction();
-  const rejectAiAction = useRejectAiAction();
   const [aiActionErrors, setAiActionErrors] = useState<Record<string, string>>({});
 
   const confirmAiActionCard = (id: string, edits?: Record<string, unknown>) => {
@@ -134,7 +118,7 @@ export default function ChatPage() {
     opts?: { inputMode?: "text" | "voice" },
   ) => {
     const content = text.trim();
-    if (!content || !threadId) return;
+    if (!content || !threadId || sendMessage.isPending || awaitingReply || confirmAiAction.isPending || rejectAiAction.isPending) return;
     setInput("");
 
     // Wawancara awal TIDAK lagi punya jalur sendiri. Sejak Amina yang
@@ -181,12 +165,11 @@ export default function ChatPage() {
       at: m.created_at ? Date.parse(m.created_at) : 0,
     }));
 
-    // `/ai-actions` tidak thread-scoped (lihat useChatStream) -- saring ke
-    // milik thread ini lewat message_id. Event SSE tidak membawa message_id
-    // sama sekali (server sudah menyaringnya duluan), jadi selalu lolos.
+    // `/ai-actions` tidak thread-scoped. API dan SSE sama-sama membawa
+    // message_id; hanya tampilkan kartu dari pesan dalam percakapan ini.
     const messageIds = new Set((messages.data ?? []).map((m) => m.id));
     const fromAiActions = (pendingAiActions.data ?? [])
-      .filter((a) => !a.message_id || messageIds.has(a.message_id))
+      .filter((a) => Boolean(a.message_id) && messageIds.has(a.message_id))
       .map((a) => ({
         id: `ai-action-${a.id}`,
         role: "assistant" as const,
@@ -239,14 +222,15 @@ export default function ChatPage() {
         </div>
         <div className="ai-fallback-actions">
           <Link href="/transactions" className="btn btn-secondary">Catat transaksi</Link>
-          <Link href="/wallets" className="btn btn-secondary">Atur anggaran</Link>
+          <Link href="/wallets" className="btn btn-secondary">Atur budgeting</Link>
         </div>
       </div>
 
       <MessageList
         items={items}
         isLoading={threads.isPending || messages.isPending}
-        isTyping={awaitingReply || stream.isThinking}
+        isTyping={sendMessage.isPending || awaitingReply || confirmAiAction.isPending || rejectAiAction.isPending}
+        loadingText={confirmAiAction.isPending ? "Amina sedang mencatat dan menyimpan data..." : rejectAiAction.isPending ? "Amina sedang membatalkan formulir..." : sendMessage.isPending ? "Pesanmu sedang dikirim ke Amina..." : stream.loadingText}
         aiActionEntities={{
           accounts: accounts.data ?? [],
           wallets: wallets.data ?? [],
@@ -355,7 +339,7 @@ export default function ChatPage() {
           onClick={() => send(input)}
           title="Kirim"
           aria-label="Kirim"
-          disabled={!threadId || sendMessage.isPending}
+          disabled={!threadId || sendMessage.isPending || awaitingReply || confirmAiAction.isPending || rejectAiAction.isPending}
         >
           <Icon name="send" size={18} />
         </button>

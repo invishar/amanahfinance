@@ -35,6 +35,7 @@ export function MessageList({
   items,
   isLoading,
   isTyping,
+  loadingText,
   aiActionEntities,
   onConfirmAiAction,
   onRejectAiAction,
@@ -45,6 +46,7 @@ export function MessageList({
   items: ChatItem[];
   isLoading: boolean;
   isTyping: boolean;
+  loadingText: string;
   aiActionEntities: {
     accounts: Account[];
     wallets: Wallet[];
@@ -108,7 +110,7 @@ export function MessageList({
         </div>
       ))}
 
-      {isTyping && <TypingIndicator />}
+      {isTyping && <TypingIndicator text={loadingText} />}
       <div ref={bottomRef} />
     </div>
   );
@@ -239,7 +241,7 @@ function DateSeparator({ label }: { label: string }) {
   );
 }
 
-function TypingIndicator() {
+function TypingIndicator({ text }: { text: string }) {
   return (
     <div style={{ display: "flex", justifyContent: "flex-start" }}>
       <div
@@ -251,7 +253,8 @@ function TypingIndicator() {
           display: "flex",
           gap: 4,
         }}
-        aria-label="Amina sedang membaca dan menyiapkan jawaban"
+        role="status"
+        aria-live="polite"
       >
         {[0, 0.15, 0.3].map((delay) => (
           <span
@@ -267,7 +270,7 @@ function TypingIndicator() {
           />
         ))}
         <span className="text-muted" style={{ fontSize: 11, marginLeft: 5 }}>
-          Amina sedang menyiapkan jawaban
+          {text}
         </span>
       </div>
     </div>

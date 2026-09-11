@@ -20,14 +20,14 @@ export default function WalletsPage() {
 
   return (
     <div className="amana-container">
-      <PageHeader eyebrow="Anggaran" title="Kantong keluarga" description="Bagi uang berdasarkan kebutuhan agar batas belanja mudah dipantau." addLabel="Buat anggaran" onAdd={() => openModal("wallet")} />
+      <PageHeader eyebrow="Anggaran" title="Budgeting keluarga" description="Bagi uang berdasarkan kebutuhan agar batas belanja mudah dipantau." addLabel="Buat budget" onAdd={() => openModal("wallet")} />
 
       {wallets.isPending ? (
         <SkeletonList count={4} height={122} />
       ) : wallets.isError ? (
-        <p className="field-error">Gagal memuat wallet. Coba muat ulang halaman.</p>
+        <p className="field-error">Gagal memuat budget. Coba muat ulang halaman.</p>
       ) : list.length === 0 ? (
-        <EmptyState title="Belum ada anggaran" message="Mulai dengan kebutuhan rutin seperti belanja, transportasi, atau pendidikan." actionLabel="Buat anggaran" onAction={() => openModal("wallet")} />
+        <EmptyState title="Belum ada budget" message="Mulai dengan kebutuhan rutin seperti belanja, transportasi, atau pendidikan." actionLabel="Buat budget" onAction={() => openModal("wallet")} />
       ) : (
         list.map((w) => (
           <div key={w.id} className="card elev-sm">
@@ -43,9 +43,9 @@ export default function WalletsPage() {
                 <div className="card-title">{w.name}</div>
               </div>
               <RowActions
-                label={`wallet ${w.name}`}
+                label={`budget ${w.name}`}
                 onEdit={() => openModal("wallet", w.raw)}
-                onDelete={() => askDelete(w.id, `wallet ${w.name}`)}
+                onDelete={() => askDelete(w.id, `budget ${w.name}`)}
               />
             </div>
             <div

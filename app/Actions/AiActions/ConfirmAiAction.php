@@ -37,6 +37,8 @@ class ConfirmAiAction
         $this->validatePayload($aiAction->family_id, $aiAction->action, $payload);
 
         return DB::transaction(function () use ($aiAction, $payload, $edits) {
+            $aiAction = AiAction::query()->lockForUpdate()->findOrFail($aiAction->id);
+            $this->guardPending($aiAction);
             [$table, $id] = $this->write($aiAction, $payload);
 
             $aiAction->update([
@@ -53,15 +55,18 @@ class ConfirmAiAction
 
     public function reject(AiAction $aiAction): AiAction
     {
-        $this->guardPending($aiAction);
+        return DB::transaction(function () use ($aiAction) {
+            $aiAction = AiAction::query()->lockForUpdate()->findOrFail($aiAction->id);
+            $this->guardPending($aiAction);
 
-        $aiAction->update([
-            'status' => 'rejected',
-            'resolved_at' => now(),
-            'resolved_by' => app(CurrentFamily::class)->memberId(),
-        ]);
+            $aiAction->update([
+                'status' => 'rejected',
+                'resolved_at' => now(),
+                'resolved_by' => app(CurrentFamily::class)->memberId(),
+            ]);
 
-        return $aiAction->fresh();
+            return $aiAction->fresh();
+        });
     }
 
     private function guardPending(AiAction $aiAction): void

@@ -13,17 +13,30 @@ import {
 } from "@/lib/nav";
 import { useSession } from "@/lib/auth";
 import { useUi } from "@/lib/ui-store";
+import { useChatSession } from "@/lib/chat-session";
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="amana-shell">
       <Sidebar />
-      <div className="amana-content">{children}</div>
+      <div className="amana-content"><ChatActivity />{children}</div>
       <MobileTabBar />
       <MoreSheet />
       <CrudDialog />
     </div>
   );
+}
+
+function ChatActivity() {
+  const pathname = usePathname();
+  const { awaitingReply, sendMessage, stream, confirmAiAction, rejectAiAction } = useChatSession();
+  if (pathname === "/chat" || !(awaitingReply || sendMessage.isPending || confirmAiAction.isPending || rejectAiAction.isPending)) return null;
+  const text = confirmAiAction.isPending ? "Amina sedang mencatat dan menyimpan data..."
+    : rejectAiAction.isPending ? "Amina sedang membatalkan formulir..."
+    : sendMessage.isPending ? "Pesanmu sedang dikirim ke Amina..." : stream.loadingText;
+  return <div className="notice" style={{ margin: 12 }} role="status" aria-live="polite">
+    <span>{text}</span><Link href="/chat" className="btn btn-secondary">Buka chat</Link>
+  </div>;
 }
 
 function useIsActive() {

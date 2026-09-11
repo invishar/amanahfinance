@@ -5,6 +5,23 @@ use App\Models\ChatThread;
 use App\Models\Family;
 use App\Models\FamilyMember;
 
+test('latest messages includes the newest reply beyond the first fifty messages in stable order', function () {
+    [, $family, $member] = $this->actingAsFamilyMember('member');
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $messages = ChatMessage::factory()->count(55)->for($thread, 'thread')->create(['role' => 'assistant']);
+
+    $this->getJson("/api/v1/chat-threads/{$thread->id}/messages?latest=1")
+        ->assertOk()->assertJsonCount(50, 'data')
+        ->assertJsonPath('data.0.id', $messages[5]->id)
+        ->assertJsonPath('data.49.id', $messages[54]->id);
+});
+
+test('latest messages cannot expose another family', function () {
+    $this->actingAsFamilyMember('member');
+    $other = ChatThread::factory()->create();
+    $this->getJson("/api/v1/chat-threads/{$other->id}/messages?latest=1")->assertNotFound();
+});
+
 test('store forces role to user regardless of input', function () {
     [, $family, $member] = $this->actingAsFamilyMember('member');
     $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();

@@ -12,6 +12,7 @@ import {
 import { API_BASE_URL, api, type Schemas } from "@/lib/api/client";
 import { qk } from "@/lib/api/keys";
 import { useSession } from "@/lib/auth";
+import { mergeAiActions, parseSseFrame, CHAT_PROGRESS } from "@/lib/chat-state";
 
 export type Account = Schemas["Account"];
 export type AiAction = Schemas["AiAction"];
@@ -235,7 +236,7 @@ export function useMessages(threadId: string | null) {
   return useQuery({
     queryKey: threadId ? qk.messages(threadId) : ["pending"],
     queryFn: () =>
-      api.list<ChatMessage>(`/chat-threads/${threadId}/messages`),
+      api.list<ChatMessage>(`/chat-threads/${threadId}/messages?latest=1`),
     enabled: Boolean(threadId),
   });
 }
@@ -253,7 +254,7 @@ export function useSendMessage(threadId: string | null) {
 
     // Optimistic UI: pesan langsung tampil, dan dikembalikan bila API gagal.
     onMutate: async (body) => {
-      if (!threadId) return { previous: undefined };
+      if (!threadId) return { previous: undefined, optimisticId: undefined };
       await queryClient.cancelQueries({ queryKey: key });
       const previous = queryClient.getQueryData<ChatMessage[]>(key);
       const optimistic: ChatMessage = {
@@ -268,10 +269,13 @@ export function useSendMessage(threadId: string | null) {
         ...(previous ?? []),
         optimistic,
       ]);
-      return { previous };
+      return { previous, optimisticId: optimistic.id };
+    },
+    onSuccess: (message, _body, context) => {
+      queryClient.setQueryData<ChatMessage[]>(key, (previous) => (previous ?? []).map((item) => item.id === context?.optimisticId ? message : item));
     },
     onError: (_error, _body, context) => {
-      if (context?.previous) queryClient.setQueryData(key, context.previous);
+      queryClient.setQueryData(key, context?.previous ?? []);
     },
     onSettled: () => {
       if (threadId) queryClient.invalidateQueries({ queryKey: key });
@@ -324,170 +328,114 @@ export function useCreateOnboardingAnswer(threadId: string | null) {
 }
 
 /**
- * Balasan Amina, kartu aksi, dan error datang lewat SSE (`ChatStreamController`,
- * lihat CLAUDE.md "Alur AI"), bukan polling. Native `EventSource` tidak bisa
- * kirim header `Authorization`, jadi ini baca stream lewat `fetch` + reader
- * manual. Server sengaja menutup koneksi sendiri tiap ~20-25 detik (batas
- * `max_execution_time` shared hosting) dan mengirim event `retry` berisi
- * cursor -- loop di sini menyambung ulang pakai cursor itu selama komponen
- * masih mount, supaya dari sisi user terasa seperti satu koneksi panjang.
+ * Satu stream per pesan server, dimiliki ChatSessionProvider pada layout
+ * persisten. Navigasi halaman tidak membatalkannya; logout/unmount layout
+ * membatalkan koneksi. Hasil diselaraskan lewat API setelah seluruh frame
+ * SSE diterima supaya balasan tidak memotong kartu yang menyusul.
  */
-function parseSseFrame(frame: string): { event: string; data: unknown } | null {
-  const lines = frame.split("\n");
-  const eventLine = lines.find((l) => l.startsWith("event: "));
-  const dataLine = lines.find((l) => l.startsWith("data: "));
-  if (!eventLine || !dataLine) return null;
-  try {
-    return {
-      event: eventLine.slice("event: ".length).trim(),
-      data: JSON.parse(dataLine.slice("data: ".length)),
-    };
-  } catch {
-    return null;
-  }
-}
-
 export function useChatStream(
   threadId: string | null,
   familyId: string | null,
-  enabled = true,
+  messageId: string | null,
 ) {
   const queryClient = useQueryClient();
-  const [isThinking, setIsThinking] = useState(false);
+  const [progress, setProgress] = useState("queued");
   const [streamError, setStreamError] = useState<ChatMessage | null>(null);
 
   useEffect(() => {
-    if (!threadId || !enabled) {
-      return;
-    }
-
+    if (!threadId || !familyId || !messageId) return;
+    setProgress("queued");
+    setStreamError(null);
     let cancelled = false;
-    let turnComplete = false;
     let after: string | null = null;
     const controller = new AbortController();
-
-    const appendMessage = (message: ChatMessage) => {
-      // queryClient dari useQueryClient() stabil sepanjang hidup provider,
-      // aman dipakai di sini tanpa masuk dependency array effect.
-      queryClient.setQueryData<ChatMessage[]>(
-        qk.messages(threadId),
-        (prev) => {
-          const list = prev ?? [];
-          return list.some((m) => m.id === message.id)
-            ? list
-            : [...list, message];
-        },
-      );
+    const pause = () => new Promise<void>((resolve) => {
+      const finish = () => { clearTimeout(timer); controller.signal.removeEventListener("abort", finish); resolve(); };
+      const timer = setTimeout(finish, 2000);
+      controller.signal.addEventListener("abort", finish, { once: true });
+    });
+    const reconcile = async () => {
+      // Recover results produced before connection, including same-second
+      // timestamps. Read the WHOLE stream before replacing the message list:
+      // a message event may precede action_card in a separate network chunk.
+      const [messages, actions] = await Promise.all([
+        api.list<ChatMessage>(`/chat-threads/${threadId}/messages?latest=1`),
+        api.list<AiAction>("/ai-actions"),
+      ]);
+      if (cancelled) return true;
+      queryClient.setQueryData(qk.aiActions(familyId), (previous: AiAction[] | undefined) => mergeAiActions(previous, actions));
+      queryClient.setQueryData(qk.messages(threadId), messages);
+      const last = messages.at(-1);
+      const complete = Boolean(last && last.role !== "user");
+      if (complete) {
+        if (last?.role === "system") setStreamError(last);
+        queryClient.invalidateQueries({ queryKey: qk.chatThreads(familyId) });
+        queryClient.invalidateQueries({ queryKey: qk.families });
+      }
+      return complete;
     };
-
-    // Payload SSE cuma { id, action, payload, created_at } (lihat
-    // ChatStreamController::emitNewActionCards) -- server sudah menyaring
-    // begitu pending & milik thread ini, jadi status pending diasumsikan di
-    // sini, bukan dikirim ulang.
-    const appendAiAction = (data: {
-      id: string;
-      action: AiAction["action"];
-      payload: AiAction["payload"];
-      created_at: string;
-    }) => {
-      if (!familyId) return;
-      queryClient.setQueryData<AiAction[]>(qk.aiActions(familyId), (prev) => {
-        const list = prev ?? [];
-        if (list.some((a) => a.id === data.id)) return list;
-        return [...list, { ...data, status: "pending" }];
-      });
-    };
-
     const connect = async () => {
       while (!cancelled) {
-        let response: Response;
+        let reader: ReadableStreamDefaultReader<Uint8Array> | undefined;
         try {
-          const url = `${API_BASE_URL}/chat-threads/${threadId}/stream${after ? `?after=${encodeURIComponent(after)}` : ""}`;
-          response = await fetch(url, {
+          const params = new URLSearchParams({ message_id: messageId });
+          if (after) params.set("after", after);
+          const response = await fetch(`${API_BASE_URL}/chat-threads/${threadId}/stream?${params}`, {
             headers: { Accept: "text/event-stream" },
             credentials: "same-origin",
             signal: controller.signal,
           });
-        } catch {
-          if (cancelled) return;
-          await new Promise((r) => setTimeout(r, 3000));
-          continue;
-        }
-
-        if (!response.ok || !response.body) {
-          if (cancelled) return;
-          await new Promise((r) => setTimeout(r, 3000));
-          continue;
-        }
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder();
-        let buffer = "";
-
-        try {
+          if (!response.ok || !response.body) {
+            if ([401, 403, 404, 422].includes(response.status)) {
+              setStreamError({ role: "system", content: "Percakapan tidak dapat diakses. Muat ulang halaman." });
+              return;
+            }
+            throw new Error("Stream unavailable");
+          }
+          reader = response.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
           while (!cancelled) {
             const { done, value } = await reader.read();
             if (done) break;
             buffer += decoder.decode(value, { stream: true });
-            const frames = buffer.split("\n\n");
+            const frames = buffer.split(/\r?\n\r?\n/);
             buffer = frames.pop() ?? "";
-
             for (const raw of frames) {
               const frame = parseSseFrame(raw);
               if (!frame) continue;
-
-              if (frame.event === "thinking") {
-                setIsThinking(true);
-              } else if (frame.event === "message") {
-                setIsThinking(false);
-                appendMessage(frame.data as ChatMessage);
-                turnComplete = true;
-              } else if (frame.event === "error") {
-                const data = frame.data as { id: string; content: string; created_at: string };
-                setIsThinking(false);
-                const errorMessage: ChatMessage = {
-                  id: data.id,
-                  thread_id: threadId,
-                  role: "system",
-                  content: data.content,
-                  created_at: data.created_at,
-                };
-                appendMessage(errorMessage);
-                setStreamError(errorMessage);
-                turnComplete = true;
+              if (frame.event === "progress") {
+                const data = frame.data as { message_id: string; stage: string };
+                if (data.message_id === messageId && CHAT_PROGRESS[data.stage]) setProgress(data.stage);
+              } else if (frame.event === "action_card") {
+                const action = frame.data as AiAction;
+                if (action.message_id === messageId) {
+                  queryClient.setQueryData(qk.aiActions(familyId), (previous: AiAction[] | undefined) => mergeAiActions(previous, [{ ...action, status: "pending" }]));
+                }
               } else if (frame.event === "retry") {
                 after = (frame.data as { after: string }).after;
-              } else if (frame.event === "action_card") {
-                appendAiAction(
-                  frame.data as {
-                    id: string;
-                    action: AiAction["action"];
-                    payload: AiAction["payload"];
-                    created_at: string;
-                  },
-                );
               }
-            }
-            if (turnComplete) {
-              await reader.cancel();
-              return;
+              // message/error are reconciled after EOF, not appended without
+              // their role and not allowed to abort a following action_card.
             }
           }
+          if (!cancelled && await reconcile()) return;
         } catch {
-          // Koneksi putus di tengah jalan -- reconnect pakai cursor terakhir.
+          if (cancelled) return;
+          setProgress("reconnecting");
+          try { if (await reconcile()) return; } catch { /* Retry after a bounded pause. */ }
+        } finally {
+          await reader?.cancel().catch(() => {});
+          reader?.releaseLock();
         }
+        if (!cancelled) await pause();
       }
     };
+    void connect();
+    return () => { cancelled = true; controller.abort(); };
+  }, [threadId, familyId, messageId, queryClient]);
 
-    connect();
-
-    return () => {
-      cancelled = true;
-      controller.abort();
-    };
-  }, [threadId, familyId, enabled, queryClient]);
-
-  return { isThinking: enabled && isThinking, streamError };
+  return { isThinking: Boolean(messageId), loadingText: CHAT_PROGRESS[progress], streamError };
 }
 
 /* --- Ai actions (kartu aksi) ----------------------------------------------
@@ -497,7 +445,13 @@ export function useChatStream(
    message_id yang ada di thread yang sedang dibuka. */
 
 export function usePendingAiActions() {
-  return useFamilyQuery<AiAction>(qk.aiActions, "/ai-actions");
+  const { familyId } = useActiveFamily();
+  return useQuery({
+    queryKey: familyId ? qk.aiActions(familyId) : ["pending"],
+    queryFn: () => api.list<AiAction>("/ai-actions"),
+    enabled: Boolean(familyId),
+    structuralSharing: (oldData, newData) => mergeAiActions(oldData as AiAction[] | undefined, newData as AiAction[]),
+  });
 }
 
 export function useConfirmAiAction() {
@@ -511,7 +465,7 @@ export function useConfirmAiAction() {
     onSuccess: (updated) => {
       if (familyId) {
         queryClient.setQueryData<AiAction[]>(qk.aiActions(familyId), (prev) =>
-          (prev ?? []).map((a) => (a.id === updated.id ? updated : a)),
+          mergeAiActions(prev, [updated]),
         );
       }
       invalidateAll();
@@ -528,7 +482,7 @@ export function useRejectAiAction() {
     onSuccess: (updated) => {
       if (familyId) {
         queryClient.setQueryData<AiAction[]>(qk.aiActions(familyId), (prev) =>
-          (prev ?? []).map((a) => (a.id === updated.id ? updated : a)),
+          mergeAiActions(prev, [updated]),
         );
       }
     },

@@ -1476,6 +1476,7 @@ class OpenApiSpec
                 'get' => [
                     'tags' => ['Chat Messages'],
                     'summary' => 'List pesan dalam thread',
+                    'parameters' => [['name' => 'latest', 'in' => 'query', 'required' => false, 'schema' => ['type' => 'boolean'], 'description' => 'Ambil halaman dari pesan terbaru, tetap disajikan urut lama ke baru; default false.']],
                     'responses' => [
                         '200' => self::jsonResponse('OK', self::paginatedEnvelope('ChatMessage')),
                         '403' => self::refResponse('Forbidden'),
@@ -1524,11 +1525,15 @@ class OpenApiSpec
                 'get' => [
                     'tags' => ['Chat Threads'],
                     'summary' => 'SSE thinking/action_card/balasan Amina/error (berumur pendek, klien wajib reconnect)',
-                    'description' => 'Server menutup stream sendiri sebelum ±20-25 detik (aman dari max_execution_time shared hosting, tidak ada Redis/pub-sub). Event: thinking (sekali di awal kalau pesan terakhir masih role=user belum dibalas), message, action_card, error (role=system, job LLM gagal total), retry (berisi cursor untuk ?after= saat reconnect). Tidak ada token/done terpisah -- LLM dipanggil sekali per job (bukan streaming), dan message/error sendiri adalah sinyal selesainya giliran. Bukan JSON biasa -- Content-Type: text/event-stream.',
+                    'description' => 'Server menutup stream sendiri sebelum ±20-25 detik (aman dari max_execution_time shared hosting, tidak ada Redis/pub-sub). Event: progress (message_id, stage: queued/context/thinking/drafting/reading_data/composing/retrying), thinking (sekali di awal kalau pesan terakhir masih role=user belum dibalas), message, action_card, error (role=system, job LLM gagal total), retry (berisi cursor untuk ?after= saat reconnect). Tidak ada token/done terpisah -- LLM dipanggil sekali per job (bukan streaming), dan message/error sendiri adalah sinyal selesainya giliran. Baca stream sampai selesai agar action_card (id, message_id, status, action, payload, created_at) tidak terpotong, lalu rekonsiliasi daftar pesan dan kartu dari API. Bukan JSON biasa -- Content-Type: text/event-stream.',
                     'parameters' => [[
                         'name' => 'after', 'in' => 'query', 'required' => false,
-                        'description' => 'Cursor ISO-8601; ambil dari event retry terakhir. Default: waktu koneksi dibuka.',
+                        'description' => 'Cursor ISO-8601 dari event retry. Dengan message_id, default satu detik sebelum pesan user agar hasil pada detik yang sama tidak hilang.',
                         'schema' => ['type' => 'string', 'format' => 'date-time'],
+                    ], [
+                        'name' => 'message_id', 'in' => 'query', 'required' => false,
+                        'description' => 'UUID pesan user dalam thread ini. Membatasi kartu ke giliran ini dan balasan sesudah pesan tersebut.',
+                        'schema' => ['type' => 'string', 'format' => 'uuid'],
                     ]],
                     'responses' => [
                         '200' => ['description' => 'text/event-stream', 'content' => ['text/event-stream' => ['schema' => ['type' => 'string']]]],

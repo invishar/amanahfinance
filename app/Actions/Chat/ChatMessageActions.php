@@ -5,6 +5,7 @@ namespace App\Actions\Chat;
 use App\Jobs\ProcessAssistantMessage;
 use App\Models\ChatMessage;
 use App\Models\ChatThread;
+use App\Services\Ai\ChatProgress;
 
 class ChatMessageActions
 {
@@ -23,6 +24,7 @@ class ChatMessageActions
 
         // LLM call happens in the queue, never in this web request (aturan
         // CLAUDE.md). Amina's reply arrives later as its own ChatMessage.
+        ChatProgress::report($message, 'queued');
         ProcessAssistantMessage::dispatch($message->id);
 
         return $message;

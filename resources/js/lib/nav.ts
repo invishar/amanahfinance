@@ -25,7 +25,7 @@ export const CHAT_NAV: NavItem = {
 export const SIDEBAR_NAV: NavItem[] = [
   { href: "/dashboard", label: "Beranda", icon: "home" },
   { href: "/transactions", label: "Transaksi", icon: "receipt" },
-  { href: "/wallets", label: "Anggaran", icon: "wallet" },
+  { href: "/wallets", label: "Budgeting", icon: "wallet" },
   { href: "/accounts", label: "Akun", icon: "landmark" },
   { href: "/income", label: "Pemasukan", icon: "banknote" },
   { href: "/goals", label: "Target", icon: "target" },
@@ -40,7 +40,7 @@ export const MOBILE_TABS_LEFT: NavItem[] = [
 ];
 
 export const MOBILE_TABS_RIGHT: NavItem[] = [
-  { href: "/wallets", label: "Anggaran", icon: "wallet" },
+  { href: "/wallets", label: "Budgeting", icon: "wallet" },
 ];
 
 export const MORE_ITEMS: NavItem[] = [

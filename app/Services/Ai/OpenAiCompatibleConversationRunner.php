@@ -8,6 +8,7 @@ use App\Actions\LlmSettings\LlmSettingActions;
 use App\Services\Ai\Contracts\ConversationRunner;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 // Untuk provider yang cuma expose endpoint Chat Completions ala OpenAI (Groq,
@@ -40,6 +41,7 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
         $outputTokens = 0;
 
         for ($i = 0; $i < $maxIterations; $i++) {
+            $roundStartedAt = microtime(true);
             $response = Http::withToken($settings->key ?: '')
                 ->timeout(60)
                 ->acceptJson()
@@ -58,6 +60,12 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
                     'stream' => false,
                 ], fn ($value) => $value !== null))
                 ->throw();
+
+            Log::channel('ai')->info('Amina provider round timing', [
+                'model' => $model,
+                'iteration' => $i + 1,
+                'duration_ms' => (int) ((microtime(true) - $roundStartedAt) * 1000),
+            ]);
 
             // Bentuk usage ala OpenAI Chat Completions (prompt_tokens /
             // completion_tokens) -- dijumlah per giliran, sama seperti

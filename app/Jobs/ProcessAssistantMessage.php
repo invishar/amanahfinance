@@ -4,6 +4,8 @@ namespace App\Jobs;
 
 use App\Models\ChatMessage;
 use App\Services\Ai\AssistantService;
+use App\Services\Ai\ChatProgress;
+use App\Support\CurrentFamily;
 use Illuminate\Bus\Queueable;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Bus\Dispatchable;
@@ -40,7 +42,23 @@ class ProcessAssistantMessage implements ShouldQueue
             return;
         }
 
-        $assistant->respond($message);
+        // An inline queue worker may pick another family's job. Never inherit
+        // the viewing request's tenant when resolving names or action history.
+        $requestFamily = app(CurrentFamily::class);
+        $thread = $message->thread()->withoutGlobalScope('family')
+            ->with(['family', 'member' => fn ($query) => $query->withoutGlobalScope('family')])->firstOrFail();
+        $jobFamily = new CurrentFamily;
+        $jobFamily->set($thread->family, $thread->member);
+        app()->instance(CurrentFamily::class, $jobFamily);
+
+        try {
+            $assistant->respond($message);
+        } catch (\Throwable $exception) {
+            ChatProgress::report($message, 'retrying');
+            throw $exception;
+        } finally {
+            app()->instance(CurrentFamily::class, $requestFamily);
+        }
     }
 
     // Dipanggil Laravel otomatis setelah $tries habis. Menulis balasan

@@ -419,3 +419,40 @@ test('draft dari wawancara tetap pending, bukan langsung tersimpan', function ()
     expect(IncomeSource::query()->where('family_id', $family->id)->count())->toBe(0);
     expect(Wallet::query()->where('family_id', $family->id)->count())->toBe(0);
 });
+
+test('history includes settled action status and excludes later user requests', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $old = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user', 'content' => 'jajan 5rb']);
+    AiAction::factory()->for($family)->for($old, 'message')->create(['status' => 'confirmed', 'action' => 'create_transaction', 'payload' => ['amount' => 5000]]);
+    $current = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user', 'content' => 'beli kopi']);
+    ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user', 'content' => 'pesan berikutnya belum diproses']);
+    $runner = Mockery::mock(ConversationRunner::class);
+    $runner->shouldReceive('run')->once()->withArgs(function ($model, $system, $messages) {
+        expect($messages[0]['content'])->toContain('confirmed')->toContain('Jangan membuat ulang');
+        expect(end($messages)['content'])->toBe('beli kopi');
+
+        return true;
+    })->andReturn(new ConversationResult('Siap', 10, 10));
+    app()->instance(ConversationRunner::class, $runner);
+    app(AssistantService::class)->respond($current);
+});
+
+test('repeating a tool or retrying a turn reuses its draft but a new expense gets a new draft', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $first = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+    $call = ['tool' => 'create_transaction', 'input' => ['type' => 'expense', 'amount' => 5000, 'note' => 'jajan']];
+    bindConversationRunner(toolCalls: [$call, $call]);
+    app(AssistantService::class)->respond($first);
+    $draft = AiAction::query()->where('message_id', $first->id)->sole();
+    $draft->update(['status' => 'confirmed']);
+    app(AssistantService::class)->respond($first);
+    expect(AiAction::query()->where('message_id', $first->id)->count())->toBe(1);
+    expect($draft->fresh()->status)->toBe('confirmed');
+    $second = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+    app(AssistantService::class)->respond($second);
+    expect(AiAction::query()->where('message_id', $second->id)->count())->toBe(1);
+});
