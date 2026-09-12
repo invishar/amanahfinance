@@ -1,23 +1,27 @@
 #!/usr/bin/env bash
 # Runs after every successful `git merge` (including a plain `git pull`) on the
-# hPanel server. Two independent steps, each only when its paths actually
-# changed in the pull:
+# server. Two independent steps, each only when its paths actually changed:
 #   - database/migrations/ changed -> php artisan migrate --force
-#   - frontend/ changed            -> rebuild static export, sync to public/
-# public/ build output stays gitignored (see .gitignore) and is never committed.
+#   - aset Inertia berubah          -> npm ci + npm run build (vite klien & SSR)
+#
+# Ini jaring pengaman untuk `git pull` MANUAL di server. Rilis yang benar
+# dijalankan lewat scripts/deploy.sh, yang sengaja MELEWATI hook ini
+# (core.hooksPath diarahkan ke folder yang tidak ada) karena urutan di sini
+# salah untuk rilis: migrate jalan sebelum composer install, padahal migrasi
+# bisa butuh paket yang baru ditambahkan.
 #
 # One-time activation on the server (this file lives in git, .git/hooks does not):
 #   git config core.hooksPath deploy/hooks
 #
 # Caveats:
 # - Assumes `git pull` merges (default). If pull.rebase is set, this hook never
-#   fires — rebase doesn't trigger post-merge.
+#   fires -- rebase doesn't trigger post-merge.
 # - migrate runs unattended with --force (no interactive "in production?"
-#   prompt, no automatic backup) — a bad migration in the pulled commit applies
+#   prompt, no automatic backup) -- a bad migration in the pulled commit applies
 #   immediately on pull.
-# - hPanel's Node.js selector puts npm outside the default SSH PATH; the
-#   frontend step tries to source the nodevenv activate script itself (same
-#   shape of problem as the composer2 php.ini gotcha documented in CLAUDE.md).
+# - hPanel's Node.js selector puts npm outside the default SSH PATH; the asset
+#   step sources the nodevenv activate script itself (same shape of problem as
+#   the composer2 php.ini gotcha documented in CLAUDE.md).
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -42,60 +46,54 @@ else
   echo "post-merge: no changes under database/migrations/, skipping migrate"
 fi
 
-if changed "frontend/"; then
-  echo "post-merge: frontend/ changed, rebuilding static export..."
+# Sumber aset Inertia. Folder `frontend/` SENGAJA tidak ada di daftar ini:
+# sejak pindah ke Inertia (7 September 2026) isinya cuma sisa arsip dan
+# package.json-nya sudah dipindah ke frontend_backup/, jadi hook versi lama
+# yang menjalankan `npm --prefix frontend ci` selalu mati di sini.
+ASSET_PATHS="resources/js resources/css package.json package-lock.json vite.config.js"
+
+assets_changed=0
+for path in $ASSET_PATHS; do
+  if changed "$path"; then
+    assets_changed=1
+    break
+  fi
+done
+
+if [ "$assets_changed" -eq 1 ]; then
+  echo "post-merge: aset Inertia berubah, menjalankan vite build..."
 
   if ! command -v npm >/dev/null 2>&1; then
     NODEVENV_ACTIVATE="$(find "$HOME/nodevenv" -maxdepth 3 -name activate 2>/dev/null | head -n1 || true)"
     if [ -n "$NODEVENV_ACTIVATE" ]; then
       # shellcheck disable=SC1090
-      source "$NODEVENV_ACTIVATE"
+      . "$NODEVENV_ACTIVATE"
     fi
   fi
 
   if ! command -v npm >/dev/null 2>&1; then
-    echo "post-merge: npm not found in PATH, skipping frontend build" >&2
+    echo "post-merge: npm not found in PATH, skipping asset build" >&2
+    echo "post-merge: jalankan 'scripts/deploy.sh --assets' dari laptop untuk menambalnya" >&2
   else
-    # --include=dev forces devDependencies (typescript, tailwind, ...) to
-    # install regardless of NODE_ENV -- needed because the Node.js Selector
-    # app must stay in "Production" mode (see below), not because we expect
-    # NODE_ENV=development here.
-    npm --prefix frontend ci --include=dev
-    # `next build` crashes prerendering the internal /_global-error page
-    # ("Cannot read properties of null (reading 'useContext')") unless
-    # NODE_ENV is exactly "production" at build time. The Node.js Selector's
-    # own node/npm wrapper re-asserts NODE_ENV from the app's configured
-    # "Application mode" regardless of what the caller's shell exports, so
-    # prefixing this command with NODE_ENV=production has no effect -- the
-    # Node.js app itself must be set to "Production" mode in cPanel for this
-    # to actually take. Confirmed by reproducing locally.
-    npm --prefix frontend run build
+    # --include=dev memaksa devDependencies (vite, typescript, tailwind)
+    # terpasang berapa pun NODE_ENV-nya -- Node.js Selector harus tetap di
+    # mode "Production", jadi NODE_ENV tidak bisa diandalkan di sini.
+    npm ci --include=dev
+    # = vite build && vite build --ssr. Yang pertama mengisi public/build
+    # berikut manifest.json, yang kedua bootstrap/ssr/ssr.js. Keduanya
+    # gitignored dan memang dibangun di server.
+    npm run build
 
-    mkdir -p public
-    # --delete removes stale files from the previous build; the excludes protect
-    # Laravel's own tracked public/ files (index.php, .htaccess, robots.txt — the
-    # frontend build doesn't produce a robots.txt, so it must not be deleted) and
-    # any storage symlink created on the server (php artisan storage:link /
-    # manual ln -s per the hPanel symlink() gotcha in CLAUDE.md). favicon.ico is
-    # left out of the exclude list on purpose — the Next build's favicon is
-    # meant to win over Laravel's placeholder (decided in
-    # PLAN-PENGGABUNGAN-FRONTEND.md).
-    #
-    # "build" wajib ada di daftar exclude: itu output `npm run build` Vite
-    # (aset Inertia + manifest.json). Tanpa exclude ini, satu deploy yang
-    # menyentuh frontend/ akan menghapus seluruh aset Inertia dan bikin
-    # semua halaman web mati dengan ViteManifestNotFoundException — gagal
-    # diam-diam, karena hook sendiri tetap exit 0.
-    rsync -a --delete \
-      --exclude "index.php" \
-      --exclude ".htaccess" \
-      --exclude "robots.txt" \
-      --exclude "storage" \
-      --exclude "build" \
-      frontend/out/ public/
+    # Gagal keras kalau manifest tidak terbentuk: tanpa itu SETIAP halaman
+    # mati dengan ViteManifestNotFoundException, dan hook yang exit 0 akan
+    # menyembunyikannya sampai ada yang membuka situs.
+    if [ ! -f public/build/manifest.json ]; then
+      echo "post-merge: public/build/manifest.json tidak terbentuk -- build gagal" >&2
+      exit 1
+    fi
 
-    echo "post-merge: frontend build deployed to public/"
+    echo "post-merge: aset Inertia ter-build ke public/build"
   fi
 else
-  echo "post-merge: no changes under frontend/, skipping build"
+  echo "post-merge: aset Inertia tidak berubah, skipping build"
 fi
