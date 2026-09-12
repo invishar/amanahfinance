@@ -342,6 +342,93 @@ test('family financial data tool is read only and does not create an ai action',
     expect(AiAction::query()->where('message_id', $userMessage->id)->exists())->toBeFalse();
 });
 
+// --- Playbook keuangan rumah tangga --------------------------------------
+
+test('get_finance_playbook terdaftar dan tidak membuat ai_action', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    // FakeConversationRunner melempar kalau tool yang diminta tidak terdaftar,
+    // jadi test ini sekaligus membuktikan registrasi di buildTools().
+    bindConversationRunner(toolCalls: [[
+        'tool' => 'get_finance_playbook',
+        'input' => ['topic' => 'dana_darurat'],
+    ]]);
+
+    app(AssistantService::class)->respond($userMessage);
+
+    expect(AiAction::query()->where('message_id', $userMessage->id)->exists())->toBeFalse();
+});
+
+test('isi modul playbook sampai ke model, topic asing tetap aman', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    // Memeriksa hasil mentah closure, bukan cuma kelas gateway-nya: jalur
+    // json_encode + default '' di buildTools() ikut tertutup di sini.
+    app()->bind(ConversationRunner::class, fn () => new class implements ConversationRunner
+    {
+        public function run(string $model, string $system, array $messages, array $tools, int $maxIterations): ConversationResult
+        {
+            $tool = collect($tools)->first(fn ($t) => $t->name() === 'get_finance_playbook');
+
+            expect($tool->run(['topic' => 'budgeting']))->toContain('50%');
+            expect($tool->run(['topic' => 'saham']))->toContain('Topik playbook tidak dikenal.');
+            expect($tool->run([]))->toContain('Topik playbook tidak dikenal.');
+
+            return new ConversationResult('oke', 1, 1);
+        }
+    });
+
+    app(AssistantService::class)->respond($userMessage);
+});
+
+test('system prompt menyuruh pakai playbook dan menjaga batas otoritas agama', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    expect(captureSystemPrompt($userMessage))
+        ->toContain('get_finance_playbook')
+        ->toContain('amanah')
+        ->toContain('BUKAN otoritas agama')
+        ->toContain('ustadz');
+});
+
+test('pengetahuan playbook tidak ikut di setiap prompt', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    // Regresi arsitektural: bahan ajar hidup di config/amina_playbook.php dan
+    // diambil on-demand. Kalau ada yang menempelkannya ke persona, token
+    // dibayar tiap giliran dan test ini merah. Yang dicek prosa isi modul,
+    // bukan istilah seperti "50/30/20" -- istilah itu sah muncul di persona
+    // sebagai contoh pemicu tool.
+    expect(captureSystemPrompt($userMessage))
+        ->not->toContain('3-6x pengeluaran rutin')
+        ->not->toContain('Bayar diri sendiri dulu')
+        ->not->toContain('sinking');
+});
+
+test('aturan panjang balasan tetap pendek secara default', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    expect(captureSystemPrompt($userMessage))
+        ->toContain('maksimal 1-2 kalimat')
+        ->toContain('4-5 kalimat')
+        ->toContain('JANGAN pernah pakai daftar bernomor/bullet');
+});
+
 // --- Mode wawancara awal -------------------------------------------------
 
 function onboardingThreadMessage(Family $family, bool $done = false): ChatMessage

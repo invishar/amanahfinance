@@ -59,6 +59,13 @@ Pesan masuk → `AssistantService` → LLM tool calling → **payload disimpan s
   `get_family_financial_data` hanya membaca data family aktif dengan filter
   `family_id` eksplisit; yang kedua mengambil saldo, target, transaksi, aturan
   rutin, profil keluarga, atau langganan secara on-demand agar prompt tetap kecil.
+- Tool baca ketiga `get_finance_playbook` **tidak menyentuh database**: isinya acuan
+  teori keuangan rumah tangga dari `config/amina_playbook.php`, diambil on-demand
+  supaya persona tetap ramping dan token hanya dibayar saat pertanyaannya butuh
+  penjelasan. Prinsipnya termasuk etika keuangan islami (amanah, jauhi riba/israf,
+  zakat/sedekah sebagai pos anggaran) **tanpa kutipan dalil dan tanpa penetapan
+  hukum** — Amina bukan otoritas agama; pagarnya ada di persona dan diuji di
+  `tests/Feature/FinancePlaybookTest.php`.
 - Resolusi nama → id ("gopay" → `accounts.id`) di server, fuzzy match pada data family. Ragu → kosongkan field agar user melengkapi lewat "Edit".
 - Konteks prompt: nama family, daftar wallet/akun/sumber pemasukan, ringkasan bulan berjalan, `onboarding_answers`. **Jangan** kirim seluruh riwayat transaksi.
 - Naskah pertanyaan onboarding dan sapaan Amina disimpan di server, bukan klien.

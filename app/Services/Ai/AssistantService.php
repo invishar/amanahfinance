@@ -38,6 +38,7 @@ class AssistantService
         private ConversationRunner $runner,
         private AnalyticsActions $analytics,
         private FamilyFinancialData $financialData,
+        private FinancePlaybook $playbook,
     ) {}
 
     public function respond(ChatMessage $userMessage): ChatMessage
@@ -77,7 +78,7 @@ class AssistantService
                 system: $systemPrompt,
                 messages: $this->buildHistory($thread, $userMessage),
                 tools: $this->buildTools($family, $userMessage, $wallets, $accounts, $sources, $goals, $isOnboarding),
-                maxIterations: 4,
+                maxIterations: 5,
             );
         } catch (Throwable $e) {
             $this->logProviderError($e, $family, $userMessage, $model);
@@ -442,6 +443,18 @@ class AssistantService
                         (string) ($input['topic'] ?? ''),
                         $input,
                     ),
+                    JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
+                ),
+            ),
+            // Satu-satunya tool baca yang tidak menyentuh DB: acuan teori dari
+            // config/amina_playbook.php. Tidak perlu $family -- isinya bukan
+            // data keluarga, jadi tidak ada permukaan kebocoran tenant di sini.
+            // Didaftarkan tanpa syarat, termasuk selama onboarding: user justru
+            // sering bertanya "idealnya berapa" saat wawancara awal.
+            new BetaRunnableTool(
+                definition: ToolDefinitions::getFinancePlaybook(),
+                run: fn (array $input) => json_encode(
+                    $this->playbook->read((string) ($input['topic'] ?? '')),
                     JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES,
                 ),
             ),

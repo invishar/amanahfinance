@@ -172,4 +172,27 @@ class ToolDefinitions
             ],
         ];
     }
+
+    // Satu-satunya tool baca yang TIDAK menyentuh data keluarga: isinya acuan
+    // teori keuangan rumah tangga dari config/amina_playbook.php. Dipisah dari
+    // persona supaya system prompt tetap ramping -- pengetahuan ini cuma
+    // dibayar token-nya kalau pertanyaannya memang butuh penjelasan.
+    public static function getFinancePlaybook(): array
+    {
+        return [
+            'name' => 'get_finance_playbook',
+            'description' => 'Ambil acuan teori keuangan rumah tangga (prinsip, angka patokan, langkah praktis) untuk menjawab pertanyaan "kenapa", "idealnya berapa", atau "gimana caranya". BUKAN data keluarga. Panggil hanya saat user minta penjelasan, teori, atau saran; JANGAN untuk mencatat transaksi, menanyakan saldo/riwayat, atau menyapa. Maksimal satu topic per balasan.',
+            'input_schema' => [
+                'type' => 'object',
+                'properties' => [
+                    'topic' => [
+                        'type' => 'string',
+                        'enum' => FinancePlaybook::topics(),
+                        'description' => 'dana_darurat = besaran dana darurat, rasio cicilan, porsi menabung. budgeting = menyusun anggaran bulanan, 50/30/20, zero-based, amplop, sinking fund, target berjangka.',
+                    ],
+                ],
+                'required' => ['topic'],
+            ],
+        ];
+    }
 }

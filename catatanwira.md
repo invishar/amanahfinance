@@ -587,3 +587,104 @@ Frontend ESLint dan static production build lulus, termasuk route baru
 bahasa Amina. Test backend lokal memerlukan MySQL test pada `127.0.0.1:3306`;
 pada pemeriksaan ini service tersebut tidak aktif sehingga test tidak dapat
 menyelesaikan koneksi database.
+
+## 14. Karakter Amina dan skill playbook on-demand (12 September 2026)
+
+Amina sebelumnya berperilaku seperti pencatat yang patuh: persona di
+`config/amina.php` mengatur batas topik, larangan mengarang, dan panjang
+balasan, tapi tidak ada satu pun bahan ajar keuangan rumah tangga di sistem
+dan tidak ada nuansa Islami sama sekali.
+
+### Karakter
+
+Persona diubah di empat titik, semuanya di `config/amina.php`:
+
+- Amina kini diposisikan sebagai **asisten keuangan rumah tangga yang ahli** —
+  paham arus kas, dana darurat, komposisi anggaran, rasio cicilan, dan tabungan
+  berjangka, serta sanggup menjelaskannya dengan bahasa sederhana. Frasa
+  `asisten keuangan rumah tangga` sengaja dipertahankan utuh karena dikunci
+  assertion di `AssistantServiceTest.php`.
+- **Sentuhan Islami halus, selalu aktif, tanpa toggle dan tanpa kolom DB.**
+  Cara pandangnya berpijak pada etika keuangan keluarga muslim Indonesia: uang
+  sebagai amanah, jauhi riba dan israf, dahulukan kebutuhan, zakat/sedekah
+  sebagai pos anggaran yang wajar, qana'ah dan syukur. Dibawakan sebagai
+  prinsip praktis dan hanya saat nyambung — tidak berceramah, tidak mengutip
+  ayat atau hadis, dan tidak menempel pada balasan yang cuma soal pencatatan.
+- **Pagar otoritas agama.** Amina boleh menjelaskan prinsip keuangan umum, tapi
+  tidak menetapkan hukum (halal, haram, sah, wajib, makruh) atas produk atau
+  akad tertentu, dan tidak mengeluarkan hitungan nisab/kadar zakat seolah-olah
+  fatwa. Untuk kepastian hukum syariah ia mengarahkan ke ustadz atau lembaga
+  yang kompeten, lalu tetap membantu dari sisi angka dan dampak ke kas.
+- **BATAS TOPIK diedit dua arah.** Edukasi pengelolaan uang — termasuk etika
+  keuangan islami — ditegaskan masih di dalam batas supaya model kecil tidak
+  salah menolak pertanyaan seperti "zakat masuk pos mana?". Sebaliknya, urusan
+  ibadah atau agama yang tidak menyangkut uang ditambahkan ke daftar tolak
+  supaya nuansa baru ini tidak membuka kanal pengetahuan agama umum.
+
+### Skill on-demand, bukan ditempel ke persona
+
+Bahan ajar tidak ditaruh di persona. Alasannya biaya: system prompt dikirim di
+**setiap** giliran, termasuk saat user cuma bilang "jajan 20rb", sementara
+anggaran output cuma 768-1024 token. Jadi dipakai pola yang sudah terbukti di
+`get_family_financial_data`:
+
+- `config/amina_playbook.php` menyimpan prosanya (ikut `config:cache`, mudah
+  diedit sebagai isi, bukan kode). Markdown yang dibaca runtime ditolak karena
+  `scripts/deploy.sh` menjalankan `config:cache` dan `deploy/hooks/post-merge`
+  melakukan `rsync --delete` — berkas prosa yang hilang baru ketahuan sebagai
+  exception di job antrian.
+- `app/Services/Ai/FinancePlaybook.php` adalah gateway baca berbentuk kembar
+  dengan `FamilyFinancialData`: `read($topic)`, dan topic asing dibalas
+  `['error' => ...]` alih-alih exception karena hasil tool dikirim balik ke LLM.
+- Tool `get_finance_playbook` didaftarkan tanpa syarat di `buildTools()`
+  (termasuk saat onboarding — user justru sering bertanya "idealnya berapa" saat
+  wawancara awal). Prefix `get_` dipertahankan supaya dekorator progress yang
+  ada tetap bekerja tanpa perubahan kontrak SSE.
+
+Modul v1 hanya dua: `dana_darurat` (3-6x pengeluaran rutin, rasio cicilan ~30%,
+porsi menabung 10-20%) dan `budgeting` (50/30/20, zero-based, amplop, sinking
+fund, target berjangka). Keduanya di bawah 1400 byte setelah `json_encode`
+(1378 dan 1387) — sekitar 330-350 token per panggilan. Ruang tumbuh yang sudah
+direncanakan tapi belum dikerjakan: `utang` dan `zakat_sedekah`.
+
+Biaya tetap yang dibayar tiap giliran chat naik lebih besar dari perkiraan
+awal: persona tumbuh dari 4429 ke 6638 byte (+2209, sekitar +670 token) karena
+tiga aturan perilaku baru, ditambah deskripsi tool ke-10 sekitar 350 byte
+(~105 token). Totalnya sekitar +775 token per giliran, bukan ~275 seperti yang
+diperkirakan saat perencanaan. Prosa sudah dirapatkan sekali tanpa membuang
+pagar; kalau angka ini terasa mahal, kandidat pemangkasan berikutnya adalah
+memindahkan tiga contoh pemicu tool dari persona ke deskripsi tool.
+
+`maxIterations` dinaikkan dari 4 ke 5 di `AssistantService`. Dengan tool ke-10,
+skenario playbook + `get_family_financial_data` + `get_financial_summary` bisa
+menghabiskan jatah putaran sebelum model sempat menghasilkan teks — hasilnya
+user menerima fallback "Maaf, aku belum paham maksudnya." padahal tidak ada
+error.
+
+### Panjang balasan
+
+Default tetap maksimal 1-2 kalimat untuk pencatatan, konfirmasi, sapaan, dan
+pertanyaan data. Longgar sampai 4-5 kalimat **hanya** kalau user memang meminta
+penjelasan, teori, alasan, atau saran. Larangan daftar bernomor/bullet tetap
+mutlak — itu pagar utama supaya kelonggaran ini tidak berubah jadi esai.
+
+### Verifikasi
+
+Lima test baru di `tests/Feature/FinancePlaybookTest.php` (isi modul, topic
+asing, enum tool == modul tersedia, cap 1400 byte, larangan dalil/penetapan
+hukum) dan lima tambahan di `AssistantServiceTest.php` (registrasi tool,
+read-only, isi modul sampai ke model, persona memuat aturan playbook dan pagar
+otoritas agama, serta regresi arsitektural bahwa prompt **tidak** memuat
+"50/30/20"). Tidak ada test lama yang diubah.
+
+Mesin kerja ini hanya punya PHP 7.3 (XAMPP) sedangkan proyek butuh `^8.4`,
+jadi suite belum bisa dijalankan di sini — perlu dijalankan di mesin dengan
+PHP 8.4.
+
+### Rencana cadangan
+
+Nuansa Islami selalu aktif tanpa toggle, dan yang menahannya cuma pagar prompt,
+bukan pagar kode. Kalau di model produksi ternyata muncul terlalu sering atau
+terasa menggurui, langkah berikutnya: pindahkan seluruh nuansa ke field
+`catatan` di dalam modul playbook dan hapus dari persona — nuansanya lalu hanya
+muncul saat playbook benar-benar dipanggil.

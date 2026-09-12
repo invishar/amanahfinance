@@ -96,8 +96,9 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
     // `content` lewat tag <think>...</think>, bukan di field terpisah --
     // beda dari gpt-oss (Groq) yang reasoning-nya tidak pernah muncul di
     // content. Dibuang di sini supaya balasan Amina tidak bocor jadi
-    // paragraf mikir panjang berbahasa Inggris (lihat aturan persona
-    // "1-3 kalimat" di config/amina.php).
+    // paragraf mikir panjang berbahasa Inggris (lihat aturan panjang balasan
+    // di config/amina.php: default 1-2 kalimat, longgar sampai 4-5 kalimat
+    // hanya kalau user minta penjelasan).
     private function stripReasoning(string $content): string
     {
         return trim((string) preg_replace('/<think>.*?<\/think>/is', '', $content));
