@@ -17,6 +17,7 @@ class OpenAiCompletionDecoder
 
         $message = ['role' => 'assistant', 'content' => ''];
         $calls = [];
+        $indices = [];
         $usage = [];
         $finish = null;
         $complete = false;
@@ -50,7 +51,15 @@ class OpenAiCompletionDecoder
                 foreach ($delta['tool_calls'] ?? [] as $call) {
                     // Some gateways send complete tool calls with an id but
                     // omit index. Never merge two different tools into one.
-                    $index = $call['index'] ?? ($call['id'] ?? null);
+                    $wireIndex = $call['index'] ?? null;
+                    $index = isset($call['id']) ? 'id:'.$call['id'] : null;
+                    if ($index !== null && $wireIndex !== null) {
+                        // 9Router may restart index at zero for a NEW call.
+                        // The call id, not that reused index, is its identity.
+                        $indices[$wireIndex] = $index;
+                    } elseif ($wireIndex !== null) {
+                        $index = $indices[$wireIndex] ?? 'index:'.$wireIndex;
+                    }
                     if ($index === null) {
                         if (count($calls) !== 1) {
                             throw new RuntimeException('Ambiguous provider tool stream.');

@@ -38,3 +38,16 @@ test('truncated stream is rejected before executing partial tool arguments', fun
         ['choices' => [['delta' => ['tool_calls' => [['index' => 0, 'id' => 'a', 'function' => ['name' => 'create_transaction', 'arguments' => '{']]]]]]],
     ], false)))->toThrow(RuntimeException::class);
 });
+
+test('gateway reusing index zero for different tool ids does not concatenate calls', function () {
+    $result = OpenAiCompletionDecoder::decode(completionStream([
+        ['choices' => [['delta' => ['tool_calls' => [['index' => 0, 'id' => 'a', 'function' => ['name' => 'review', 'arguments' => '']]]]]]],
+        ['choices' => [['delta' => ['tool_calls' => [['index' => 0, 'function' => ['arguments' => '{"topic":"financial_review"}']]]]]]],
+        ['choices' => [['delta' => ['tool_calls' => [['index' => 0, 'id' => 'b', 'function' => ['name' => 'playbook', 'arguments' => '']]]]]]],
+        ['choices' => [['delta' => ['tool_calls' => [['index' => 0, 'function' => ['arguments' => '{"topic":"budgeting"}']]]], 'finish_reason' => 'tool_calls']]],
+    ]));
+    $calls = $result['choices'][0]['message']['tool_calls'];
+    expect(array_column(array_column($calls, 'function'), 'name'))->toBe(['review', 'playbook'])
+        ->and($calls[0]['function']['arguments'])->toBe('{"topic":"financial_review"}')
+        ->and($calls[1]['function']['arguments'])->toBe('{"topic":"budgeting"}');
+});

@@ -40,7 +40,7 @@ class OpenAiCompatibleConversationRunner implements ConversationRunner
         $inputTokens = 0;
         $outputTokens = 0;
         $emptyRecoveryUsed = false;
-        $stream = false;
+        $stream = (bool) config('services.llm.stream', false);
         $maxTokens = (int) config('services.llm.max_tokens', 768);
 
         for ($i = 0; $i < $maxIterations; $i++) {

@@ -155,6 +155,11 @@ mencoba memulihkan output kosong sekali melalui SSE dalam batas putaran, dan men
 bukan lagi balasan "aku belum paham". Tes memverifikasi protokol dan isolasi data
 dengan LLM mock, bukan menjamin kualitas jawaban setiap provider.
 
+Jika gateway hanya andal dalam mode streaming, set `LLM_STREAM=true` agar tidak
+menunggu respons kosong non-stream terlebih dulu. Respons provider tetap dirakit
+di job, terpisah dari SSE browser. Naikkan `LLM_MAX_TOKENS` bila log menunjukkan
+`finish_reason=length` tanpa teks; budget ini juga dipakai reasoning beberapa model.
+
 Referensi format katalog: [API models 9Router](https://github.com/decolua/9router/blob/master/src/app/api/v1/models/route.js).
 
 ## About Laravel
