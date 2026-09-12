@@ -43,7 +43,7 @@ test('enum tool sama persis dengan modul yang tersedia', function () {
     // Pagar dua arah: modul baru yang ditambahkan diam-diam langsung
     // menggagalkan test, jadi kontrak enum tidak pernah berubah tanpa
     // keputusan sadar.
-    expect($topics)->toBe(['dana_darurat', 'budgeting'])
+    expect($topics)->toBe(['evaluasi_pencatatan', 'alokasi_saldo', 'rencana_tabungan', 'dana_darurat', 'budgeting'])
         ->and(ToolDefinitions::getFinancePlaybook()['input_schema']['properties']['topic']['enum'])
         ->toBe($topics);
 });

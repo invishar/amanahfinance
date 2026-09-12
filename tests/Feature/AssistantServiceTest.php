@@ -29,6 +29,31 @@ function bindConversationRunner(array $toolCalls = [], string $finalText = 'Oke,
     app()->bind(ConversationRunner::class, fn () => new FakeConversationRunner($toolCalls, $finalText));
 }
 
+test('empty provider output is a retryable failure rather than a misunderstanding reply', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $message = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+    bindConversationRunner(finalText: '');
+    expect(fn () => app(AssistantService::class)->respond($message))->toThrow(RuntimeException::class);
+    expect($thread->messages()->where('role', 'assistant')->count())->toBe(0);
+});
+
+test('household review question can read combined data and guidance without making drafts', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create(['kind' => 'general']);
+    $message = ChatMessage::factory()->for($thread, 'thread')->create([
+        'role' => 'user', 'content' => 'menurutmu apa saja yang perlu aka catat dan budgetkan? dari data sekarang menurutmu apakah pencatatan keuangan keluargaku sudah oke?',
+    ]);
+    bindConversationRunner(toolCalls: [
+        ['tool' => 'get_family_financial_data', 'input' => ['topic' => 'financial_review']],
+        ['tool' => 'get_finance_playbook', 'input' => ['topic' => 'evaluasi_pencatatan']],
+    ], finalText: 'Catat pemasukan dan pengeluaran, lalu cocokkan saldo.');
+    app(AssistantService::class)->respond($message);
+    expect(AiAction::query()->where('message_id', $message->id)->count())->toBe(0);
+});
+
 test('create_transaction tool call stages a pending ai_action with resolved ids', function () {
     $family = Family::factory()->create();
     $member = FamilyMember::factory()->for($family)->create();
@@ -425,8 +450,8 @@ test('aturan panjang balasan tetap pendek secara default', function () {
 
     expect(captureSystemPrompt($userMessage))
         ->toContain('maksimal 1-2 kalimat')
-        ->toContain('4-5 kalimat')
-        ->toContain('JANGAN pernah pakai daftar bernomor/bullet');
+        ->toContain('4-6 kalimat')
+        ->toContain('maksimal 3 poin pendek');
 });
 
 // --- Mode wawancara awal -------------------------------------------------

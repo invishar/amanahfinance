@@ -97,6 +97,7 @@ test('every Amina data topic excludes another family', function () {
 
     $reader = app(FamilyFinancialData::class);
     $allResults = collect([
+        'financial_review',
         'summary',
         'accounts',
         'savings_goals',
@@ -111,4 +112,17 @@ test('every Amina data topic excludes another family', function () {
         ->toContain('Keluarga Sendiri')
         ->toContain('Akun Sendiri')
         ->not->toContain('Rahasia');
+});
+
+test('financial review reports recording coverage without treating bank and savings as separate money', function () {
+    $family = Family::factory()->create();
+    $account = Account::factory()->for($family)->create(['current_balance' => 2_000_000]);
+    SavingsGoal::factory()->for($family)->create(['account_id' => $account->id, 'current_amount' => 500_000]);
+    $review = app(FamilyFinancialData::class)->read($family, 'financial_review');
+    expect($review['record_coverage']['current_month_count'])->toBe(0)
+        ->and($review['record_coverage']['first_transaction'])->toBeNull()
+        ->and($review['accounts'][0]['balance'])->toBe(2_000_000)
+        ->and($review['savings_goals'][0]['current'])->toBe(500_000)
+        ->and($review['record_coverage']['completeness'])->toContain('Belum diverifikasi')
+        ->and($review)->not->toHaveKey('available_to_spend');
 });

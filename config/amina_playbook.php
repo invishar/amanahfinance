@@ -24,6 +24,43 @@ return [
 
     'modules' => [
 
+        'evaluasi_pencatatan' => [
+            'judul' => 'Menilai pencatatan keluarga',
+            'prinsip' => ['Bedakan catatan lengkap dari kondisi keuangan sehat. Bulan berjalan dan sedikit transaksi belum mewakili kebiasaan keluarga.'],
+            'langkah' => [
+                'Cocokkan saldo tiap bank, e-wallet dan tunai dengan saldo aplikasi; cek transaksi yang tertinggal.',
+                'Catat semua pemasukan dan pengeluaran dengan tanggal, akun dan pos. Transfer antar-akun bukan pemasukan atau belanja baru; setoran tabungan bukan konsumsi.',
+                'Cek pos kebutuhan: pangan, tempat tinggal, tagihan, transport, kesehatan dan tanggungan yang relevan. Pisahkan keinginan.',
+                'Tanyakan kewajiban/utang yang belum tercatat. Siapkan biaya berkala yang diketahui dan cadangan untuk kejadian tak terduga.',
+                'Bandingkan realisasi dengan budget dan pemasukan; pilih satu celah penting untuk diperbaiki minggu ini.',
+            ],
+            'catatan' => 'Tidak terlihat di aplikasi berarti belum terverifikasi, bukan tidak dimiliki. Jangan memberi skor sehat atau menyimpulkan boros dari catatan parsial.',
+        ],
+        'alokasi_saldo' => [
+            'judul' => 'Memberi tugas pada saldo rekening',
+            'prinsip' => ['Rekening menunjukkan lokasi uang; budget menunjukkan tujuan uang. Satu rekening boleh mendanai beberapa pos.'],
+            'langkah' => [
+                'Pastikan saldo cocok dan kapan pemasukan berikutnya benar-benar diterima.',
+                'Identifikasi uang yang sudah diperuntukkan bagi tagihan, kebutuhan sampai gajian, dan tabungan. Jangan hitung ulang uang yang sama.',
+                'Dahulukan kebutuhan pokok dan kewajiban jatuh tempo; bila kurang, kurangi keinginan dan tinjau target/setoran agar tidak menambah utang.',
+                'Dari sisa yang terverifikasi, bentuk cadangan darurat bertahap, dana biaya berkala, lalu target lainnya.',
+                'Usulkan pemisahan rekening atau pos bila membantu disiplin, bukan sebagai keharusan membuka rekening baru.',
+            ],
+            'catatan' => 'Saldo positif tidak membuktikan uang bebas. Jangan mengalokasikan pemasukan yang belum pasti atau mengurangi tagihan yang ternyata sudah dibayar.',
+        ],
+        'rencana_tabungan' => [
+            'judul' => 'Merencanakan dana keluarga',
+            'prinsip' => ['Pisahkan cadangan untuk kejadian tak terduga, dana biaya berkala yang diketahui, dan target pilihan.'],
+            'langkah' => [
+                'Tentukan kebutuhan, nominal target, uang yang sudah benar-benar disisihkan dan tenggat.',
+                'Perkiraan setoran = kekurangan target dibagi jumlah kesempatan setor sebelum tenggat; hitung hanya jika semua input diketahui.',
+                'Bandingkan setoran dengan kemampuan setelah kebutuhan pokok dan kewajiban. Jika berat, geser tenggat, kecilkan target atau prioritaskan satu tujuan.',
+                'Biaya sekolah, pajak kendaraan, perawatan dan hari raya yang dapat diperkirakan disiapkan bertahap, bukan diambil dari dana darurat.',
+                'Mulai cadangan dari nominal yang sanggup dijaga, evaluasi saat penghasilan atau tanggungan berubah.',
+            ],
+            'catatan' => 'Jangan menjanjikan hasil investasi atau menganggap progres target terpisah dari saldo bank. Pilih penyimpanan yang mudah diakses untuk kebutuhan dekat.',
+        ],
+
         'dana_darurat' => [
             'judul' => 'Dana darurat keluarga',
             'prinsip' => [

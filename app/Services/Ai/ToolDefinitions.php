@@ -140,7 +140,7 @@ class ToolDefinitions
     {
         return [
             'name' => 'get_financial_summary',
-            'description' => 'Baca ringkasan keuangan family bulan berjalan (atau bulan lain): total pemasukan/pengeluaran/tabungan, dan status budget tiap wallet. Satu-satunya tool baca -- panggil ini untuk menjawab pertanyaan user soal kondisi keuangan mereka, jangan mengarang angka.',
+            'description' => 'Baca ringkasan bulan tertentu: pemasukan, pengeluaran, tabungan, dan status tiap budget. Untuk evaluasi menyeluruh gunakan get_family_financial_data topic financial_review.',
             'input_schema' => [
                 'type' => 'object',
                 'properties' => [
@@ -161,8 +161,8 @@ class ToolDefinitions
                 'properties' => [
                     'topic' => [
                         'type' => 'string',
-                        'enum' => ['accounts', 'savings_goals', 'recent_transactions', 'recurring_rules', 'subscription', 'family_profile'],
-                        'description' => 'Jenis data yang diperlukan untuk menjawab pertanyaan.',
+                        'enum' => ['financial_review', 'accounts', 'savings_goals', 'recent_transactions', 'recurring_rules', 'subscription', 'family_profile'],
+                        'description' => 'financial_review: SATU panggilan untuk evaluasi pencatatan, saran budget, alokasi saldo bank dan rencana tabungan; mencakup cakupan catatan, arus kas, budget, saldo, target dan jadwal. Topic lain untuk pertanyaan spesifik.',
                     ],
                     'month' => ['type' => 'string', 'description' => 'Filter YYYY-MM untuk recent_transactions, opsional.'],
                     'type' => ['type' => 'string', 'enum' => ['income', 'expense', 'transfer', 'savings'], 'description' => 'Filter jenis transaksi, opsional.'],
@@ -188,7 +188,7 @@ class ToolDefinitions
                     'topic' => [
                         'type' => 'string',
                         'enum' => FinancePlaybook::topics(),
-                        'description' => 'dana_darurat = besaran dana darurat, rasio cicilan, porsi menabung. budgeting = menyusun anggaran bulanan, 50/30/20, zero-based, amplop, sinking fund, target berjangka.',
+                        'description' => 'evaluasi_pencatatan = kelengkapan catatan dan prioritas perbaikan; alokasi_saldo = membagi uang bank tanpa hitung ganda; rencana_tabungan = target, tenggat dan kemampuan setor; dana_darurat = cadangan; budgeting = anggaran bulanan.',
                     ],
                 ],
                 'required' => ['topic'],

@@ -99,7 +99,7 @@ seluruh antrean sebelum mengirim hasil. Worker tetap memakai antrean database
 dan lock bersama; cron burst pada `routes/console.php` harus tetap aktif.
 Batas `--max-time` bukan timeout untuk job yang sedang berjalan: provider yang
 lambat masih bisa membuat koneksi lebih panjang daripada jendela polling SSE.
-Runner OpenAI-compatible dapat menjalankan sampai empat putaran, masing-masing
+Runner OpenAI-compatible dapat menjalankan sampai lima putaran, masing-masing
 dengan timeout HTTP 60 detik. Retry job memakai jeda 10/30 detik.
 
 Log channel `ai` mencatat `Amina response timing` (`message_id`, `queue_wait_ms`,
@@ -131,6 +131,29 @@ dan restart proses SSR jika dipakai. Migrasi menambahkan metadata gateway dan
 jenis pilihan tanpa mengubah model/kredensial yang sebelumnya aktif.
 Uji pengaturan admin: `npm run test:llm` dan
 `php artisan test --filter="NineRouterCatalogTest|LlmSettingTest"`.
+
+## Konsultasi keuangan Amina
+
+Untuk evaluasi catatan dan saran pembagian uang keluarga, tool
+`get_family_financial_data` memiliki topic `financial_review`: cakupan tanggal
+catatan, arus kas bulan ini/sebelumnya, budget, saldo akun, target dan jadwal
+dalam satu panggilan. Semua data tetap dibatasi family aktif. Data yang belum
+tercatat tidak dianggap tidak ada; ringkasan tidak mengklaim kelengkapan,
+kesehatan keuangan, atau saldo bebas belanja. Saldo bank dan progres tabungan
+tidak boleh dijumlahkan sebagai uang yang berbeda.
+
+Playbook mencakup evaluasi pencatatan, alokasi saldo, perencanaan tabungan,
+dana darurat dan budgeting. Saran dimulai dengan fakta/keterbatasan, dilanjutkan
+2–3 prioritas dan satu langkah berikutnya. Permintaan saran tidak memicu draft.
+Acuan edukasi: [CFPB: menilai pengeluaran](https://www.consumerfinance.gov/owning-a-home/prepare/assess-your-spending/),
+[perencanaan arus kas dan tabungan](https://www.consumerfinance.gov/consumer-tools/educator-tools/your-money-your-goals/toolkit/),
+dan [cadangan darurat](https://www.consumerfinance.gov/an-essential-guide-to-building-an-emergency-fund/).
+
+Runner menyediakan putaran terakhir untuk menyusun jawaban (`tool_choice=none`),
+mencoba memulihkan output kosong sekali melalui SSE dalam batas putaran, dan mencatat
+`finish_reason`. Output tetap kosong menjadi kegagalan teknis yang dapat di-retry;
+bukan lagi balasan "aku belum paham". Tes memverifikasi protokol dan isolasi data
+dengan LLM mock, bukan menjamin kualitas jawaban setiap provider.
 
 Referensi format katalog: [API models 9Router](https://github.com/decolua/9router/blob/master/src/app/api/v1/models/route.js).
 

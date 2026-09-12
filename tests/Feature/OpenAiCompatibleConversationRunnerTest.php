@@ -143,3 +143,44 @@ test('stops after maxIterations without a final text response', function () {
     expect($result->text)->toBe('');
     Http::assertSentCount(2);
 });
+
+test('last round synthesizes review results with tool choice none', function () {
+    LlmSetting::factory()->create(['provider' => 'openai_compatible', 'base_url' => 'https://router.test/v1']);
+    Http::fakeSequence()->push(['choices' => [['message' => ['tool_calls' => [[
+        'id' => 'review', 'type' => 'function',
+        'function' => ['name' => 'review', 'arguments' => '{}'],
+    ]]]]]])->push(['choices' => [['message' => ['content' => 'Catatan belum lengkap; cocokkan saldo dulu.']]]]);
+    $result = app(OpenAiCompatibleConversationRunner::class)->run('model', 'system', [], [makeTool('review', fn () => ['balance' => 2000000])], 2);
+    expect($result->text)->toContain('cocokkan saldo');
+    $requests = Http::recorded();
+    expect($requests[1][0]['tool_choice'])->toBe('none')
+        ->and(json_encode($requests[1][0]['messages']))->toContain('2000000');
+});
+
+test('empty or unfinished reasoning gets one recovery without leaking reasoning', function () {
+    LlmSetting::factory()->create(['provider' => 'openai_compatible', 'base_url' => 'https://router.test/v1']);
+    Http::fakeSequence()->push(['choices' => [['message' => ['content' => '<think>private unfinished reasoning']]]])
+        ->push(['choices' => [['message' => ['content' => 'Mulai dari kebutuhan pokok dan tagihan.']]]]);
+    $result = app(OpenAiCompatibleConversationRunner::class)->run('model', 'system', [], [], 5);
+    expect($result->text)->toBe('Mulai dari kebutuhan pokok dan tagihan.');
+    Http::assertSentCount(2);
+});
+
+test('repeated empty output has bounded recovery', function () {
+    LlmSetting::factory()->create(['provider' => 'openai_compatible', 'base_url' => 'https://router.test/v1']);
+    Http::fake(['*' => Http::response(['choices' => [['message' => ['content' => '']]]])]);
+    expect(app(OpenAiCompatibleConversationRunner::class)->run('model', 'system', [], [], 5)->text)->toBe('');
+    Http::assertSentCount(2);
+});
+
+test('empty length-limited output recovers with a larger token budget and SSE', function () {
+    config(['services.llm.max_tokens' => 768]);
+    LlmSetting::factory()->create(['provider' => 'openai_compatible', 'base_url' => 'https://router.test/v1']);
+    $sse = 'data: '.json_encode(['choices' => [['index' => 0, 'delta' => ['content' => 'Cocokkan saldo dahulu.'], 'finish_reason' => 'stop']]])."\n\ndata: [DONE]\n\n";
+    Http::fakeSequence()->push(['choices' => [['message' => ['content' => ''], 'finish_reason' => 'length']]])
+        ->push($sse, 200, ['Content-Type' => 'text/event-stream']);
+    $result = app(OpenAiCompatibleConversationRunner::class)->run('model', 'system', [], [], 5);
+    expect($result->text)->toBe('Cocokkan saldo dahulu.');
+    $requests = Http::recorded();
+    expect($requests[1][0]['stream'])->toBeTrue()->and($requests[1][0]['max_tokens'])->toBe(2304);
+});

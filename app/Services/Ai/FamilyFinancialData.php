@@ -30,6 +30,7 @@ class FamilyFinancialData
     public function read(Family $family, string $topic, array $filters = []): array
     {
         return match ($topic) {
+            'financial_review' => $this->financialReview($family),
             'summary' => $this->summary($family, $filters),
             'accounts' => $this->accounts($family),
             'savings_goals' => $this->savingsGoals($family),
@@ -39,6 +40,36 @@ class FamilyFinancialData
             'family_profile' => $this->familyProfile($family),
             default => ['error' => 'Topik data tidak dikenal.'],
         };
+    }
+
+    private function financialReview(Family $family): array
+    {
+        $period = now()->startOfMonth();
+        $transactions = Transaction::query()->where('family_id', $family->id);
+        $summary = $this->analytics->summary($family->id, $period);
+
+        return [
+            'as_of' => now()->toDateString(),
+            'record_coverage' => [
+                'first_transaction' => (clone $transactions)->min('transaction_date'),
+                'last_transaction' => (clone $transactions)->max('transaction_date'),
+                'current_month_count' => (clone $transactions)
+                    ->whereBetween('transaction_date', [$period->toDateString(), now()->toDateString()])->count(),
+                'completeness' => 'Belum diverifikasi pengguna. Tidak tercatat bukan berarti tidak ada; bulan berjalan belum lengkap.',
+            ],
+            'current_month' => $summary,
+            'previous_month_cashflow' => $this->analytics->cashflow($family->id, $period->copy()->subMonth()),
+            'accounts' => $this->accounts($family),
+            'savings_goals' => $this->savingsGoals($family),
+            'recurring_rules' => $this->recurringRules($family),
+            'interpretation' => [
+                'Saldo akun adalah uang tercatat, bukan otomatis uang bebas dibelanjakan; budget adalah rencana, bukan saldo tambahan.',
+                'Jangan menjumlahkan saldo akun dengan progres tabungan sebagai uang baru: keduanya bisa mewakili uang yang sama.',
+                'Expected income adalah rencana, bukan pemasukan yang pasti diterima. Selisih arus kas bukan saldo rekening atau surplus yang pasti tersedia.',
+                'Periksa kecocokan saldo dengan bank/tunai, kelengkapan pemasukan dan pengeluaran, tagihan, utang, serta dana yang sudah dialokasikan sebelum memberi nominal alokasi.',
+                'Aturan rutin adalah jadwal, bukan bukti tagihan belum dibayar. Jangan menguranginya lagi tanpa konfirmasi.',
+            ],
+        ];
     }
 
     private function summary(Family $family, array $filters): array

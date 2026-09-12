@@ -80,6 +80,9 @@ class AssistantService
                 tools: $this->buildTools($family, $userMessage, $wallets, $accounts, $sources, $goals, $isOnboarding),
                 maxIterations: 5,
             );
+            if (trim($result->text) === '') {
+                throw new \RuntimeException('Provider returned no final answer after the conversation round budget.');
+            }
         } catch (Throwable $e) {
             $this->logProviderError($e, $family, $userMessage, $model);
 
@@ -99,9 +102,7 @@ class AssistantService
 
         return $thread->messages()->create([
             'role' => 'assistant',
-            'content' => $result->text !== ''
-                ? $result->text
-                : 'Maaf, aku belum paham maksudnya. Bisa dijelaskan lagi?',
+            'content' => $result->text,
         ]);
     }
 

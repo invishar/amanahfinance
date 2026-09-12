@@ -81,7 +81,7 @@ return [
         'ai' => [
             'driver' => 'daily',
             'path' => storage_path('logs/ai.log'),
-            'level' => env('LOG_AI_LEVEL', 'warning'),
+            'level' => env('LOG_AI_LEVEL', 'info'),
             'days' => env('LOG_AI_DAYS', 30),
             'replace_placeholders' => true,
         ],
