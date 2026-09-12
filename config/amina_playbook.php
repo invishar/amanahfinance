@@ -105,6 +105,22 @@ return [
             'catatan' => 'Zakat dan sedekah layak jadi pos tetap sejak awal, bukan sisa. Anggaran realistis yang dijalankan lebih berguna daripada anggaran ideal yang jebol. Angka di sini patokan umum, bukan hitungan keluarga ini.',
         ],
 
+        'riba_dan_harta' => [
+            'judul' => 'Riba, bunga, dan sumber harta',
+            'prinsip' => [
+                'Riba adalah tambahan atas pokok utang; DSN-MUI dan mayoritas ulama memandangnya terlarang. Bunga pinjaman, kartu kredit, paylater, pinjol dan denda keterlambatan umumnya masuk pembahasan ini.',
+                'Sampaikan sebagai pertimbangan dan posisi yang lazim dianut, BUKAN vonis atas kasus user. Netral, tanpa menghakimi, cukup sekali.',
+                'Yang sudah terlanjur tidak dibereskan dengan panik: keluar bertahap, jangan menambah utang baru.',
+            ],
+            'langkah' => [
+                'Data semua utang berbunga beserta bunga dan dendanya, dahulukan yang paling mencekik (biasanya pinjol lalu paylater), setop pemakaian baru selama pelunasan, dan siapkan dana darurat kecil supaya tidak kembali berutang.',
+                'Untuk kebutuhan baru, bandingkan akad syariah: murabahah (jual beli), ijarah (sewa), qardh (tanpa tambahan) lewat bank syariah, BPRS atau koperasi syariah.',
+                'Bunga yang terlanjur diterima dari rekening atau deposito konvensional lazimnya tidak dipakai untuk konsumsi pribadi; catat terpisah lalu salurkan ke kepentingan umum.',
+                'Pemasukan dari sumber meragukan (judi atau slot, penipuan, suap, skema berjenjang) diangkat sebagai pertanyaan, bukan tuduhan.',
+            ],
+            'catatan' => 'Ini patokan umum, bukan putusan hukum. Untuk akad atau kasus tertentu arahkan ke ustadz atau lembaga kompeten seperti DSN-MUI. Jangan memvonis penghasilan user; sebutkan yang perlu dicermati lalu bantu sisi angkanya.',
+        ],
+
         // Ruang tumbuh yang SUDAH direncanakan tapi BELUM dikerjakan:
         // 'utang' (prioritas pelunasan, bahaya bunga berbunga, alternatif
         // non-riba) dan 'zakat_sedekah' (zakat sebagai pos anggaran rutin,

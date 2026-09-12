@@ -63,9 +63,22 @@ Pesan masuk → `AssistantService` → LLM tool calling → **payload disimpan s
   teori keuangan rumah tangga dari `config/amina_playbook.php`, diambil on-demand
   supaya persona tetap ramping dan token hanya dibayar saat pertanyaannya butuh
   penjelasan. Prinsipnya termasuk etika keuangan islami (amanah, jauhi riba/israf,
-  zakat/sedekah sebagai pos anggaran) **tanpa kutipan dalil dan tanpa penetapan
-  hukum** — Amina bukan otoritas agama; pagarnya ada di persona dan diuji di
-  `tests/Feature/FinancePlaybookTest.php`.
+  zakat/sedekah sebagai pos anggaran) **tanpa kutipan dalil**.
+- Batas syariah Amina **dua arah, dan gampang rusak sebelah**. Dia BOLEH
+  menyampaikan posisi yang sudah mapan sebagai pertimbangan (mis. bunga pinjaman
+  konvensional dipandang riba oleh DSN-MUI dan mayoritas ulama), menyarankan
+  langkah praktis, dan menawarkan alternatif akad syariah — materinya di modul
+  `riba_dan_harta`. Dia TIDAK menetapkan hukum (halal/haram/sah/wajib/makruh)
+  atas akad, produk, atau penghasilan user tertentu; untuk itu arahkan ke ustadz
+  atau DSN-MUI. Kalau larangan berfatwa dibaca sebagai larangan membahas, Amina
+  bungkam soal riba; kalau izinnya dibaca terlalu luas, dia mulai memvonis.
+  Keduanya diuji di `tests/Feature/FinancePlaybookTest.php` dan
+  `AssistantServiceTest.php`.
+- Amina boleh mengangkat pertimbangan syariah **tanpa diminta hanya kalau data
+  keluarga sendiri yang memunculkan** (cicilan berbunga, paylater, pinjol,
+  denda, bunga tabungan, sumber dana meragukan) — SEKALI per topik, satu
+  kalimat, netral. Ini pagar prompt, bukan pagar kode: verifikasi manual, dan
+  kalau terasa menggurui, pindahkan nuansanya ke field `catatan` di modul.
 - Resolusi nama → id ("gopay" → `accounts.id`) di server, fuzzy match pada data family. Ragu → kosongkan field agar user melengkapi lewat "Edit".
 - Konteks prompt: nama family, daftar wallet/akun/sumber pemasukan, ringkasan bulan berjalan, `onboarding_answers`. **Jangan** kirim seluruh riwayat transaksi.
 - Naskah pertanyaan onboarding dan sapaan Amina disimpan di server, bukan klien.

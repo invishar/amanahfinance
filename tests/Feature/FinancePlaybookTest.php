@@ -24,6 +24,22 @@ test('modul playbook memuat prinsip, angka patokan, langkah, dan catatan', funct
         ->toContain('sinking');
 });
 
+test('modul riba_dan_harta memberi pertimbangan tanpa memvonis', function () {
+    $json = json_encode(app(FinancePlaybook::class)->read('riba_dan_harta'), JSON_UNESCAPED_UNICODE);
+
+    // Materinya harus menyebut posisi yang lazim dianut, alternatif praktis,
+    // dan jalan keluar bagi yang sudah terlanjur -- bukan sekadar peringatan.
+    expect($json)
+        ->toContain('DSN-MUI')
+        ->toContain('paylater')
+        ->toContain('murabahah')
+        ->toContain('keluar bertahap')
+        // Pagar batas otoritas ikut di dalam materi, bukan cuma di persona,
+        // supaya tetap terbawa walau modulnya dikutip sebagian.
+        ->toContain('ustadz')
+        ->toContain('bukan putusan hukum');
+});
+
 test('topic yang tidak dikenal dibalas error, bukan exception', function () {
     $reader = app(FinancePlaybook::class);
     $error = ['error' => 'Topik playbook tidak dikenal.'];
@@ -43,7 +59,14 @@ test('enum tool sama persis dengan modul yang tersedia', function () {
     // Pagar dua arah: modul baru yang ditambahkan diam-diam langsung
     // menggagalkan test, jadi kontrak enum tidak pernah berubah tanpa
     // keputusan sadar.
-    expect($topics)->toBe(['evaluasi_pencatatan', 'alokasi_saldo', 'rencana_tabungan', 'dana_darurat', 'budgeting'])
+    expect($topics)->toBe([
+        'evaluasi_pencatatan',
+        'alokasi_saldo',
+        'rencana_tabungan',
+        'dana_darurat',
+        'budgeting',
+        'riba_dan_harta',
+    ])
         ->and(ToolDefinitions::getFinancePlaybook()['input_schema']['properties']['topic']['enum'])
         ->toBe($topics);
 });

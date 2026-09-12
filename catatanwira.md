@@ -688,3 +688,63 @@ bukan pagar kode. Kalau di model produksi ternyata muncul terlalu sering atau
 terasa menggurui, langkah berikutnya: pindahkan seluruh nuansa ke field
 `catatan` di dalam modul playbook dan hapus dari persona — nuansanya lalu hanya
 muncul saat playbook benar-benar dipanggil.
+
+## 15. Batas syariah Amina dibuat dua arah (12 September 2026)
+
+Persona sebelumnya memuat satu baris yang melarang Amina menetapkan hukum
+apa pun. Niatnya benar, tapi efek sampingnya: Amina juga tidak bisa memberi
+masukan soal riba, bunga, atau sumber harta — padahal itu justru yang
+diharapkan dari produk bernama AmanaFinance.
+
+Yang dipisahkan sekarang ada tiga, yang sebelumnya tercampur jadi satu
+larangan:
+
+| Tindakan | Boleh? |
+|---|---|
+| Menyampaikan posisi yang sudah mapan ("bunga pinjaman konvensional dipandang riba oleh DSN-MUI dan mayoritas ulama") | Ya — itu melaporkan posisi yang luas dianut, bukan berfatwa |
+| Menyarankan langkah praktis dan alternatif akad syariah | Ya — itu saran keuangan biasa |
+| Menetapkan hukum untuk kasus user ("gajimu haram", "akad KPR-mu batal") | Tidak — arahkan ke ustadz atau DSN-MUI |
+
+Batas ini **gampang rusak sebelah**. Kalau larangan berfatwa dibaca sebagai
+larangan membahas, Amina bungkam soal riba; kalau izinnya dibaca terlalu luas,
+dia mulai memvonis akad user. Dua-duanya dijaga assertion di
+`AssistantServiceTest.php`.
+
+### Modul riba_dan_harta
+
+Modul keenam di `config/amina_playbook.php` (1397 byte): utang berbunga dan
+jalan keluarnya (pinjol, paylater, kartu kredit, denda), alternatif akad
+syariah (murabahah, ijarah, qardh lewat bank syariah/BPRS/koperasi), bunga
+tabungan yang terlanjur diterima, dan pemasukan dari sumber meragukan. Yang
+paling ditekankan: yang sudah terlanjur tidak dibereskan dengan panik — setop
+menambah utang baru dulu, lalu keluar bertahap.
+
+Pagar rujukan ("bukan putusan hukum", "ustadz", "DSN-MUI") sengaja ditaruh di
+dalam materi modulnya sendiri, bukan hanya di persona, supaya tetap terbawa
+walau modul dikutip sebagian.
+
+### Proaktif, tapi sekali saja
+
+Amina boleh mengangkat pertimbangan syariah tanpa diminta **hanya kalau data
+keluarga sendiri yang memunculkan** — ada cicilan berbunga, paylater, pinjol,
+denda keterlambatan, bunga tabungan, atau sumber dana meragukan di catatan.
+SEKALI per topik, satu kalimat, netral tanpa menghakimi, lalu langsung ke
+langkah praktis; tidak diulang kalau user diam. Mengarang temuan yang tidak
+ada di data tetap terlarang.
+
+### Perapian persona
+
+Aturan pemanggilan playbook tadinya tersebar di dua tempat dengan kriteria
+berbeda (baris 5 dan baris 26-27), dan persona mengulang deskripsi tiap topic
+yang sebenarnya sudah ada di schema tool. Keduanya digabung, deskripsi topic
+diserahkan sepenuhnya ke `ToolDefinitions::getFinancePlaybook()` sebagai
+sumber tunggal. Hasilnya persona cuma naik 8858 -> 9092 byte (+234, sekitar
++70 token) meski menambah satu kapabilitas penuh.
+
+### Yang belum terverifikasi
+
+Suite masih belum pernah dijalankan — mesin kerja hanya punya PHP 7.3,
+proyek butuh ^8.4 (lihat catatan di bagian 14). Verifikasi manual yang paling
+menentukan: apakah nuansa syariah muncul terlalu sering pada balasan
+pencatatan biasa, dan apakah Amina menolak menjawab pertanyaan bernuansa
+islami yang sebenarnya masih soal uang.

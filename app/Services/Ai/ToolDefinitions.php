@@ -188,7 +188,7 @@ class ToolDefinitions
                     'topic' => [
                         'type' => 'string',
                         'enum' => FinancePlaybook::topics(),
-                        'description' => 'evaluasi_pencatatan = kelengkapan catatan dan prioritas perbaikan; alokasi_saldo = membagi uang bank tanpa hitung ganda; rencana_tabungan = target, tenggat dan kemampuan setor; dana_darurat = cadangan; budgeting = anggaran bulanan.',
+                        'description' => 'evaluasi_pencatatan = kelengkapan catatan dan prioritas perbaikan; alokasi_saldo = membagi uang bank tanpa hitung ganda; rencana_tabungan = target, tenggat dan kemampuan setor; dana_darurat = cadangan; budgeting = anggaran bulanan; riba_dan_harta = bunga dan utang berbunga (paylater, pinjol, kartu kredit, denda), alternatif akad syariah, bunga tabungan, sumber penghasilan yang meragukan.',
                     ],
                 ],
                 'required' => ['topic'],

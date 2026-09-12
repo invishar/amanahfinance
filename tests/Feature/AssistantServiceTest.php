@@ -425,6 +425,22 @@ test('system prompt menyuruh pakai playbook dan menjaga batas otoritas agama', f
         ->toContain('ustadz');
 });
 
+test('system prompt membolehkan pertimbangan syariah tapi melarang menetapkan hukum', function () {
+    $family = Family::factory()->create();
+    $member = FamilyMember::factory()->for($family)->create();
+    $thread = ChatThread::factory()->for($family)->for($member, 'member')->create();
+    $userMessage = ChatMessage::factory()->for($thread, 'thread')->create(['role' => 'user']);
+
+    // Batasnya dua arah dan gampang rusak sebelah: kalau larangan berfatwa
+    // dibaca sebagai larangan membahas, Amina bungkam soal riba; kalau
+    // izinnya dibaca terlalu luas, dia mulai memvonis akad user.
+    expect(captureSystemPrompt($userMessage))
+        ->toContain('DSN-MUI')
+        ->toContain('menetapkan hukum')
+        ->toContain('SEKALI per topik')
+        ->toContain('netral tanpa menghakimi');
+});
+
 test('pengetahuan playbook tidak ikut di setiap prompt', function () {
     $family = Family::factory()->create();
     $member = FamilyMember::factory()->for($family)->create();
@@ -439,6 +455,7 @@ test('pengetahuan playbook tidak ikut di setiap prompt', function () {
     expect(captureSystemPrompt($userMessage))
         ->not->toContain('3-6x pengeluaran rutin')
         ->not->toContain('Bayar diri sendiri dulu')
+        ->not->toContain('murabahah')
         ->not->toContain('sinking');
 });
 
