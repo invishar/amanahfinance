@@ -4,9 +4,12 @@ namespace App\Http\Controllers\Api;
 
 use App\Actions\LlmSettings\LlmSettingActions;
 use App\Http\Controllers\Controller;
+use App\Http\Requests\FetchNineRouterModelsRequest;
 use App\Http\Requests\UpdateLlmSettingRequest;
 use App\Http\Resources\LlmSettingResource;
+use App\Http\Resources\NineRouterCatalogResource;
 use App\Models\LlmSetting;
+use App\Services\Ai\NineRouterCatalog;
 
 // Platform-wide singleton resource (see LlmSettingPolicy): no index/store/
 // destroy, just show/update on "the" settings row.
@@ -26,5 +29,10 @@ class LlmSettingController extends Controller
         $setting = $this->actions->update($request->user(), $request->validated());
 
         return new LlmSettingResource($setting);
+    }
+
+    public function models(FetchNineRouterModelsRequest $request, NineRouterCatalog $catalog)
+    {
+        return new NineRouterCatalogResource($catalog->fetch($request->validated()));
     }
 }

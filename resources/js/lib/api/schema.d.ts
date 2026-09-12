@@ -164,6 +164,53 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/auth/preferences": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** Ubah preferensi user yang sedang login */
+        put: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** @enum {string} */
+                        locale: "id" | "en";
+                    };
+                };
+            };
+            responses: {
+                /** @description Preferensi tersimpan. */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["User"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                422: components["responses"]["ValidationError"];
+            };
+        };
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/auth/logout": {
         parameters: {
             query?: never;
@@ -2708,7 +2755,10 @@ export interface paths {
         /** List pesan dalam thread */
         get: {
             parameters: {
-                query?: never;
+                query?: {
+                    /** @description Ambil halaman dari pesan terbaru, tetap disajikan urut lama ke baru; default false. */
+                    latest?: boolean;
+                };
                 header?: never;
                 path: {
                     chat_thread: string;
@@ -2832,13 +2882,15 @@ export interface paths {
         };
         /**
          * SSE thinking/action_card/balasan Amina/error (berumur pendek, klien wajib reconnect)
-         * @description Server menutup stream sendiri sebelum ±20-25 detik (aman dari max_execution_time shared hosting, tidak ada Redis/pub-sub). Event: thinking (sekali di awal kalau pesan terakhir masih role=user belum dibalas), message, action_card, error (role=system, job LLM gagal total), retry (berisi cursor untuk ?after= saat reconnect). Tidak ada token/done terpisah -- LLM dipanggil sekali per job (bukan streaming), dan message/error sendiri adalah sinyal selesainya giliran. Bukan JSON biasa -- Content-Type: text/event-stream.
+         * @description Server menutup stream sendiri sebelum ±20-25 detik (aman dari max_execution_time shared hosting, tidak ada Redis/pub-sub). Event: progress (message_id, stage: queued/context/thinking/drafting/reading_data/composing/retrying), thinking (sekali di awal kalau pesan terakhir masih role=user belum dibalas), message, action_card, error (role=system, job LLM gagal total), retry (berisi cursor untuk ?after= saat reconnect). Tidak ada token/done terpisah -- LLM dipanggil sekali per job (bukan streaming), dan message/error sendiri adalah sinyal selesainya giliran. Baca stream sampai selesai agar action_card (id, message_id, status, action, payload, created_at) tidak terpotong, lalu rekonsiliasi daftar pesan dan kartu dari API. Bukan JSON biasa -- Content-Type: text/event-stream.
          */
         get: {
             parameters: {
                 query?: {
-                    /** @description Cursor ISO-8601; ambil dari event retry terakhir. Default: waktu koneksi dibuka. */
+                    /** @description Cursor ISO-8601 dari event retry. Dengan message_id, default satu detik sebelum pesan user agar hasil pada detik yang sama tidak hilang. */
                     after?: string;
+                    /** @description UUID pesan user dalam thread ini. Membatasi kartu ke giliran ini dan balasan sesudah pesan tersebut. */
+                    message_id?: string;
                 };
                 header?: never;
                 path: {
@@ -3245,6 +3297,65 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/llm-settings/9router/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ambil katalog combo dan model 9Router (is_admin)
+         * @description Menguji koneksi tanpa menyimpan setting. Key lama hanya dipakai untuk endpoint OpenAI-compatible yang sama. Redirect tidak diikuti. Batas 20 request/menit.
+         */
+        post: {
+            parameters: {
+                query?: never;
+                header?: never;
+                path?: never;
+                cookie?: never;
+            };
+            requestBody: {
+                content: {
+                    "application/json": {
+                        /** Format: uri */
+                        base_url: string;
+                        key?: string | null;
+                    };
+                };
+            };
+            responses: {
+                /** @description OK */
+                200: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content: {
+                        "application/json": {
+                            data?: components["schemas"]["NineRouterCatalog"];
+                        };
+                    };
+                };
+                401: components["responses"]["Unauthorized"];
+                403: components["responses"]["Forbidden"];
+                422: components["responses"]["ValidationError"];
+                /** @description Terlalu banyak permintaan katalog. */
+                429: {
+                    headers: {
+                        [name: string]: unknown;
+                    };
+                    content?: never;
+                };
+            };
+        };
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/llm-settings": {
         parameters: {
             query?: never;
@@ -3294,6 +3405,12 @@ export interface paths {
                         key?: string | null;
                         model: string;
                         base_url?: string | null;
+                        /** @enum {string} */
+                        provider?: "anthropic" | "openai_compatible";
+                        /** @enum {string} */
+                        gateway?: "direct" | "9router";
+                        /** @enum {string} */
+                        selection_mode?: "model" | "combo";
                     };
                 };
             };
@@ -4023,6 +4140,11 @@ export interface components {
             email?: string | null;
             phone?: string | null;
             avatar_url?: string | null;
+            /**
+             * @description Bahasa antarmuka pilihan user. Null sampai pilihan pertama disimpan.
+             * @enum {string|null}
+             */
+            locale?: "id" | "en" | null;
             /** @description Selalu self-view (register/login/me) -- tidak pernah dipakai untuk profil user lain. */
             is_admin?: boolean;
             /** @description True kalau server API jalan dengan APP_ENV=local. Klien pakai ini untuk menampilkan/menyembunyikan menu admin yang cuma berguna di dev (mis. GET /admin/ai-logs). */
@@ -4479,6 +4601,10 @@ export interface components {
             base_url?: string | null;
             /** @enum {string} */
             provider?: "anthropic" | "openai_compatible";
+            /** @enum {string} */
+            gateway?: "direct" | "9router";
+            /** @enum {string} */
+            selection_mode?: "model" | "combo";
             has_key?: boolean;
             /** @example ...alue */
             key_preview?: string | null;
@@ -4486,6 +4612,19 @@ export interface components {
             updated_at?: string | null;
             /** Format: uuid */
             updated_by?: string | null;
+        };
+        NineRouterCatalog: {
+            base_url: string;
+            /** Format: date-time */
+            fetched_at: string;
+            models: {
+                id: string;
+                name: string;
+                provider: string;
+                /** @enum {string} */
+                kind: "model" | "combo";
+                supports_tools: boolean | null;
+            }[];
         };
         /** @description Katalog paket langganan platform-wide, bukan per-family. */
         SubscriptionPlan: {

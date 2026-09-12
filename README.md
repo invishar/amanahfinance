@@ -112,6 +112,28 @@ Validasi frontend: `npm run test:chat`, `npm run types`, `npm run build`.
 Pengujian chat mencakup navigasi Inertia dengan stream aktif, frame terpisah,
 konfirmasi, replay kartu, dan kegagalan POST. LLM di test backend selalu dimock.
 
+## Pengaturan 9Router di admin
+
+Buka **Admin ? LLM & 9Router**, pilih **9Router**, isi alamat server dan API key,
+lalu klik **Muat combo & model**. Pilih **Combo 9Router** atau **Provider & model
+tertentu**, gunakan filter provider/pencarian, lalu **Simpan pengaturan**. Model
+aktif tetap dipakai sampai penyimpanan berhasil. Combo yang ditampilkan adalah
+combo yang sudah dikonfigurasi di 9Router; pembuatan dan urutan fallback tetap
+dikelola pada dashboard 9Router. Koneksi provider langsung tetap tersedia.
+
+Katalog dibaca dari server aplikasi melalui `/v1/models`; alamat localhost berarti
+mesin server aplikasi, bukan komputer admin. Kunci tersimpan tidak dikirim ke
+alamat baru tanpa API key baru. Model terpilih diperiksa kembali saat disimpan.
+Daftar katalog bukan jaminan kuota/provider selalu sehat saat chat dijalankan.
+
+Deploy perubahan ini memerlukan `php artisan migrate --force`, `npm run build`,
+dan restart proses SSR jika dipakai. Migrasi menambahkan metadata gateway dan
+jenis pilihan tanpa mengubah model/kredensial yang sebelumnya aktif.
+Uji pengaturan admin: `npm run test:llm` dan
+`php artisan test --filter="NineRouterCatalogTest|LlmSettingTest"`.
+
+Referensi format katalog: [API models 9Router](https://github.com/decolua/9router/blob/master/src/app/api/v1/models/route.js).
+
 ## About Laravel
 
 Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:

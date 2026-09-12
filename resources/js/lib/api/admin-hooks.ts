@@ -123,8 +123,19 @@ export function useUpdateLlmSetting() {
       model: string;
       base_url?: string | null;
       provider?: "anthropic" | "openai_compatible";
+      gateway?: "direct" | "9router";
+      selection_mode?: "model" | "combo";
     }) => api.one<LlmSetting>("PUT", "/llm-settings", body),
     onSuccess: (data) => queryClient.setQueryData(qk.llmSetting, data),
+  });
+}
+
+export type NineRouterCatalog = Schemas["NineRouterCatalog"];
+
+export function useNineRouterModels() {
+  return useMutation({
+    mutationFn: (body: { base_url: string; key?: string }) =>
+      api.one<NineRouterCatalog>("POST", "/llm-settings/9router/models", body),
   });
 }
 

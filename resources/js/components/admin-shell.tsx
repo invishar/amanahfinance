@@ -23,7 +23,7 @@ interface AdminNavItem {
 const ADMIN_NAV: AdminNavItem[] = [
   { href: "/admin/users", label: "User", icon: "users" },
   { href: "/admin/payments", label: "Pembayaran", icon: "credit-card" },
-  { href: "/admin/llm-settings", label: "LLM Setting", icon: "sparkles" },
+  { href: "/admin/llm-settings", label: "LLM & 9Router", icon: "sparkles" },
   { href: "/admin/ai-errors", label: "Log AI", icon: "alert-triangle" },
   { href: "/admin/ai-logs", label: "Log Prompt", icon: "message-circle", localOnly: true },
 ];

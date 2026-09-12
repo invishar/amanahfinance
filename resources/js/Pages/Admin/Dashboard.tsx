@@ -18,8 +18,8 @@ const CARDS = [
   {
     href: "/admin/llm-settings",
     icon: "sparkles",
-    title: "LLM Setting",
-    body: "Atur model, base URL, dan API key LLM yang dipakai asisten Amina di seluruh platform.",
+    title: "LLM & 9Router",
+    body: "Pilih combo 9Router atau model dari provider yang tersedia untuk asisten Amina.",
   },
   {
     href: "/admin/ai-errors",

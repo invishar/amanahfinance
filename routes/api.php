@@ -65,6 +65,7 @@ Route::prefix('v1')->group(function () {
         // (LlmSettingPolicy), never by any family's role.
         Route::get('/llm-settings', [LlmSettingController::class, 'show']);
         Route::put('/llm-settings', [LlmSettingController::class, 'update']);
+        Route::post('/llm-settings/9router/models', [LlmSettingController::class, 'models'])->middleware('throttle:20,1');
 
         // Direktori user platform, lintas-family -- gated is_admin (UserPolicy).
         // Read-only: tidak ada promote/demote is_admin lewat API (tinker-only).

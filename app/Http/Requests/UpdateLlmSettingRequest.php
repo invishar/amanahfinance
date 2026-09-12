@@ -19,7 +19,7 @@ class UpdateLlmSettingRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'key' => ['sometimes', 'nullable', 'string', 'min:8'],
+            'key' => ['sometimes', 'nullable', 'string', 'min:8', 'max:8192'],
             'model' => ['required', 'string', 'max:255'],
             // Tidak "sometimes" -- requiredIf harus tetap mengecek walau field
             // ini sama sekali tidak dikirim, supaya provider openai_compatible
@@ -27,12 +27,14 @@ class UpdateLlmSettingRequest extends FormRequest
             // ConversationRunner butuh itu, beda dari Anthropic yang punya
             // default resmi).
             'base_url' => [
-                Rule::requiredIf(fn () => $this->effectiveProvider() === 'openai_compatible'),
+                Rule::requiredIf(fn () => $this->effectiveGateway() === '9router' || $this->effectiveProvider() === 'openai_compatible'),
                 'nullable', 'url', 'max:2048',
             ],
             // Wire protocol, bukan tebakan dari base_url/model -- lihat
             // llm_settings_provider_ck di migrasi.
-            'provider' => ['sometimes', Rule::in(['anthropic', 'openai_compatible'])],
+            'provider' => ['sometimes', Rule::in($this->effectiveGateway() === '9router' ? ['openai_compatible'] : ['anthropic', 'openai_compatible'])],
+            'gateway' => ['sometimes', Rule::in(['direct', '9router'])],
+            'selection_mode' => ['sometimes', Rule::in($this->effectiveGateway() === '9router' ? ['model', 'combo'] : ['model'])],
         ];
     }
 
@@ -44,5 +46,10 @@ class UpdateLlmSettingRequest extends FormRequest
         return $this->input('provider')
             ?? LlmSetting::query()->value('provider')
             ?? config('services.llm.provider', 'anthropic');
+    }
+
+    private function effectiveGateway(): string
+    {
+        return $this->input('gateway') ?? LlmSetting::query()->value('gateway') ?? 'direct';
     }
 }

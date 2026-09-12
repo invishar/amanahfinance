@@ -561,10 +561,31 @@ class OpenApiSpec
                     'model' => ['type' => 'string', 'example' => 'claude-sonnet-5'],
                     'base_url' => ['type' => 'string', 'nullable' => true],
                     'provider' => ['type' => 'string', 'enum' => ['anthropic', 'openai_compatible']],
+                    'gateway' => ['type' => 'string', 'enum' => ['direct', '9router']],
+                    'selection_mode' => ['type' => 'string', 'enum' => ['model', 'combo']],
                     'has_key' => ['type' => 'boolean'],
                     'key_preview' => ['type' => 'string', 'nullable' => true, 'example' => '...alue'],
                     'updated_at' => ['type' => 'string', 'format' => 'date-time', 'nullable' => true],
                     'updated_by' => ['type' => 'string', 'format' => 'uuid', 'nullable' => true],
+                ],
+            ],
+            'NineRouterCatalog' => [
+                'type' => 'object',
+                'required' => ['base_url', 'models', 'fetched_at'],
+                'properties' => [
+                    'base_url' => ['type' => 'string'],
+                    'fetched_at' => ['type' => 'string', 'format' => 'date-time'],
+                    'models' => ['type' => 'array', 'items' => [
+                        'type' => 'object',
+                        'required' => ['id', 'name', 'provider', 'kind', 'supports_tools'],
+                        'properties' => [
+                            'id' => ['type' => 'string'],
+                            'name' => ['type' => 'string'],
+                            'provider' => ['type' => 'string'],
+                            'kind' => ['type' => 'string', 'enum' => ['model', 'combo']],
+                            'supports_tools' => ['type' => 'boolean', 'nullable' => true],
+                        ],
+                    ]],
                 ],
             ],
             'SubscriptionPlan' => [
@@ -896,6 +917,27 @@ class OpenApiSpec
     private static function llmSettingPaths(): array
     {
         return [
+            '/llm-settings/9router/models' => [
+                'post' => [
+                    'tags' => ['LLM Settings'],
+                    'summary' => 'Ambil katalog combo dan model 9Router (is_admin)',
+                    'description' => 'Menguji koneksi tanpa menyimpan setting. Key lama hanya dipakai untuk endpoint OpenAI-compatible yang sama. Redirect tidak diikuti. Batas 20 request/menit.',
+                    'requestBody' => ['required' => true, 'content' => ['application/json' => ['schema' => [
+                        'type' => 'object', 'required' => ['base_url'],
+                        'properties' => [
+                            'base_url' => ['type' => 'string', 'format' => 'uri'],
+                            'key' => ['type' => 'string', 'nullable' => true, 'minLength' => 8, 'maxLength' => 8192, 'writeOnly' => true],
+                        ],
+                    ]]]],
+                    'responses' => [
+                        '200' => self::jsonResponse('OK', self::envelope('NineRouterCatalog')),
+                        '401' => self::refResponse('Unauthorized'),
+                        '403' => self::refResponse('Forbidden'),
+                        '422' => self::refResponse('ValidationError'),
+                        '429' => ['description' => 'Terlalu banyak permintaan katalog.'],
+                    ],
+                ],
+            ],
             '/llm-settings' => [
                 'get' => [
                     'tags' => ['LLM Settings'],
@@ -916,6 +958,9 @@ class OpenApiSpec
                             'key' => ['type' => 'string', 'nullable' => true, 'description' => 'Opsional; kosongkan untuk mempertahankan key lama. Tidak pernah dikembalikan lewat GET.'],
                             'model' => ['type' => 'string'],
                             'base_url' => ['type' => 'string', 'nullable' => true],
+                            'provider' => ['type' => 'string', 'enum' => ['anthropic', 'openai_compatible']],
+                            'gateway' => ['type' => 'string', 'enum' => ['direct', '9router']],
+                            'selection_mode' => ['type' => 'string', 'enum' => ['model', 'combo']],
                         ],
                     ]]]],
                     'responses' => [

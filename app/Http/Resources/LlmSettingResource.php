@@ -17,6 +17,8 @@ class LlmSettingResource extends JsonResource
             'model' => $this->model,
             'base_url' => $this->base_url,
             'provider' => $this->provider,
+            'gateway' => $this->gateway ?? 'direct',
+            'selection_mode' => $this->selection_mode ?? 'model',
             'has_key' => filled($this->key),
             'key_preview' => filled($this->key) ? '...'.substr($this->key, -4) : null,
             'updated_at' => $this->updated_at,

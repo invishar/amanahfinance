@@ -504,7 +504,20 @@ Response `data`: `id, family_id, actor_id, entity, entity_id, action, diff, crea
 
 ---
 
-## LLM Settings — platform admin only
+## LLM Settings
+
+`GET/PUT /llm-settings` menyertakan `gateway` (`direct` atau `9router`, default `direct`) dan `selection_mode` (`model` atau `combo`, default `model`). Untuk `gateway=9router`, `provider` menggunakan `openai_compatible`, `base_url` wajib, dan ID serta jenis pilihan diverifikasi ulang terhadap katalog sebelum disimpan. Model yang secara eksplisit tidak mendukung tool calling ditolak. ID combo disimpan persis sebagai `model`, sehingga fallback tetap dijalankan oleh 9Router.
+
+### Katalog 9Router
+
+| Method | Path | Body | Role |
+| --- | --- | --- | --- |
+| POST | `/llm-settings/9router/models` | `base_url*` (HTTP/HTTPS), `key` opsional (8?8192 karakter) | Platform admin (`users.is_admin`), bukan admin keluarga |
+
+Endpoint membaca katalog tanpa menyimpan pengaturan atau membuat percakapan LLM. Maksimal 20 request/menit. Response `{data: {base_url, fetched_at, models: [{id, name, provider, kind, supports_tools}]}}`: `kind` adalah `combo` atau `model`; `supports_tools` boolean/null (null berarti tidak diketahui). Combo dikenali lewat `owned_by=combo`; model non-chat disaring. Alamat dinormalisasi ke base `/v1`, termasuk bila admin menempel URL `/models` atau `/chat/completions`.
+
+Key tersimpan hanya dipakai pada endpoint OpenAI-compatible yang sama. Perubahan endpoint memerlukan key baru bila sebelumnya sudah ada key. Redirect tidak diikuti. Error autentikasi, timeout, katalog tidak valid, atau pilihan hilang menghasilkan 422 dengan pesan pada `key`, `base_url`, atau `model`; pengaturan aktif tetap utuh. Body/error mentah dari provider dan API key tidak dikembalikan ke klien. Katalog menunjukkan pilihan yang diiklankan 9Router, bukan jaminan kuota atau kesehatan provider saat chat.
+ — platform admin only
 
 Kredensial LLM platform-wide (aturan #7), **bukan** resource per-family — tidak berada di bawah `resolve.family` maupun `X-Family-Id`. Otorisasi lewat `users.is_admin` (kolom terpisah dari `family_members.role`; admin family manapun **tidak** otomatis punya akses ini). Flag ini hanya bisa di-set manual (tinker/seeder), tidak ada endpoint self-service untuk menaikkan privilege.
 

@@ -9,6 +9,7 @@
     "ssr": "node bootstrap/ssr/ssr.js",
     "types": "tsc --noEmit",
     "test:chat": "node --import tsx --test tests/frontend/chat-state.test.mjs tests/frontend/chat-session.test.mjs",
+    "test:llm": "node --import tsx --test tests/frontend/llm-settings.test.mjs",
     "api:types": "openapi-typescript http://127.0.0.1:8000/api/v1/openapi.json -o resources/js/lib/api/schema.d.ts"
   },
   "dependencies": {
